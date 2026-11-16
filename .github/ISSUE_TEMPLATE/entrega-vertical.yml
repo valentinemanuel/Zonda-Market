@@ -1,0 +1,47 @@
+name: Entrega vertical
+description: Especificar una tarjeta del roadmap con su criterio de aceptación.
+title: "EX-XX "
+body:
+  - type: input
+    id: tipo
+    attributes:
+      label: Tipo y estimación
+      placeholder: Back + Front con pruebas · 2–3 días
+    validations:
+      required: true
+  - type: textarea
+    id: resultado
+    attributes:
+      label: Resultado esperado
+      description: Indicá quién usa el flujo y qué puede hacer al terminar la tarjeta.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencias
+    attributes:
+      label: Dependencias
+      description: Enlazá las tarjetas requeridas e indicá la configuración o cuentas de prueba necesarias.
+      placeholder: Sin dependencias de otras tarjetas.
+    validations:
+      required: true
+  - type: textarea
+    id: alcance
+    attributes:
+      label: Alcance técnico
+      description: Detallá el contrato HTTP, permisos, migraciones, estados, cambios de UI y errores que apliquen.
+    validations:
+      required: true
+  - type: textarea
+    id: aceptacion
+    attributes:
+      label: Criterios de aceptación
+      description: Indicá el estado inicial, la acción y el resultado verificable del caso exitoso y del fallo relevante.
+    validations:
+      required: true
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidencia esperada
+      description: Indicá comandos, fixtures, capturas o trazas que permitan verificar la entrega en el PR.
+    validations:
+      required: true
