@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE),
         ('e0020000-0000-4000-8000-000000000003', 'Archivada', 'archivada', NULL,
          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, TRUE)
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO NOTHING;
         """)
 class CategoryContractIT {
     private static final String CATEGORY_PATH = "/api/v1/categories/{id}";
