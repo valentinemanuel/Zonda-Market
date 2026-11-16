@@ -2,6 +2,7 @@
 
 - Consultá [el roadmap](docs/roadmap.md), el issue activo y las [reglas de dominio](docs/dominio.md) que afecte el cambio. El [plan original](docs/Plan-de-Trabajo-Zonda-MARKET-Marketplace-C2C-B2C.pdf) conserva el detalle de las tarjetas. Si cambia una regla compartida, actualizá su documentación junto con el código.
 - El plan prevé Java 21, Spring Boot y PostgreSQL 16 con Flyway para el backend, y React, TypeScript, Vite, Tailwind y shadcn/ui para el frontend. Conservá los límites entre controlador, servicio y persistencia y ubicá las integraciones externas detrás de interfaces.
+- En cambios de interfaz, consultá la [guía de diseño](docs/diseno.md). En el issue indicá qué bloques se reutilizan, los estados que se muestran y cómo se va a revisar la pantalla en móvil y con teclado.
 - Usá la cuenta de GitHub `valentinemanuel` para las operaciones remotas. Antes de publicar, verificá `gh api user --jq .login` y la identidad Git local. Los commits deben quedar atribuidos a esa misma cuenta.
 
 ## Entrega por issue
