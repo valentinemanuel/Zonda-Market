@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist Variable", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+  --color-background: #f4f4ef;
+  --color-foreground: #182121;
+  --color-card: #fff;
+  --color-card-foreground: #182121;
+  --color-primary: #252f35;
+  --color-primary-foreground: #fff;
+  --color-muted: #ecece6;
+  --color-muted-foreground: #586564;
+  --color-border: #d7ddd9;
+  --color-input: #c0c9c5;
+  --color-ring: #856413;
+  --color-accent: #edf1ef;
+  --color-accent-foreground: #182121;
+  --color-secondary: #edf1ef;
+  --color-secondary-foreground: #182121;
+  --color-destructive: #9b321c;
+  --color-hero: #151c22;
+  --color-hero-panel: #202a32;
+  --color-hero-border: #35434a;
+  --color-hero-muted: #bec8c9;
+}
+
+@layer base {
+  body {
+    @apply min-w-72 bg-background font-sans text-foreground antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-4 outline-ring;
+  }
+}

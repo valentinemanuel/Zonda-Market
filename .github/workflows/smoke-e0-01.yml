@@ -1,0 +1,44 @@
+name: Smoke de arranque
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      POSTGRES_PASSWORD: smoke-e0-01
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Preparar Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Levantar aplicación
+        run: docker compose up --build --wait --wait-timeout 90
+      - name: Probar arranque, fallo y recuperación
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Adjuntar evidencia
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: evidencia-e0-01
+          path: frontend/test-results/
+          if-no-files-found: ignore
+      - name: Mostrar servicios si falla el smoke
+        if: failure()
+        run: docker compose ps -a
+      - name: Detener aplicación
+        if: always()
+        run: docker compose down
