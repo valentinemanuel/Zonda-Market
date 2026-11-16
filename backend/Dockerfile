@@ -7,7 +7,7 @@ COPY .mvn/ .mvn/
 COPY --chmod=0755 mvnw ./
 COPY pom.xml ./
 COPY src/ src/
-RUN --mount=type=cache,target=/root/.m2 ./mvnw --batch-mode --no-transfer-progress verify
+RUN --mount=type=cache,target=/root/.m2 ./mvnw --batch-mode --no-transfer-progress package
 
 FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \

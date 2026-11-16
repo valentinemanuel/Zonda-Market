@@ -1,0 +1,116 @@
+openapi: 3.1.0
+info:
+  title: API de Zonda Market
+  version: 0.1.0
+  description: Los diagnósticos y la lectura de categorías son públicos. Los flujos autenticados se documentarán al incorporarlos.
+security: []
+paths:
+  /api/v1/status:
+    get:
+      summary: Consultar diagnóstico de la API
+      responses:
+        '200':
+          description: Estado y versión del build
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    const: UP
+                  version:
+                    type: string
+  /api/v1/categories/{id}:
+    get:
+      summary: Consultar una categoría activa
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: e0020000-0000-4000-8000-000000000001
+      responses:
+        '200':
+          description: Categoría visible
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: UUID inválido. Código INVALID_REQUEST.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '404':
+          description: Categoría ausente o archivada. Código CATEGORY_NOT_FOUND.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+components:
+  headers:
+    TraceId:
+      description: Identificador de correlación generado por el servidor.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CategoryResponse:
+      type: object
+      required: [id, name, slug, parentId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        parentId:
+          type: [string, 'null']
+          format: uuid
+    ProblemResponse:
+      type: object
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+        traceId:
+          type: string
+          format: uuid
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string

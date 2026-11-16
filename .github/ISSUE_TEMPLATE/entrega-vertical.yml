@@ -32,6 +32,12 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diseno
+    attributes:
+      label: Diseño y estados de interfaz
+      description: Si cambia una pantalla, enlazá la referencia visual e indicá los bloques, estados, comportamiento en móvil y recorrido con teclado.
+      placeholder: Referencia visual, componentes compartidos, carga, vacío, error, éxito y evidencia.
+  - type: textarea
     id: aceptacion
     attributes:
       label: Criterios de aceptación

@@ -14,6 +14,8 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:8080",
       "/actuator/health/readiness": "http://localhost:8080",
+      "/v3/api-docs": "http://localhost:8080",
+      "/swagger-ui": "http://localhost:8080",
     },
   },
 });

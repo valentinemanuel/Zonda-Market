@@ -3,6 +3,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   timeout: 120_000,
+  // The status scenario deliberately stops PostgreSQL.
+  workers: 1,
   reporter: "list",
   use: {
     browserName: "chromium",
