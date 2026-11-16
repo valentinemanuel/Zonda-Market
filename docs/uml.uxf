@@ -1,0 +1,1184 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>70</x>
+      <y>35</y>
+      <w>2110</w>
+      <h>75</h>
+    </coordinates>
+    <panel_attributes>*ZONDA MARKET  /  MODELO DE DOMINIO V1.0*
+Marketplace C2C/B2C · Diagrama de clases · Plan de Trabajo, secciones 2–4
+halign=left</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1240</x>
+      <y>120</y>
+      <w>190</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..*
+r1=padre
+r2=hijas</panel_attributes>
+    <additional_attributes>10.0;60.0;10.0;10.0;170.0;10.0;170.0;60.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>540</x>
+      <y>300</y>
+      <w>30</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;140.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1570</x>
+      <y>340</y>
+      <w>30</w>
+      <h>120</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;100.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1570</x>
+      <y>600</y>
+      <w>30</w>
+      <h>120</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;100.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1280</x>
+      <y>860</y>
+      <w>30</w>
+      <h>150</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=1..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;130.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>910</x>
+      <y>1170</y>
+      <w>30</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;110.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1120</x>
+      <y>1170</y>
+      <w>80</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..1</panel_attributes>
+    <additional_attributes>60.0;10.0;10.0;10.0;10.0;140.0;60.0;140.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>350</x>
+      <y>200</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>90.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>720</x>
+      <y>200</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..1</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1460</x>
+      <y>200</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1830</x>
+      <y>200</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1830</x>
+      <y>460</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>720</x>
+      <y>720</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1460</x>
+      <y>720</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=1..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>720</x>
+      <y>1010</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..*
+m1pos=0,-18</panel_attributes>
+    <additional_attributes>90.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1460</x>
+      <y>1010</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..1</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1460</x>
+      <y>1300</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;90.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1090</x>
+      <y>1340</y>
+      <w>110</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..*
+m1pos=0,-18</panel_attributes>
+    <additional_attributes>90.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>380</x>
+      <y>280</y>
+      <w>80</w>
+      <h>470</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..1</panel_attributes>
+    <additional_attributes>60.0;10.0;10.0;10.0;10.0;450.0;60.0;450.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>210</x>
+      <y>300</y>
+      <w>280</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>260.0;10.0;260.0;60.0;10.0;60.0;10.0;140.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>660</x>
+      <y>300</y>
+      <w>200</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;90.0;180.0;90.0;180.0;140.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1400</x>
+      <y>320</y>
+      <w>170</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>150.0;10.0;10.0;10.0;10.0;120.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1770</x>
+      <y>600</y>
+      <w>200</w>
+      <h>120</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;50.0;180.0;50.0;180.0;100.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1030</x>
+      <y>840</y>
+      <w>170</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>150.0;10.0;10.0;10.0;10.0;150.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1090</x>
+      <y>860</y>
+      <w>140</w>
+      <h>180</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..1
+cobro ganador
+m2pos=-12,0</panel_attributes>
+    <additional_attributes>120.0;10.0;120.0;110.0;60.0;110.0;60.0;160.0;10.0;160.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1030</x>
+      <y>1130</y>
+      <w>170</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..*</panel_attributes>
+    <additional_attributes>150.0;10.0;90.0;10.0;90.0;100.0;10.0;100.0;10.0;150.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1030</x>
+      <y>110</y>
+      <w>570</w>
+      <h>90</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;70.0;10.0;10.0;550.0;10.0;550.0;70.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1460</x>
+      <y>1110</y>
+      <w>510</w>
+      <h>90</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..1</panel_attributes>
+    <additional_attributes>10.0;70.0;490.0;70.0;490.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>290</x>
+      <y>240</y>
+      <w>170</w>
+      <h>480</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>150.0;10.0;90.0;10.0;90.0;410.0;10.0;410.0;10.0;460.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>720</x>
+      <y>280</y>
+      <w>510</w>
+      <h>180</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;70.0;10.0;70.0;100.0;490.0;100.0;490.0;160.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1090</x>
+      <y>580</y>
+      <w>480</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*
+m2pos=-12,0</panel_attributes>
+    <additional_attributes>460.0;10.0;60.0;10.0;60.0;150.0;10.0;150.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1400</x>
+      <y>860</y>
+      <w>570</w>
+      <h>150</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=1..*</panel_attributes>
+    <additional_attributes>10.0;130.0;10.0;60.0;550.0;60.0;550.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1400</x>
+      <y>1200</y>
+      <w>540</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;60.0;470.0;60.0;470.0;110.0;520.0;110.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>620</x>
+      <y>300</y>
+      <w>200</w>
+      <h>1030</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;120.0;180.0;120.0;180.0;1010.0;110.0;1010.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1030</x>
+      <y>330</y>
+      <w>170</w>
+      <h>750</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;90.0;100.0;90.0;100.0;730.0;150.0;730.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>350</x>
+      <y>300</y>
+      <w>180</w>
+      <h>740</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=0..1
+m2=0..*</panel_attributes>
+    <additional_attributes>160.0;10.0;160.0;110.0;70.0;110.0;70.0;720.0;10.0;720.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>580</x>
+      <y>300</y>
+      <w>650</w>
+      <h>420</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=0..*</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;110.0;210.0;110.0;210.0;350.0;630.0;350.0;630.0;400.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>180</y>
+      <w>290</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>*RolUsuario*
+--
+- rol: Rol
+--
+{único por usuario y rol}
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>440</x>
+      <y>180</y>
+      <w>290</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>*Usuario*
+--
+- emailNormalizado: String
+- passwordHash: String [0..1]
+- emailVerificado: boolean
+- estado: EstadoUsuario
+- versionSesion: long
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>810</x>
+      <y>180</y>
+      <w>290</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>*PerfilVendedor*
+--
+- tipo: TipoPerfil
+- nombreVisible: String
+- slug: String
+- bio: String
+- envioFijo: BigDecimal
+--
+{PERSONAL o COMERCIO}
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1180</x>
+      <y>180</y>
+      <w>290</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>*Categoria*
+--
+- nombre: String
+- slug: String
+- esquemaAtributos: JSONB
+- comisionBps: int
+- version: long
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1550</x>
+      <y>180</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*Publicacion*
+--
+- titulo: String
+- slug: String
+- descripcion: String
+- especificaciones: JSONB
+- estado: EstadoPublicacion
+- version: long
+--
++ publicar()
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1920</x>
+      <y>180</y>
+      <w>290</w>
+      <h>110</h>
+    </coordinates>
+    <panel_attributes>*Imagen*
+--
+- publicId: String
+- url: URI
+- posicion: int
+- alt: String
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>440</y>
+      <w>290</w>
+      <h>110</h>
+    </coordinates>
+    <panel_attributes>*IdentidadOAuth*
+--
+- issuer: String
+- subject: String
+--
+{único histórico por issuer y subject}
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>440</x>
+      <y>440</y>
+      <w>290</w>
+      <h>110</h>
+    </coordinates>
+    <panel_attributes>*SesionRefresh*
+--
+- jtiHash: String
+- familiaId: UUID
+- expiresAt: Instant
+- revocada: boolean
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>810</x>
+      <y>440</y>
+      <w>290</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>*Direccion*
+--
+- calle: String
+- localidad: String
+- provincia: String
+- codigoPostal: String
+- pais: String
+--
+{país AR}
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1180</x>
+      <y>440</y>
+      <w>290</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>*Pregunta*
+--
+- texto: String
+- respuesta: String [0..1]
+- respondidaAt: Instant [0..1]
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1550</x>
+      <y>440</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*VarianteSKU*
+--
+- codigo: String
+- atributos: JSONB
+- precio: BigDecimal
+- stockDisponible: int
+- stockReservado: int
+- version: long
+--
+{código único e inmutable}
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1920</x>
+      <y>440</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*StockMovimiento*
+--
+- delta: int
+- disponibleAntes: int
+- disponibleDespues: int
+- motivo: String
+- actorId: UUID
+- claveIdempotencia: String
+bg=#E7F6EF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>700</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*TokenAccionCuenta*
+--
+- tokenHash: String
+- finalidad: FinalidadToken
+- expiresAt: Instant
+- consumidoAt: Instant [0..1]
+--
+{verificación o recuperación}
+bg=#EAF2FF</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>440</x>
+      <y>700</y>
+      <w>290</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>*Carrito*
+--
+- version: long
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>810</x>
+      <y>700</y>
+      <w>290</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>*ItemCarrito*
+--
+- cantidad: int
+--
+{1..99, único por carrito y SKU}
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1180</x>
+      <y>700</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*OrdenPago*
+--
+- estado: EstadoOrdenPago
+- total: BigDecimal
+- moneda: Currency
+- expiresAt: Instant
+- claveIdempotencia: String
+- hashSolicitud: String
+--
++ crearSubOrdenes()
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1550</x>
+      <y>700</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*ReservaStock*
+--
+- cantidad: int
+- expiresAt: Instant
+- estado: EstadoReserva
+--
++ consumir()
++ liberar()
+--
+{única por orden y SKU}
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1920</x>
+      <y>700</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*LineaSubOrden*
+--
+- codigoSKUSnapshot: String
+- nombreSnapshot: String
+- cantidad: int
+- precioUnitario: BigDecimal
+- comisionBpsSnapshot: int
+- comision: BigDecimal
+--
+{precio y tasa congelados}
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>990</y>
+      <w>290</w>
+      <h>190</h>
+    </coordinates>
+    <panel_attributes>*AuditLog*
+--
+- rolActor: Rol [0..1]
+- accion: String
+- aggregateType: String
+- aggregateId: UUID
+- cambios: JSONB
+- resultado: String
+- traceId: String
+--
+{append-only}
+bg=#EDF1F6</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>440</x>
+      <y>990</y>
+      <w>290</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>*WebhookInbox*
+--
+- paymentId: String
+- requestId: String
+- estadoProceso: EstadoProceso
+- intentos: int
+- proximoIntentoAt: Instant
+bg=#F3EAFE</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>810</x>
+      <y>990</y>
+      <w>290</w>
+      <h>190</h>
+    </coordinates>
+    <panel_attributes>*TransaccionPago*
+--
+- medio: MedioPago
+- estado: EstadoTransaccion
+- importe: BigDecimal
+- claveIdempotencia: String
+- referenciaExterna: String
+- paymentIdMP: String [0..1]
+- preferenceIdMP: String [0..1]
+--
+{paymentIdMP único si existe}
+bg=#F3EAFE</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1180</x>
+      <y>990</y>
+      <w>290</w>
+      <h>220</h>
+    </coordinates>
+    <panel_attributes>*SubOrden*
+--
+- estado: EstadoSubOrden
+- direccionSnapshot: DireccionSnapshot
+- mercaderia: BigDecimal
+- costoEnvio: BigDecimal
+- comision: BigDecimal
+- reembolsado: BigDecimal
+- version: long
+--
++ netoEstimado(): BigDecimal
+--
+{única por orden y vendedor}
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1550</x>
+      <y>990</y>
+      <w>290</w>
+      <h>110</h>
+    </coordinates>
+    <panel_attributes>*Envio*
+--
+- transportista: String
+- codigoTracking: String
+- despachadoAt: Instant
+- entregadoAt: Instant [0..1]
+bg=#FCEAF0</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1920</x>
+      <y>990</y>
+      <w>290</w>
+      <h>130</h>
+    </coordinates>
+    <panel_attributes>*Resena*
+--
+- puntuacion: int
+- comentario: String
+- oculta: boolean
+--
+{entrega confirmada, puntuación 1..5}
+bg=#FCEAF0</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*OutboxEvento*
+--
+- tipo: String
+- aggregateType: String
+- aggregateId: UUID
+- payload: JSONB
+- estadoProceso: EstadoProceso
+- intentos: int
+- proximoIntentoAt: Instant
+- leaseHasta: Instant [0..1]
+bg=#EDF1F6</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>440</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*Notificacion*
+--
+- eventoId: UUID
+- tipo: String
+- recursoId: UUID
+- leidaAt: Instant [0..1]
+--
+{única por destinatario y evento}
+bg=#EDF1F6</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>810</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*Reembolso*
+--
+- importe: BigDecimal
+- motivo: MotivoReembolso
+- estado: EstadoReembolso
+- claveIdempotencia: String
+- refundIdMP: String [0..1]
+- confirmadoAt: Instant [0..1]
+bg=#F3EAFE</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1180</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>170</h>
+    </coordinates>
+    <panel_attributes>*Disputa*
+--
+- estado: EstadoDisputa
+- motivo: String
+- descripcion: String
+- moderadorId: UUID [0..1]
+- justificacion: String [0..1]
+- version: long
+--
++ validarElegibilidad()
+bg=#FCEAF0</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1550</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>*MensajeDisputa*
+--
+- autorId: UUID
+- texto: String
+bg=#FCEAF0</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1920</x>
+      <y>1280</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*AsientoLiquidacion*
+--
+- claveFinanciera: String
+- concepto: ConceptoAsiento
+- importe: BigDecimal
+- moneda: Currency
+--
+{libro interno por vendedor}
+bg=#EDF1F6</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>70</x>
+      <y>1560</y>
+      <w>290</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>/BaseEntity/
+--
+- id: UUID
+- createdAt: Instant
+- updatedAt: Instant
+- deleted: boolean
+bg=#EDF1F6</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>390</x>
+      <y>1560</y>
+      <w>700</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*Persistencia y referencias*
+Todas las entidades del diagrama heredan de BaseEntity. Los timestamps se guardan en UTC.
+AuditLog y OutboxEvento identifican agregados por tipo e ID.
+AuditLog admite actor de sistema. WebhookInbox vincula el intento al conciliar.
+Las bajas lógicas conservan los snapshots, las trazas y las claves financieras.
+bg=#F4F6FA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>1120</x>
+      <y>1560</y>
+      <w>1090</w>
+      <h>140</h>
+    </coordinates>
+    <panel_attributes>*Reglas de catálogo y compra*
+La publicación activa pertenece a una categoría hoja y se vende mientras el vendedor esté habilitado.
+La categoría valida los atributos de la variante y la combinación canónica es única por publicación.
+El checkout fija precio, comisión, dirección y envío. Los importes se guardan en ARS con dos decimales y redondeo HALF_UP por línea.
+La reserva dura 15 minutos. Al acreditar, se consume una vez. Si vence o falla el cobro, se libera una vez.
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>70</x>
+      <y>1730</y>
+      <w>850</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>*OrdenPago y SubOrden*
+OrdenPago: RESERVADA, PAGO_PENDIENTE, PAGADA, FALLIDA, EXPIRADA,
+COMPENSACION_PENDIENTE, REEMBOLSO_PARCIAL, REEMBOLSADA.
+SubOrden: ESPERA_PAGO, PREPARANDO, DESPACHADA, ENTREGADA, CANCELADA, REEMBOLSADA.
+El cobro verificado y con reserva vigente habilita subórdenes. Cada vendedor despacha la suya.
+Un reembolso parcial confirmado actualiza importes y conserva el estado logístico.
+bg=#FFF2DA</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>950</x>
+      <y>1730</y>
+      <w>630</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>*Cobro, devoluciones y liquidación*
+Card Payment Brick y Checkout Pro comparten reconciliación e historial de intentos.
+Cada orden admite, como máximo, un intento activo y un cobro ganador.
+Los cobros tardíos o duplicados se compensan por transacción.
+Se reserva el importe a devolver contra el saldo del pago y la suborden si aplica.
+Los asientos registran el neto interno estimado en la cuenta colectora de prueba.
+bg=#F3EAFE</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>1610</x>
+      <y>1730</y>
+      <w>600</w>
+      <h>160</h>
+    </coordinates>
+    <panel_attributes>*Disputa y entrega*
+Disputa: ABIERTA, EN_MEDIACION, REEMBOLSO_PENDIENTE,
+CERRADA_SIN_REEMBOLSO, CERRADA_REEMBOLSADA.
+El comprador puede abrirla en preparación, despacho o hasta 7 días tras entrega.
+Una disputa activa bloquea despacho y confirmación de entrega.
+La resolución monetaria se cierra al confirmarse la devolución.
+bg=#FCEAF0</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>70</x>
+      <y>1920</y>
+      <w>2140</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>Identidad (azul)   ·   Catálogo (verde)   ·   Compra (ámbar)   ·   Pago (violeta)   ·   Postventa (rosa)   ·   Operación (gris)
+halign=left</panel_attributes>
+    <additional_attributes></additional_attributes>
+  </element>
+</diagram>
