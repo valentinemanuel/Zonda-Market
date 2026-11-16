@@ -1,31 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Geist Variable", "Segoe UI", sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", Consolas, monospace;
-  --color-background: #f4f4ef;
-  --color-foreground: #182121;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
   --color-card: #fff;
-  --color-card-foreground: #182121;
-  --color-primary: #252f35;
+  --color-card-foreground: #0f172a;
+  --color-primary: #2563eb;
   --color-primary-foreground: #fff;
-  --color-muted: #ecece6;
-  --color-muted-foreground: #586564;
-  --color-border: #d7ddd9;
-  --color-input: #c0c9c5;
-  --color-ring: #856413;
-  --color-accent: #edf1ef;
-  --color-accent-foreground: #182121;
-  --color-secondary: #edf1ef;
-  --color-secondary-foreground: #182121;
-  --color-destructive: #9b321c;
-  --color-hero: #151c22;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #475569;
+  --color-border: #e2e8f0;
+  --color-input: #cbd5e1;
+  --color-ring: #2563eb;
+  --color-accent: #eff6ff;
+  --color-accent-foreground: #1e40af;
+  --color-secondary: #eff6ff;
+  --color-secondary-foreground: #1e40af;
+  --color-destructive: #b91c1c;
+  --color-destructive-soft: #fef2f2;
+  --color-success: #047857;
+  --color-brand: #ef590c;
+  --color-brand-ink: #12192b;
+  --color-hero: #12192b;
   --color-hero-panel: #202a32;
   --color-hero-border: #35434a;
   --color-hero-muted: #bec8c9;
 }
 
 @layer base {
+  *, ::before, ::after {
+    @apply border-border;
+  }
+
   body {
     @apply min-w-72 bg-background font-sans text-foreground antialiased;
   }

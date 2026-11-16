@@ -1,4 +1,5 @@
 import { createBrowserRouter, Link, Navigate } from "react-router-dom";
+import { CategoryPage } from "@/features/categories/category-page";
 import { StatusPage } from "@/features/status/status-page";
 import { PrivateLayout, SiteLayout } from "./layouts";
 
@@ -8,6 +9,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/estado" replace /> },
       { path: "estado", element: <StatusPage /> },
+      { path: "categorias/:id", element: <CategoryPage /> },
       {
         path: "cuenta",
         element: <PrivateLayout />,

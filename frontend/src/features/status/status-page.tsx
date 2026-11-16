@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowUpRight, CircleAlert, CircleCheck, Clock3, Database, RefreshCw, Server, Tag } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Link } from "react-router-dom";
 import { fetchStatus } from "./status-api";
 
 const serviceLink = "inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:underline";
@@ -47,6 +48,12 @@ export function StatusPage() {
           </div>
         </div>
       </section>
+      <Link
+        to="/categorias/e0020000-0000-4000-8000-000000000001"
+        className="inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline"
+      >
+        Explorar categoría Tecnología <ArrowUpRight size={16} aria-hidden="true" />
+      </Link>
 
       <section aria-labelledby="services-title" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

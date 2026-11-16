@@ -1,4 +1,3 @@
-import { Wind } from "lucide-react";
 import { Link, Outlet } from "react-router-dom";
 
 export function SiteLayout() {
@@ -10,17 +9,15 @@ export function SiteLayout() {
       >
         Ir al contenido
       </a>
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-18 max-w-6xl items-center px-5 sm:px-8">
-          <Link to="/estado" className="inline-flex items-center gap-3 font-semibold">
-            <span className="grid size-9 place-items-center rounded-xl bg-hero text-[#ffc564]">
-              <Wind size={20} aria-hidden="true" />
-            </span>
-            Zonda Market
+      <header className="border-b border-brand-ink/15 bg-brand text-brand-ink">
+        <div className="mx-auto flex min-h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+          <Link to="/estado" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold tracking-tight focus-visible:outline-brand-ink">
+            <img src="/brand/zonda-isotipo.svg" alt="" width="36" height="36" />
+            ZONDA-MARKET
           </Link>
         </div>
       </header>
-      <main id="contenido" tabIndex={-1} className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+      <main id="contenido" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <Outlet />
       </main>
     </>
