@@ -210,6 +210,174 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /oauth2/authorization/google:
+    get:
+      summary: Iniciar autorización con Google
+      responses:
+        '302':
+          description: Redirige a Google con PKCE S256 y emite la cookie de correlación. Si Google no está habilitado para este host, redirige al retorno de Zonda con un error.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri-reference
+            Set-Cookie:
+              $ref: '#/components/headers/GoogleBrowserCookie'
+  /login/oauth2/code/google:
+    get:
+      summary: Recibir el retorno OIDC de Google
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 'Redirige a /oauth/retorno. El fragmento contiene un código efímero de Zonda o un error. La cookie de correlación sigue vigente durante un minuto para el intercambio exitoso.'
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri-reference
+            Set-Cookie:
+              $ref: '#/components/headers/GoogleBrowserCookie'
+  /api/v1/auth/oauth/google:
+    get:
+      summary: Indicar si Google está habilitado para el host web
+      responses:
+        '200':
+          description: Disponibilidad de Google en este origen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled]
+                properties:
+                  enabled:
+                    type: boolean
+  /api/v1/auth/oauth/exchange:
+    post:
+      summary: Canjear el código efímero del retorno de Google
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/GoogleBrowserCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{43}$'
+      responses:
+        '200':
+          description: Acceso en JSON, refresh en cookie y eliminación de la cookie de correlación.
+          headers:
+            Set-Cookie:
+              schema:
+                type: array
+                items:
+                  type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          description: Código vencido, reutilizado o inválido para este navegador (GOOGLE_EXCHANGE_INVALID). Para vincular, también se exige la sesión que autorizó la operación (INVALID_SESSION).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '409':
+          description: Correo ya registrado (GOOGLE_LINK_REQUIRED), correo diferente al vincular (GOOGLE_EMAIL_MISMATCH) o identidad ya vinculada (GOOGLE_IDENTITY_CONFLICT).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '503':
+          $ref: '#/components/responses/GoogleUnavailable'
+  /api/v1/me/identities/google:
+    get:
+      summary: Consultar la vinculación de Google de la cuenta autenticada
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Estado de vinculación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [linked]
+                properties:
+                  linked:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/me/identities/google/start:
+    post:
+      summary: Autorizar la vinculación de Google con la contraseña actual
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/RefreshCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+                  maxLength: 72
+      responses:
+        '200':
+          description: URL de Google y cookie de correlación. La vinculación requiere completar el retorno con la sesión actual.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/GoogleBrowserCookie'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorizationUrl]
+                properties:
+                  authorizationUrl:
+                    type: string
+                    format: uri
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          description: Sesión ausente o revocada (INVALID_SESSION) o contraseña incorrecta (INVALID_CREDENTIALS).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '503':
+          $ref: '#/components/responses/GoogleUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -217,6 +385,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    GoogleBrowserCookie:
+      name: __Host-zonda-oauth
+      in: cookie
+      required: true
+      description: Correlación del acceso con Google con el navegador que inició el proceso.
+      schema:
+        type: string
     Origin:
       name: Origin
       in: header
@@ -237,7 +412,36 @@ components:
       description: JWT de renovación. Si falta, refresh devuelve 401 y logout devuelve 204.
       schema:
         type: string
+  responses:
+    InvalidRequest:
+      description: Datos inválidos (INVALID_REQUEST).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    CsrfRejected:
+      description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    GoogleUnavailable:
+      description: Google está deshabilitado o el host no coincide con la URL configurada (GOOGLE_UNAVAILABLE).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    InvalidSession:
+      description: Bearer ausente, inválido, vencido o revocado (INVALID_SESSION).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
   headers:
+    GoogleBrowserCookie:
+      description: Cookie de correlación HttpOnly, Secure y SameSite=Lax, con Path=/ y sin Domain.
+      schema:
+        type: string
     RefreshCookie:
       description: Cookie de renovación HttpOnly, Secure y SameSite=Strict, con Path=/, sin Domain y con vigencia máxima de 14 días. Max-Age=0 indica eliminación.
       schema:

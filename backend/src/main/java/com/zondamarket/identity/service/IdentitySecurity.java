@@ -33,7 +33,8 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 @SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 class IdentitySecurity {
     private static final String[] COOKIE_ACTIONS = {
-        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"
+        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
+        "/api/v1/auth/oauth/exchange", "/api/v1/me/identities/google/start"
     };
 
     @Bean
@@ -82,8 +83,10 @@ class IdentitySecurity {
                 .csrf(AbstractHttpConfigurer::disable)
                 .addFilterAfter(cookieCsrf, CsrfFilter.class)
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(HttpMethod.POST, "/api/v1/me/identities/google/start").authenticated()
                         .requestMatchers(cookieActions).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/status", "/api/v1/categories/*",
+                                "/api/v1/auth/oauth/google", "/oauth2/authorization/google", "/login/oauth2/code/google",
                                 "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
                         .anyRequest().authenticated())

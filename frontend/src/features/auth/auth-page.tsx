@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { authenticate } from "./session-api";
+import { useGoogleOptions } from "./google-auth";
 
 const credentials = z.object({
   email: z.string().trim().max(254).pipe(z.email("Ingresá un correo válido.")),
@@ -27,6 +28,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const createAccount = mode === "register";
   const title = createAccount ? "Crear cuenta" : "Iniciar sesión";
   const navigate = useNavigate();
+  const google = useGoogleOptions();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(createAccount ? registration : credentials),
     defaultValues: { email: "", password: "" },
@@ -73,6 +75,11 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
           {isSubmitting ? "Enviando…" : title}
         </Button>
       </form>
+      {google.data?.enabled && (
+        <Button asChild variant="outline" className="mt-4 min-h-11 w-full">
+          <a href="/oauth2/authorization/google">Continuar con Google</a>
+        </Button>
+      )}
       <Link className="mt-5 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
         to={createAccount ? "/ingresar" : "/registro"}>
         {createAccount ? "Ya tengo una cuenta" : "Crear una cuenta"}

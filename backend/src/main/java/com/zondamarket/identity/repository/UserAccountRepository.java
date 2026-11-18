@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     Optional<UserAccount> findByEmailAndDeletedFalse(String email);
+    Optional<UserAccount> findByIdAndDeletedFalse(UUID id);
 }

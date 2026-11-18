@@ -5,6 +5,14 @@ zonda:
   auth:
     jwt-key: ${AUTH_JWT_KEY}
     allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:3000/login/oauth2/code/google}
+    issuer: https://accounts.google.com
+    authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+    token-uri: https://oauth2.googleapis.com/token
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
 
 spring:
   application:

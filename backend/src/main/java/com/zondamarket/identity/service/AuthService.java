@@ -64,21 +64,37 @@ public class AuthService {
             }
             throw exception;
         }
-        revoke(previousRefresh);
-        return startFamily(account);
+        return replaceFamily(account, previousRefresh);
     }
 
     @Transactional
     public IssuedSession login(LoginRequest request, String previousRefresh) {
         var account = accounts.findByEmailAndDeletedFalse(request.email());
-        boolean matches = !passwordTooLong(request.password())
-                && passwords.matches(request.password(), account.map(UserAccount::getPasswordHash).orElse(fallbackHash));
-        if (!matches || account.isEmpty()) {
+        verifyPassword(account, request.password());
+        return replaceFamily(account.orElseThrow(), previousRefresh);
+    }
+
+    void verifyPassword(Optional<UserAccount> account, String password) {
+        var hash = account.map(UserAccount::getPasswordHash);
+        boolean matches = !passwordTooLong(password) && passwords.matches(password, hash.orElse(fallbackHash));
+        if (!matches || hash.isEmpty()) {
             throw new ApiProblemException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
                     "El correo o la contraseña son incorrectos.");
         }
+    }
+
+    IssuedSession replaceFamily(UserAccount account, String previousRefresh) {
         revoke(previousRefresh);
-        return startFamily(account.orElseThrow());
+        return startFamily(account);
+    }
+
+    RefreshSession requireBrowserFamily(UUID accountId, String refresh) {
+        var claims = refreshClaims(refresh).filter(value -> accountId.equals(value.accountId()))
+                .orElseThrow(AuthService::unauthorized);
+        return sessions.lockFamily(claims.familyId(), accountId)
+                .filter(family -> family.isActive(clock.instant()) && family.getSessionVersion() == claims.version()
+                        && family.matches(SessionTokens.hash(claims.jti()), claims.generation()))
+                .orElseThrow(AuthService::unauthorized);
     }
 
     @Transactional

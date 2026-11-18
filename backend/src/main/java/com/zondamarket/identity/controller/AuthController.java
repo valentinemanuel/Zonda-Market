@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 @Tag(name = "Identidad")
 class AuthController {
-    private static final String COOKIE = "__Host-zonda-refresh";
+    static final String COOKIE = "__Host-zonda-refresh";
 
     private final AuthService auth;
 
@@ -121,7 +121,7 @@ class AuthController {
                 .body(issued.access());
     }
 
-    private static String cookie(String token, Duration maxAge) {
+    static String cookie(String token, Duration maxAge) {
         return ResponseCookie.from(COOKIE, token).httpOnly(true).secure(true).sameSite("Strict")
                 .path("/").maxAge(maxAge).build().toString();
     }
