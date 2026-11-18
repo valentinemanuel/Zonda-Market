@@ -107,6 +107,7 @@ class AuthContractIT {
         var fresh = mvc.perform(command("refresh").cookie(refreshCookie(registered)))
                 .andExpect(status().isOk()).andReturn();
         assertNotEquals(refreshCookie(registered).getValue(), refreshCookie(fresh).getValue());
+        assertNotEquals(access(registered), access(fresh));
         mvc.perform(me(access(fresh))).andExpect(status().isOk());
         mvc.perform(command("refresh").cookie(refreshCookie(registered))).andExpect(status().isUnauthorized());
         mvc.perform(me(access(fresh))).andExpect(status().isUnauthorized());
