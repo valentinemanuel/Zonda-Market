@@ -5,8 +5,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./app/router";
+import { subscribeToSession } from "./features/auth/session-api";
 
 const queryClient = new QueryClient();
+subscribeToSession(() => queryClient.removeQueries({ queryKey: ["private"] }));
 const root = document.getElementById("root");
 
 if (!root) {

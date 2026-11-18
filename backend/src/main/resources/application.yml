@@ -1,6 +1,11 @@
 server:
   port: ${PORT:8080}
 
+zonda:
+  auth:
+    jwt-key: ${AUTH_JWT_KEY}
+    allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+
 spring:
   application:
     name: zonda-market

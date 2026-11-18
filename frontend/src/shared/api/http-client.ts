@@ -9,12 +9,20 @@ export class ApiError extends Error {
 }
 
 export async function getJson(path: string, signal: AbortSignal): Promise<unknown> {
+  return (await request(path, { signal })).json();
+}
+
+export async function request(path: string, init: RequestInit = {}): Promise<Response> {
+  const timeout = AbortSignal.timeout(8_000);
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json, application/problem+json");
   const response = await fetch(path, {
-    signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
-    headers: { Accept: "application/json, application/problem+json" },
+    ...init,
+    signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
+    headers,
   });
   if (response.ok) {
-    return response.json();
+    return response;
   }
 
   const problem: unknown = response.headers.get("Content-Type")?.includes("application/problem+json")

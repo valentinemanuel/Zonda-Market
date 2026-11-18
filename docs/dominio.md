@@ -6,6 +6,8 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 
 - Un visitante puede consultar catálogo, reputación y preguntas públicas. Un usuario registrado puede comprar. Un vendedor conserva los permisos de comprador y gestiona sus propias publicaciones, variantes y subórdenes. El rol `ADMIN` se asigna fuera del autorregistro.
 - Cada operación privada comprueba rol y relación con el recurso. Activar un perfil `PERSONAL` o `COMERCIO` y confirmar una compra requiere correo verificado.
+- El autorregistro asigna `USER` y conserva el correo sin verificar. La unicidad se aplica al correo sin espacios exteriores y en minúsculas.
+- Cada inicio de sesión abre una familia con vigencia máxima de 14 días. Renovar consume el refresh actual y emite otro bajo el mismo bloqueo. La reutilización de un refresh de esa familia revoca también el acceso de esa sesión. Cerrar sesión revoca la familia del navegador.
 - Una publicación pertenece a una categoría hoja y puede venderse cuando está activa y su vendedor está habilitado. La categoría define el esquema de variantes y la comisión aplicable al confirmar la compra.
 - El código SKU es único, inmutable y conserva unicidad histórica. La combinación canónica de atributos es única por publicación. El stock disponible y reservado son no negativos.
 

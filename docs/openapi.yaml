@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Los diagnósticos y la lectura de categorías son públicos. Los flujos autenticados se documentarán al incorporarlos.
+  description: Diagnóstico y categorías públicas, autenticación y datos de la cuenta actual.
 security: []
 paths:
   /api/v1/status:
@@ -61,14 +61,252 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/auth/register:
+    post:
+      summary: Crear cuenta con rol USER e iniciar sesión
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Acceso en JSON y refresh en cookie.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: Datos inválidos (INVALID_REQUEST).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '403':
+          description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: Correo registrado (EMAIL_IN_USE).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/auth/login:
+    post:
+      summary: Iniciar sesión con correo y contraseña
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Acceso en JSON y refresh en cookie.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: Datos inválidos (INVALID_REQUEST).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '401':
+          description: Credenciales inválidas (INVALID_CREDENTIALS).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '403':
+          description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/auth/refresh:
+    post:
+      summary: Renovar el acceso y rotar la cookie
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/RefreshCookie'
+      responses:
+        '200':
+          description: Acceso en JSON y refresh en cookie.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '401':
+          description: Sesión inválida, vencida o reutilizada (INVALID_SESSION). Se elimina la cookie.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshCookie'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '403':
+          description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/auth/logout:
+    post:
+      summary: Revocar la familia actual y eliminar la cookie
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/RefreshCookie'
+      responses:
+        '204':
+          description: Sesión cerrada. La operación es 204 también si la sesión ya terminó.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshCookie'
+        '403':
+          description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/me:
+    get:
+      summary: Consultar la cuenta asociada al Bearer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cuenta autenticada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          description: Bearer ausente, alterado, vencido o revocado (INVALID_SESSION).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      description: Origen exacto de la aplicación web habilitado en el servidor.
+      schema:
+        type: string
+    Csrf:
+      name: X-Zonda-CSRF
+      in: header
+      required: true
+      schema:
+        type: string
+        const: '1'
+    RefreshCookie:
+      name: __Host-zonda-refresh
+      in: cookie
+      description: JWT de renovación. Si falta, refresh devuelve 401 y logout devuelve 204.
+      schema:
+        type: string
   headers:
+    RefreshCookie:
+      description: Cookie de renovación HttpOnly, Secure y SameSite=Strict, con Path=/, sin Domain y con vigencia máxima de 14 días. Max-Age=0 indica eliminación.
+      schema:
+        type: string
     TraceId:
       description: Identificador de correlación generado por el servidor.
       schema:
         type: string
         format: uuid
   schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 72
+          description: Admite hasta 72 bytes UTF-8.
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          maxLength: 72
+    AccessTokenResponse:
+      type: object
+      required: [accessToken, expiresIn, roles]
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          maximum: 600
+          description: Tiempo de vigencia restante en segundos.
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+    AccountResponse:
+      type: object
+      required: [id, email, emailVerified, roles]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        emailVerified:
+          type: boolean
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+    Role:
+      type: string
+      enum: [USER, SELLER, ADMIN]
     CategoryResponse:
       type: object
       required: [id, name, slug, parentId]

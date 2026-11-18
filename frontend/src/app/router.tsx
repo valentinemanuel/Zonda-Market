@@ -1,6 +1,7 @@
 import { createBrowserRouter, Link, Navigate } from "react-router-dom";
 import { CategoryPage } from "@/features/categories/category-page";
 import { StatusPage } from "@/features/status/status-page";
+import { AccountPage } from "@/features/auth/account-page";
 import { PrivateLayout, SiteLayout } from "./layouts";
 
 export const router = createBrowserRouter([
@@ -11,19 +12,12 @@ export const router = createBrowserRouter([
       { path: "estado", element: <StatusPage /> },
       { path: "categorias/:id", element: <CategoryPage /> },
       {
-        path: "cuenta",
         element: <PrivateLayout />,
+        hydrateFallbackElement: <p role="status">Cargando…</p>,
         children: [
-          {
-            index: true,
-            element: (
-              <>
-                <h1 className="text-2xl font-semibold">Cuenta</h1>
-                <p className="mt-2 text-muted-foreground">El acceso a tu cuenta estará disponible en la etapa de identidad.</p>
-                <Link to="/estado" className="mt-6 inline-block underline underline-offset-4">Volver al estado del sistema</Link>
-              </>
-            ),
-          },
+          { path: "cuenta", element: <AccountPage /> },
+          { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
+          { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },
         ],
       },
       {
