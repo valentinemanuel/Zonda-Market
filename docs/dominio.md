@@ -8,6 +8,8 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 - Cada operación privada comprueba rol y relación con el recurso. Activar un perfil `PERSONAL` o `COMERCIO` y confirmar una compra requiere correo verificado.
 - El autorregistro asigna `USER` y conserva el correo sin verificar. La unicidad se aplica al correo sin espacios exteriores y en minúsculas.
 - Cada inicio de sesión abre una familia con vigencia máxima de 14 días. Renovar consume el refresh actual y emite otro bajo el mismo bloqueo. La reutilización de un refresh de esa familia revoca también el acceso de esa sesión. Cerrar sesión revoca la familia del navegador.
+- Google identifica al titular por emisor y sujeto. Un correo coincidente exige una vinculación explícita con contraseña, desde una sesión vigente de la misma cuenta y con el mismo correo.
+- El acceso con Google exige un correo declarado verificado por el proveedor. En altas nuevas Zonda marca como verificados los correos Gmail. Los demás quedan pendientes de la verificación propia de Zonda y vincular una cuenta existente conserva su estado.
 - Una publicación pertenece a una categoría hoja y puede venderse cuando está activa y su vendedor está habilitado. La categoría define el esquema de variantes y la comisión aplicable al confirmar la compra.
 - El código SKU es único, inmutable y conserva unicidad histórica. La combinación canónica de atributos es única por publicación. El stock disponible y reservado son no negativos.
 

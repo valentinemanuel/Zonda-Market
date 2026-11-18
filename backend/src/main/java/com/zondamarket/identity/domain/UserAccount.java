@@ -15,7 +15,7 @@ public class UserAccount extends BaseEntity {
     @Column(nullable = false, length = 254)
     private String email;
 
-    @Column(nullable = false, length = 60)
+    @Column(length = 60)
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)

@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
+import { GoogleSecurity } from "./google-security";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ export function AccountPage() {
         onClick={() => void closeSession()}>
         {closing ? "Cerrando sesión…" : "Cerrar sesión"}
       </Button>
+      <GoogleSecurity key={revision} revision={revision} />
     </>
   );
 }

@@ -2,6 +2,8 @@ import { createBrowserRouter, Link, Navigate } from "react-router-dom";
 import { CategoryPage } from "@/features/categories/category-page";
 import { StatusPage } from "@/features/status/status-page";
 import { AccountPage } from "@/features/auth/account-page";
+import { googleReturnLoader } from "@/features/auth/google-auth";
+import { GoogleReturnPage } from "@/features/auth/google-return-page";
 import { PrivateLayout, SiteLayout } from "./layouts";
 
 export const router = createBrowserRouter([
@@ -18,6 +20,8 @@ export const router = createBrowserRouter([
           { path: "cuenta", element: <AccountPage /> },
           { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
           { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },
+          { path: "oauth/retorno", loader: googleReturnLoader, element: <GoogleReturnPage />,
+            hydrateFallbackElement: <p role="status">Confirmando acceso con Google…</p> },
         ],
       },
       {

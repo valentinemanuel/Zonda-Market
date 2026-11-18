@@ -2,6 +2,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly traceId: string | null,
+    readonly code: string | null = null,
   ) {
     super(`La API respondió con HTTP ${status}`);
     this.name = "ApiError";
@@ -31,5 +32,8 @@ export async function request(path: string, init: RequestInit = {}): Promise<Res
   const traceId = problem && typeof problem === "object" && "traceId" in problem && typeof problem.traceId === "string"
     ? problem.traceId
     : response.headers.get("X-Trace-Id");
-  throw new ApiError(response.status, traceId);
+  const code = problem && typeof problem === "object" && "code" in problem && typeof problem.code === "string"
+    ? problem.code
+    : null;
+  throw new ApiError(response.status, traceId, code);
 }

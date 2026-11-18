@@ -27,7 +27,7 @@ export function getSessionRevision() {
   return sessionRevision;
 }
 
-function cookieCommand(action: string, body?: Credentials) {
+function cookieCommand(action: string, body?: Credentials | { code: string }) {
   return request(`/api/v1/auth/${action}`, {
     method: "POST",
     headers: {
@@ -39,6 +39,14 @@ function cookieCommand(action: string, body?: Credentials) {
 }
 
 export function authenticate(action: "login" | "register", body: Credentials) {
+  return establishSession(action, body);
+}
+
+export function exchangeGoogleCode(code: string) {
+  return establishSession("oauth/exchange", { code });
+}
+
+function establishSession(action: string, body: Credentials | { code: string }) {
   return navigator.locks.request("zonda-session", async () => {
     const session: Access = await (await cookieCommand(action, body)).json();
     sessionChanged(session.accessToken);
@@ -105,7 +113,7 @@ export async function authenticatedRequest(path: string, init: RequestInit = {})
   try {
     return await send(token);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) {
+    if (!(error instanceof ApiError) || error.status !== 401 || error.code === "INVALID_CREDENTIALS") {
       throw error;
     }
     init.signal?.throwIfAborted();

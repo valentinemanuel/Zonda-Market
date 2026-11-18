@@ -17,6 +17,7 @@ Declarar los tokens compartidos en `frontend/src/index.css` y consumirlos desde 
 ## Bloques por flujo
 
 - **Identidad.** Alta, ingreso y cuenta usan la cabecera y una tarjeta angosta con botones compartidos. Los campos tienen etiquetas visibles, foco de validación y errores asociados. En móvil la tarjeta usa una sola columna y deja accesibles la acción principal y el cambio entre alta e ingreso. La restauración de sesión y el envío de formularios anuncian carga. La API rechazada muestra un mensaje y permite volver a intentar.
+- **Acceso con Google.** El alta y el ingreso muestran una acción secundaria cuando Google está habilitado. El retorno anuncia el intercambio y ofrece volver al ingreso o a la cuenta si se cancela o falla. Seguridad de cuenta muestra el estado de vinculación y permite confirmar la contraseña con un formulario en la misma tarjeta.
 
 - **Categoría y catálogo.** Cabecera y navegación compartidas, búsqueda, tarjetas de categoría y una grilla de productos. Las tarjetas de producto reservan una imagen cuadrada, precio, vendedor y disponibilidad. Mostrar descuentos, reputación y envíos cuando existan datos que los respalden.
 - **Ficha.** Galería, información y selección de variantes, acción principal, vendedor, preguntas y reputación. En móvil, ordenar contenido y acciones siguiendo el flujo de lectura.
