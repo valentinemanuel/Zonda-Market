@@ -10,6 +10,10 @@ import {
 
 const messages: Record<string, string> = {
   INVALID_REQUEST: "Revisá los valores ingresados.",
+  STOCK_ADJUSTMENT_INVALID: "Ingresá un ajuste distinto de cero y un motivo válido.",
+  INSUFFICIENT_STOCK: "El ajuste dejaría el stock disponible por debajo de cero.",
+  STOCK_LIMIT_EXCEEDED: "El ajuste supera el máximo de stock disponible.",
+  IDEMPOTENCY_KEY_REUSED: "La clave de este ajuste ya se usó con otros datos.",
   IMAGE_INVALID: "Elegí una imagen JPEG, PNG o WebP válida.",
   IMAGE_DIMENSIONS_INVALID: "La imagen admite hasta 12 megapíxeles y 8192 píxeles por lado.",
   IMAGE_TOO_LARGE: "La imagen admite hasta 5 MiB.",

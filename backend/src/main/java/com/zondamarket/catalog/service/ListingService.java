@@ -221,7 +221,7 @@ public class ListingService {
         }
     }
 
-    private UUID sellerId(UUID accountId) {
+    UUID sellerId(UUID accountId) {
         return sellers.findByAccountIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(accountId, Role.SELLER)
                 .orElseThrow(() -> new ApiProblemException(HttpStatus.FORBIDDEN, "SELLER_REQUIRED",
                         "Activá tu perfil de vendedor para gestionar publicaciones.")).getId();
@@ -295,7 +295,7 @@ public class ListingService {
         return new ApiProblemException(HttpStatus.NOT_FOUND, "LISTING_NOT_FOUND", "No encontramos esa publicación.");
     }
 
-    private static ApiProblemException staleVersion() {
+    static ApiProblemException staleVersion() {
         return new ApiProblemException(HttpStatus.CONFLICT, "VERSION_CONFLICT",
                 "Hay una versión más reciente. Recargá la publicación para seguir editando.");
     }
