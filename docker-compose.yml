@@ -22,6 +22,11 @@ services:
       timeout: 3s
       retries: 12
 
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+
   backend:
     build: ./backend
     depends_on:
@@ -31,6 +36,17 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-zonda_market}?connectTimeout=2&socketTimeout=3
       DB_USER: ${POSTGRES_USER:-zonda}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
+      AUTH_JWT_KEY: ${AUTH_JWT_KEY:?Definí AUTH_JWT_KEY en .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:${WEB_PORT:-3000}/login/oauth2/code/google}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-http://localhost:${WEB_PORT:-3000},http://127.0.0.1:${WEB_PORT:-3000}}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-mailpit}
+      MAIL_FROM: ${MAIL_FROM:-avisos@zonda.test}
+      MAIL_PUBLIC_ORIGIN: ${MAIL_PUBLIC_ORIGIN:-http://localhost:${WEB_PORT:-3000}}
+      MAILPIT_URL: http://mailpit:8025
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SERVER_FORWARD_HEADERS_STRATEGY: native
       JAVA_TOOL_OPTIONS: -Xmx384m
       PORT: "8080"
     mem_limit: 768m

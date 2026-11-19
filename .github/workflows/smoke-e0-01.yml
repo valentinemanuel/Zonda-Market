@@ -42,7 +42,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
       - name: Levantar aplicación
-        run: docker compose up --build --wait --wait-timeout 90
+        run: |
+          printf 'AUTH_JWT_KEY=%s\n' "$(openssl rand -base64 32)" > .env
+          docker compose up --build --wait --wait-timeout 90
       - name: Probar arranque, recuperación y contrato
         working-directory: frontend
         run: npm run test:e2e
@@ -50,7 +52,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: evidencia-etapa-0
+          name: evidencia-smoke
           path: frontend/test-results/
           if-no-files-found: ignore
       - name: Mostrar servicios si falla el smoke
