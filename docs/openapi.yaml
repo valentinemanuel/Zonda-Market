@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Diagnóstico y categorías públicas, autenticación y datos de la cuenta actual.
+  description: Diagnóstico y categorías públicas, autenticación, cuenta actual y borradores privados de vendedor.
 security: []
 paths:
   /api/v1/status:
@@ -603,6 +603,175 @@ paths:
           $ref: '#/components/responses/CsrfRejected'
         '503':
           $ref: '#/components/responses/GoogleUnavailable'
+  /api/v1/seller/listing-categories:
+    get:
+      summary: Listar categorías finales y sus esquemas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+  /api/v1/seller/listings:
+    get:
+      summary: Listar mis publicaciones
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListingSummary'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+    post:
+      summary: Crear un borrador privado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationRequest'
+      responses:
+        '201':
+          description: Recurso privado creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+  /api/v1/seller/listings/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    get:
+      summary: Consultar mi publicación y sus variantes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+    patch:
+      summary: Editar mi publicación
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationPatch'
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingConflict'
+  /api/v1/seller/listings/{id}/skus:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    post:
+      summary: Agregar una variante a mi publicación
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkuRequest'
+      responses:
+        '201':
+          description: Recurso privado creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkuResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingConflict'
+  /api/v1/seller/listings/{id}/skus/{skuId}:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+      - $ref: '#/components/parameters/SkuId'
+    patch:
+      summary: Editar atributos o precio de mi variante
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkuPatch'
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkuResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingConflict'
 components:
   securitySchemes:
     bearerAuth:
@@ -610,6 +779,20 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    ListingId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SkuId:
+      in: path
+      name: skuId
+      required: true
+      schema:
+        type: string
+        format: uuid
     GoogleBrowserCookie:
       name: __Host-zonda-oauth
       in: cookie
@@ -638,6 +821,30 @@ components:
       schema:
         type: string
   responses:
+    InvalidCatalogRequest:
+      description: Datos inválidos (INVALID_REQUEST, CATEGORY_NOT_LEAF, LISTING_TEXT_INVALID, SPECS_TOO_LARGE, SPECS_INVALID o SKU_ATTRIBUTES_INVALID).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    SellerRequired:
+      description: La cuenta necesita un perfil vendedor habilitado (SELLER_REQUIRED).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    ListingResourceNotFound:
+      description: Publicación o SKU privado ausente, archivado o ajeno (LISTING_NOT_FOUND o SKU_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    ListingConflict:
+      description: Versión obsoleta, nueva categoría incompatible o duplicado (VERSION_CONFLICT, CATEGORY_SKUS_INCOMPATIBLE, SKU_CODE_IN_USE o SKU_COMBINATION_IN_USE).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     AddressNotFound:
       description: Dirección ausente, dada de baja o de otra cuenta (ADDRESS_NOT_FOUND).
       content:
@@ -907,7 +1114,7 @@ components:
       enum: [USER, SELLER, ADMIN]
     CategoryResponse:
       type: object
-      required: [id, name, slug, parentId]
+      required: [id, name, slug, parentId, attributeSchema]
       properties:
         id:
           type: string
@@ -919,6 +1126,162 @@ components:
         parentId:
           type: [string, 'null']
           format: uuid
+        attributeSchema:
+          type: object
+          description: Atributos requeridos y valores enumerados para los SKU.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example: {color: [Negro, Azul], talle: [S, M, L]}
+    PublicationRequest:
+      type: object
+      required: [categoryId, title, description, specs]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        specs:
+          $ref: '#/components/schemas/ListingSpecs'
+    PublicationPatch:
+      type: object
+      required: [expectedVersion]
+      description: Los campos de ficha omitidos o nulos conservan sus valores. Si cambia la categoría, todos los SKU vigentes deben cumplir el nuevo esquema.
+      properties:
+        expectedVersion:
+          $ref: '#/components/schemas/CatalogVersion'
+        categoryId:
+          type: [string, 'null']
+          format: uuid
+        title:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 160
+        description:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 5000
+        specs:
+          anyOf:
+            - $ref: '#/components/schemas/ListingSpecs'
+            - type: 'null'
+    ListingSpecs:
+      type: object
+      description: Especificaciones libres. El JSON compacto admite hasta 8 KiB UTF-8.
+      example: {material: algodón}
+    CatalogVersion:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Versión del recurso editado. Empieza en cero.
+    SkuRequest:
+      type: object
+      required: [code, attributes, price, initialStock]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+          description: Código global, inmutable y normalizado a mayúsculas.
+        attributes:
+          $ref: '#/components/schemas/SkuAttributes'
+        price:
+          $ref: '#/components/schemas/SkuPriceInput'
+        initialStock:
+          type: integer
+          format: int32
+          minimum: 0
+    SkuPatch:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      description: Los atributos o el precio omitidos o nulos conservan su valor. Enviar atributos reemplaza la combinación completa.
+      properties:
+        expectedVersion:
+          $ref: '#/components/schemas/CatalogVersion'
+        attributes:
+          anyOf:
+            - $ref: '#/components/schemas/SkuAttributes'
+            - type: 'null'
+        price:
+          anyOf:
+            - $ref: '#/components/schemas/SkuPriceInput'
+            - type: 'null'
+    SkuAttributes:
+      type: object
+      maxProperties: 16
+      additionalProperties:
+        type: string
+      description: Todos los atributos y valores enumerados por la categoría. El JSON compacto admite hasta 1 KiB UTF-8.
+      example: {color: Negro, talle: M}
+    SkuPriceInput:
+      description: Importe positivo en ARS con hasta 17 dígitos enteros y 2 decimales.
+      oneOf:
+        - type: number
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+        - type: string
+          example: '12990.50'
+    ListingSummary:
+      type: object
+      required: [id, title, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          const: BORRADOR
+    ListingResponse:
+      allOf:
+        - $ref: '#/components/schemas/ListingSummary'
+        - type: object
+          required: [categoryId, description, specs, version, skus]
+          properties:
+            categoryId:
+              type: string
+              format: uuid
+            description:
+              type: string
+            specs:
+              $ref: '#/components/schemas/ListingSpecs'
+            version:
+              $ref: '#/components/schemas/CatalogVersion'
+            skus:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkuResponse'
+    SkuResponse:
+      type: object
+      required: [id, code, attributes, price, availableStock, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        attributes:
+          $ref: '#/components/schemas/SkuAttributes'
+        price:
+          type: string
+          pattern: '^[0-9]{1,17}\.[0-9]{2}$'
+          description: Decimal exacto en ARS.
+          example: '12990.50'
+        availableStock:
+          type: integer
+          format: int32
+          minimum: 0
+        version:
+          $ref: '#/components/schemas/CatalogVersion'
     ProblemResponse:
       type: object
       required: [type, title, status, detail, instance, code, traceId, errors]

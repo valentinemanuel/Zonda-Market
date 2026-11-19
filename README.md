@@ -71,6 +71,8 @@ Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de Post
 
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
 
+Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
+
 Para repetir E1-04, ejecutá `npm run test:e2e -- profile` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\\mvnw.cmd verify "-Dit.test=ProfileContractIT"` en PowerShell. El contrato prueba permisos, baja lógica, activación concurrente, renovación, conflicto de slug y campos públicos.
 
 Para repetir E1-03, ejecutá `npm run test:e2e -- identity-email` desde `frontend/` con Compose y Mailpit arriba. Si usás puertos alternativos, configurá `ZONDA_SMOKE_URL` y `ZONDA_MAILPIT_URL` para Playwright. Desde `backend/`, ejecutá `.\\mvnw.cmd verify "-Dit.test=IdentityEmailContractIT"` en PowerShell. El contrato cubre expiración, consumo concurrente, revocación, límites y reintento con el mismo evento.
