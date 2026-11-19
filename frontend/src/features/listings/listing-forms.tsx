@@ -146,6 +146,10 @@ export function PublicationForm({
   );
 }
 
+export function attributeEntries<T>(attributes: Record<string, T>) {
+  return Object.entries(attributes).sort(([left], [right]) => left.localeCompare(right, "es-AR"));
+}
+
 export function attributeLabel(key: string) {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
@@ -162,7 +166,7 @@ export function SkuForm({
   const state = useSave();
   const [version, setVersion] = useState(sku?.version ?? 0);
   const attributesError = state.error?.code === "SKU_ATTRIBUTES_INVALID" || state.error?.code === "SKU_COMBINATION_IN_USE";
-  const fields = Object.entries(category.attributeSchema);
+  const fields = attributeEntries(category.attributeSchema);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

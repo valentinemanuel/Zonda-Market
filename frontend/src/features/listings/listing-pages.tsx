@@ -8,7 +8,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { fetchListing, fetchListingCategories, fetchListings, type Listing, type ListingCategory, type Sku } from "./listing-api";
-import { attributeLabel, PublicationForm, SkuForm } from "./listing-forms";
+import { attributeEntries, attributeLabel, PublicationForm, SkuForm } from "./listing-forms";
 
 const base = "/vendedor/publicaciones";
 const listKey = (revision: number) => ["private", "listings", revision] as const;
@@ -191,7 +191,7 @@ function VariantsPanel({ listing, category, saved, reload }: {
               </thead>
               <tbody className="divide-y divide-border">
                 {listing.skus.map((item) => {
-                  const combination = Object.entries(item.attributes)
+                  const combination = attributeEntries(item.attributes)
                     .map(([key, value]) => attributeLabel(key) + " " + value).join(" · ") || "Sin atributos";
                   return (
                     <tr key={item.id}>
