@@ -19,7 +19,6 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public Optional<CategoryResponse> findPublicCategory(UUID id) {
         return categories.findByIdAndDeletedFalse(id)
-                .map(category -> new CategoryResponse(
-                        category.getId(), category.getName(), category.getSlug(), category.getParentId()));
+                .map(CategoryResponse::from);
     }
 }

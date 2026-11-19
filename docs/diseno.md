@@ -1,18 +1,24 @@
 # Diseño de Zonda Market
 
-La referencia de interfaz son las tres pantallas de Stitch que acompañaron E0-02: inicio, ficha de producto y checkout. La lámina «Viento de origen» define el logotipo de montaña y viento. Los textos promocionales, garantías y medios de pago de las maquetas deben corresponder al alcance y a las capacidades verificadas de cada entrega.
+## Prototipos de referencia
+
+Los prototipos de Stitch que acompañaron E0-02 siguen siendo la base visual del marketplace. Usá **Inicio** para la navegación y el descubrimiento de categorías y publicaciones, **Ficha de producto** para la galería, las variantes y la acción de compra, y **Checkout** para la dirección, los grupos por vendedor, el pago y el total. Tomá de esas pantallas la jerarquía visual, la disposición y el orden de lectura. En flujos sin una maqueta propia, reutilizá los bloques y patrones de la pantalla más cercana.
+
+La lámina «Viento de origen» es la fuente del isotipo. Al implementar los prototipos, aplicá la identidad de marca aprobada en esta guía y ajustá los textos promocionales, las garantías y los medios de pago a las capacidades verificadas de cada entrega.
 
 ## Identidad y tokens
 
 | Uso | Decisión |
 | --- | --- |
-| Marca | Naranja `#EF590C` y azul noche `#12192B`. Cabecera naranja con el isotipo y el nombre Zonda Market, e isotipo solo para el favicon. |
+| Marca | Naranja claro `#FF7D3B` y azul noche `#12192B`. La cabecera compartida usa el isotipo a color de «Viento de origen» y el nombre en Bricolage Grotesque, en minúsculas. El favicon usa el isotipo monocromático. |
 | Acción principal y selección | Azul cobalto `#2563EB` con texto blanco. Las acciones secundarias usan borde y texto azul. |
 | Superficies | Fondo `#F8FAFC`, tarjetas blancas y borde `#E2E8F0`. Esquinas de 8 px en tarjetas, campos y botones. |
 | Texto | Inter. Texto principal `#0F172A`, secundario `#475569`. Usar números tabulares para precios e importes. |
 | Estados | Verde oscuro para disponibilidad y confirmación, rojo oscuro para errores. En promociones usar naranja oscuro sobre fondo cálido. Acompañar el color con texto. |
 
-Declarar los tokens compartidos en `frontend/src/index.css` y consumirlos desde Tailwind y shadcn/ui. Para mantener contraste sobre el naranja de marca, usar texto azul noche y el isotipo monocromático sobre su fondo oscuro.
+Declarar los tokens compartidos en `frontend/src/index.css` y consumirlos desde Tailwind y shadcn/ui. Usar texto azul noche sobre el naranja de la cabecera para mantener el contraste.
+
+Las pantallas actuales y futuras de la tienda reutilizan la [cabecera de `SiteLayout`](../frontend/src/app/layouts.tsx). El nombre visible es **zonda market** en Bricolage Grotesque ExtraBold (800). Para el isotipo a color, usar `/brand/zonda-isotipo.svg#color`, con el nombre accesible «Zonda Market» en el enlace. Inter se usa en el contenido y los controles de la interfaz.
 
 ## Bloques por flujo
 
@@ -22,12 +28,13 @@ Declarar los tokens compartidos en `frontend/src/index.css` y consumirlos desde 
 - **Acceso con Google.** El alta y el ingreso muestran una acción secundaria cuando Google está habilitado. El retorno anuncia el intercambio y ofrece volver al ingreso o a la cuenta si se cancela o falla. Seguridad de cuenta muestra el estado de vinculación y permite confirmar la contraseña con un formulario en la misma tarjeta.
 
 - **Categoría y catálogo.** Cabecera y navegación compartidas, búsqueda, tarjetas de categoría y una grilla de productos. Las tarjetas de producto reservan una imagen cuadrada, precio, vendedor y disponibilidad. Mostrar descuentos, reputación y envíos cuando existan datos que los respalden.
+- **Publicaciones del vendedor.** El panel enlaza al listado de borradores. El editor toma los bloques de descripción y variantes de Ficha de producto y permite alternar con pestañas que admiten las flechas del teclado. Los atributos se eligen según la categoría. En móvil los campos se apilan y la tabla agrupa código con atributos y precio con stock. El guardado anuncia progreso, éxito y errores. Ante un conflicto de versión, la recarga explícita recupera los datos persistidos.
 - **Ficha.** Galería, información y selección de variantes, acción principal, vendedor, preguntas y reputación. En móvil, ordenar contenido y acciones siguiendo el flujo de lectura.
 - **Checkout.** Dirección, grupos de productos por vendedor, medio de pago y resumen con un solo total. Respetar el flujo de pago y los componentes del proveedor definidos en la tarjeta correspondiente.
 
 ## Formato para una tarjeta de interfaz
 
-1. Identificá la pantalla de referencia, el objetivo del usuario y los bloques que se reutilizan o se agregan.
+1. Indicá en el issue qué pantalla de Stitch guía el diseño, qué bloques se reutilizan o se agregan y cómo se adapta el flujo al objetivo del usuario.
 2. Describí carga, contenido, vacío y error según el flujo. Incluí recuperación, navegación por teclado y cómo cambia la disposición en móvil.
 3. Usá los componentes compartidos de shadcn/ui y definí componentes de dominio en su feature. Para lecturas remotas, usá claves de consulta que incluyan la identidad del recurso y propagá la cancelación.
 4. Adjuntá al PR una captura o prueba del estado principal y del fallo relevante. Revisá las reglas aplicables de [buenas prácticas de React](https://github.com/vercel-labs/agent-skills/blob/main/skills/react-best-practices/SKILL.md).

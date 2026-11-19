@@ -12,9 +12,9 @@ export function SiteLayout() {
       </a>
       <header className="border-b border-brand-ink/15 bg-brand text-brand-ink">
         <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link to="/estado" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold tracking-tight focus-visible:outline-brand-ink">
-            <img src="/brand/zonda-isotipo.svg" alt="" width="36" height="36" />
-            ZONDA-MARKET
+          <Link to="/estado" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold focus-visible:outline-brand-ink">
+            <img src="/brand/zonda-isotipo.svg#color" alt="" width="36" height="36" />
+            <span className="font-wordmark text-[1.375rem] leading-none tracking-[-0.045em]">zonda market</span>
           </Link>
           <Link to="/cuenta" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
             Mi cuenta

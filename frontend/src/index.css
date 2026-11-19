@@ -1,7 +1,16 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
 @theme {
   --font-sans: "Inter Variable", "Segoe UI", sans-serif;
+  --font-wordmark: "Bricolage Grotesque", "Inter Variable", sans-serif;
   --font-mono: "IBM Plex Mono", Consolas, monospace;
   --color-background: #f8fafc;
   --color-foreground: #0f172a;
@@ -21,7 +30,7 @@
   --color-destructive: #b91c1c;
   --color-destructive-soft: #fef2f2;
   --color-success: #047857;
-  --color-brand: #ef590c;
+  --color-brand: #ff7d3b;
   --color-brand-ink: #12192b;
   --color-hero: #12192b;
   --color-hero-panel: #202a32;
