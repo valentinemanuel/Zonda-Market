@@ -2,6 +2,8 @@ package com.zondamarket.catalog.service;
 
 import com.zondamarket.catalog.domain.Category;
 import com.zondamarket.catalog.domain.Listing;
+import com.zondamarket.catalog.domain.Listing.Status;
+import com.zondamarket.catalog.domain.ListingImage;
 import com.zondamarket.catalog.domain.ListingSku;
 import com.zondamarket.catalog.dto.CategoryResponse;
 import com.zondamarket.catalog.dto.ListingDtos.ListingResponse;
@@ -11,12 +13,19 @@ import com.zondamarket.catalog.dto.ListingDtos.PublicationRequest;
 import com.zondamarket.catalog.dto.ListingDtos.SkuPatch;
 import com.zondamarket.catalog.dto.ListingDtos.SkuRequest;
 import com.zondamarket.catalog.dto.ListingDtos.SkuResponse;
+import com.zondamarket.catalog.dto.ListingMediaDtos.ImageResponse;
+import com.zondamarket.catalog.dto.ListingMediaDtos.ListingDetailResponse;
+import com.zondamarket.catalog.dto.ListingMediaDtos.PublicSku;
 import com.zondamarket.catalog.repository.CategoryRepository;
+import com.zondamarket.catalog.repository.ListingImageRepository;
+import com.zondamarket.catalog.repository.ListingMediaStore;
 import com.zondamarket.catalog.repository.ListingRepository;
 import com.zondamarket.catalog.repository.ListingSkuRepository;
 import com.zondamarket.identity.domain.UserAccount.Role;
+import com.zondamarket.identity.dto.ProfileDtos.SellerResponse;
 import com.zondamarket.identity.repository.SellerProfileRepository;
 import com.zondamarket.shared.errors.ApiProblemException;
+import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,14 +47,21 @@ public class ListingService {
     private final CategoryRepository categories;
     private final SellerProfileRepository sellers;
     private final ObjectMapper json;
+    private final ListingImageRepository images;
+    private final ListingMediaStore media;
+    private final Clock clock;
 
     ListingService(ListingRepository listings, ListingSkuRepository skus, CategoryRepository categories,
-                   SellerProfileRepository sellers, ObjectMapper json) {
+                   SellerProfileRepository sellers, ObjectMapper json, ListingImageRepository images,
+                   ListingMediaStore media, Clock clock) {
         this.listings = listings;
         this.skus = skus;
         this.categories = categories;
         this.sellers = sellers;
         this.json = json;
+        this.images = images;
+        this.media = media;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +80,7 @@ public class ListingService {
     public ListingResponse get(UUID accountId, UUID id) {
         Listing listing = listings.findByIdAndSellerIdAndDeletedFalse(id, sellerId(accountId))
                 .orElseThrow(ListingService::missingListing);
-        return ListingResponse.from(listing, listingSkus(id));
+        return ListingResponse.from(listing, listingSkus(id), listingImages(id));
     }
 
     @Transactional
@@ -73,7 +89,7 @@ public class ListingService {
         requireLeaf(request.categoryId());
         validateListing(request.title(), request.description(), request.specs());
         return ListingResponse.from(listings.save(new Listing(seller, request.categoryId(), request.title(),
-                request.description(), request.specs())), List.of());
+                request.description(), request.specs())), List.of(), List.of());
     }
 
     @Transactional
@@ -103,7 +119,7 @@ public class ListingService {
         } catch (OptimisticLockingFailureException exception) {
             throw staleVersion();
         }
-        return ListingResponse.from(listing, variants);
+        return ListingResponse.from(listing, variants, listingImages(id));
     }
 
     @Transactional
@@ -125,6 +141,65 @@ public class ListingService {
         Map<String, String> attributes = validateAttributes(listing, updatedAttributes);
         sku.edit(attributes, orCurrent(request.price(), sku.getPrice()));
         return saveSku(sku);
+    }
+
+    @Transactional
+    public ListingResponse publish(UUID account, UUID id, UUID traceId) {
+        Listing listing = lockListing(account, id);
+        List<ListingSku> variants = listingSkus(id);
+        List<ListingImage> gallery = listingImages(id);
+        var category = categories.findLeaf(listing.getCategoryId());
+        if (category.isEmpty() || variants.isEmpty() || gallery.isEmpty()
+                || listing.getTitle().isBlank() || listing.getDescription().isBlank()
+                || variants.stream().anyMatch(sku -> !matchesSchema(category.orElseThrow(), sku.getAttributes()))) {
+            throw new ApiProblemException(HttpStatus.CONFLICT, "LISTING_INCOMPLETE",
+                    "Completá la ficha, una variante vigente y al menos una imagen para publicar.");
+        }
+        Status previous = listing.getStatus();
+        if (previous != Status.ACTIVA) {
+            listing.publish();
+            media.recordStatusChange(id, account, traceId, previous, Status.ACTIVA, clock.instant());
+            listings.flush();
+        }
+        return ListingResponse.from(listing, variants, gallery);
+    }
+
+    @Transactional
+    public ListingResponse archive(UUID account, UUID id, UUID traceId) {
+        Listing listing = lockListing(account, id);
+        if (listing.getStatus() == Status.BORRADOR) {
+            throw new ApiProblemException(HttpStatus.CONFLICT, "LISTING_NOT_ACTIVE", "Publicá la ficha antes de archivarla.");
+        }
+        if (listing.getStatus() == Status.ACTIVA) {
+            listing.archive();
+            media.recordStatusChange(id, account, traceId, Status.ACTIVA, Status.ARCHIVADA, clock.instant());
+            listings.flush();
+        }
+        return ListingResponse.from(listing, listingSkus(id), listingImages(id));
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public ListingDetailResponse publicListing(String slug) {
+        if (slug.length() > 200) {
+            throw missingListing();
+        }
+        Listing listing = listings.findBySlugAndStatusAndDeletedFalse(slug, Status.ACTIVA)
+                .orElseThrow(ListingService::missingListing);
+        var seller = sellers.findByIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(listing.getSellerId(), Role.SELLER)
+                .orElseThrow(ListingService::missingListing);
+        var category = categories.findLeaf(listing.getCategoryId()).orElseThrow(ListingService::missingListing);
+        var gallery = listingImages(listing.getId()).stream().map(ImageResponse::from).toList();
+        var variants = listingSkus(listing.getId()).stream().map(PublicSku::from).toList();
+        if (variants.isEmpty() || gallery.isEmpty()) {
+            throw missingListing();
+        }
+        return new ListingDetailResponse(listing.getId(), listing.getSlug(), listing.getTitle(),
+                listing.getDescription(), listing.getSpecs(), CategoryResponse.from(category),
+                SellerResponse.from(seller), gallery, variants);
+    }
+
+    private List<ListingImage> listingImages(UUID id) {
+        return images.findAllByListingIdAndDeletedFalseOrderByPositionAscIdAsc(id);
     }
 
     private SkuResponse saveSku(ListingSku sku) {
@@ -152,7 +227,7 @@ public class ListingService {
                         "Activá tu perfil de vendedor para gestionar publicaciones.")).getId();
     }
 
-    private Listing lockListing(UUID accountId, UUID id) {
+    Listing lockListing(UUID accountId, UUID id) {
         return listings.findLockedByIdAndSellerIdAndDeletedFalse(id, sellerId(accountId))
                 .orElseThrow(ListingService::missingListing);
     }

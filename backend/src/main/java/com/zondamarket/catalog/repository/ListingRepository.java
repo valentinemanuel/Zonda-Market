@@ -1,6 +1,7 @@
 package com.zondamarket.catalog.repository;
 
 import com.zondamarket.catalog.domain.Listing;
+import com.zondamarket.catalog.domain.Listing.Status;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
     List<Listing> findAllBySellerIdAndDeletedFalseOrderByCreatedAtDescIdAsc(UUID sellerId);
 
     Optional<Listing> findByIdAndSellerIdAndDeletedFalse(UUID id, UUID sellerId);
+
+    Optional<Listing> findBySlugAndStatusAndDeletedFalse(String slug, Status status);
 
     // Serializes category changes with variant commands so both use a consistent schema.
     @Lock(LockModeType.PESSIMISTIC_WRITE)

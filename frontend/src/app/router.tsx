@@ -15,6 +15,7 @@ export const router = createBrowserRouter([
       { path: "vendedor/publicaciones", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingsPage }) },
       { path: "vendedor/publicaciones/nueva", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
       { path: "vendedor/publicaciones/:listingId", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
+      { path: "publicaciones/:slug", lazy: async () => ({ Component: (await import("@/features/listings/listing-detail")).PublicListingPage }) },
       { path: "categorias/:id", element: <CategoryPage /> },
       {
         element: <PrivateLayout />,

@@ -55,6 +55,12 @@ Si cambiás el origen de navegación, configurá `MAIL_PUBLIC_ORIGIN` en `.env` 
 2. Verificá tu correo desde Mi cuenta con Mailpit. En **Vender en Zonda**, elegí **Personal** o **Comercio**, completá el nombre y un identificador único y activá el perfil.
 3. En **Panel vendedor**, abrí **Ver ficha pública**. La ficha se puede abrir fuera de sesión. Con otra cuenta verificada, intentá usar el mismo identificador para comprobar el conflicto.
 
+### Imágenes y ficha pública
+
+En **Panel vendedor → Mis publicaciones**, abrí un borrador con una variante, cargá una foto JPEG, PNG o WebP en **Imágenes** y elegí **Vista previa → Publicar ficha**. Abrí **Ver ficha pública** en una ventana privada. Desde el panel, archivá la ficha y recargá el enlace para comprobar que dejó de estar disponible.
+
+Compose usa `MEDIA_PROVIDER=local` por defecto para desarrollo y pruebas. PostgreSQL conserva las imágenes junto al entorno local. Para usar Cloudinary, configurá `MEDIA_PROVIDER=cloudinary`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en el `.env` del servidor antes de levantar el stack. Usá un proveedor fijo por entorno. Cloudinary genera las miniaturas y recibe la invalidación del CDN al retirar una imagen. [Referencia de Cloudinary](https://cloudinary.com/documentation/image_upload_api_reference).
+
 ## Verificación
 
 Desde `backend/`, con Java 21 y Docker, ejecutá `./mvnw verify` (Linux/macOS) o `.\mvnw.cmd verify` (Windows). Las pruebas de integración usan MockMvc y un PostgreSQL 16 de Testcontainers.
@@ -70,6 +76,8 @@ npm run test:e2e
 Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de PostgreSQL, comprueba que el volumen conserva un dato temporal y lo elimina al final. Las capturas se guardan en `frontend/test-results/` y la salida registra el RSS de la JVM.
 
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
+
+Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
 

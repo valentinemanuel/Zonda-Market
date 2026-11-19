@@ -10,6 +10,14 @@ import {
 
 const messages: Record<string, string> = {
   INVALID_REQUEST: "Revisá los valores ingresados.",
+  IMAGE_INVALID: "Elegí una imagen JPEG, PNG o WebP válida.",
+  IMAGE_DIMENSIONS_INVALID: "La imagen admite hasta 12 megapíxeles y 8192 píxeles por lado.",
+  IMAGE_TOO_LARGE: "La imagen admite hasta 5 MiB.",
+  IMAGE_LIMIT_REACHED: "La publicación admite hasta seis imágenes.",
+  IMAGE_REQUIRED: "Agregá otra imagen o archivá la ficha antes de retirar esta foto.",
+  IMAGE_VALIDATION_BUSY: "La validación está ocupada. Volvé a intentar.",
+  MEDIA_UNAVAILABLE: "El proveedor de imágenes no está disponible. Volvé a intentar.",
+  LISTING_INCOMPLETE: "Completá la ficha, una variante vigente y al menos una imagen para publicar.",
   UNAUTHENTICATED: "Tu sesión venció. Volvé a ingresar.",
   SPECS_FORMAT_INVALID: "Ingresá un objeto JSON válido para las especificaciones.",
   CATEGORY_NOT_LEAF: "Elegí una categoría final disponible.",
@@ -23,7 +31,7 @@ const messages: Record<string, string> = {
   VERSION_CONFLICT: "Hay cambios más recientes. Recargá la publicación para seguir editando.",
 };
 
-function useSave() {
+export function useSave() {
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string }>();
@@ -40,7 +48,7 @@ function useSave() {
       setSuccess(confirmation);
     } catch (failure) {
       const code = failure instanceof InvalidSpecs ? "SPECS_FORMAT_INVALID"
-        : failure instanceof ApiError ? failure.status === 401 ? "UNAUTHENTICATED" : failure.code ?? "" : "";
+        : failure instanceof ApiError ? failure.status === 401 ? "UNAUTHENTICATED" : failure.status === 413 ? "IMAGE_TOO_LARGE" : failure.code ?? "" : "";
       const message = messages[code] ?? "No pudimos guardar los cambios. Volvé a intentar.";
       setError({ code, message });
     } finally {
