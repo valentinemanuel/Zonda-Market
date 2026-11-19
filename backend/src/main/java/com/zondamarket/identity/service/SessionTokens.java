@@ -60,7 +60,8 @@ class SessionTokens {
         if (expiry.isAfter(session.getExpiresAt())) {
             expiry = session.getExpiresAt();
         }
-        return encode(claims(session, ACCESS, now, expiry).id(UUID.randomUUID().toString()));
+        return encode(claims(session, ACCESS, now, expiry).id(UUID.randomUUID().toString())
+                .claim("roles", List.of(session.getAccount().getRole().name())));
     }
 
     String issueRefresh(RefreshSession session, Instant now, String jti) {

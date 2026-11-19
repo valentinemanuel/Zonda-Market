@@ -210,6 +210,171 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+    patch:
+      summary: Actualizar el nombre de la cuenta
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Cuenta actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/me/addresses:
+    get:
+      summary: Listar mis direcciones activas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de direcciones de la cuenta.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AddressResponse'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+    post:
+      summary: Guardar una dirección en Argentina
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+      responses:
+        '201':
+          description: Dirección guardada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/me/addresses/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Actualizar los campos enviados de mi dirección
+      description: Los campos omitidos o con valor null conservan el dato previo.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressPatch'
+      responses:
+        '200':
+          description: Dirección actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/AddressNotFound'
+    delete:
+      summary: Dar de baja mi dirección
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Dirección dada de baja.
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/AddressNotFound'
+  /api/v1/me/seller-profile:
+    get:
+      summary: Consultar mi perfil de vendedor activo
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil del vendedor autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerProfileResponse'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SellerNotFound'
+    post:
+      summary: Activar mi perfil de vendedor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SellerActivationRequest'
+      responses:
+        '201':
+          description: Perfil de vendedor creado y rol actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerProfileResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerActivationForbidden'
+        '409':
+          $ref: '#/components/responses/SellerActivationConflict'
+  /api/v1/sellers/{slug}:
+    get:
+      summary: Consultar ficha pública y reputación inicial
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+            pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+      responses:
+        '200':
+          description: Ficha pública del vendedor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerProfileResponse'
+        '404':
+          $ref: '#/components/responses/SellerNotFound'
   /oauth2/authorization/google:
     get:
       summary: Iniciar autorización con Google
@@ -473,6 +638,30 @@ components:
       schema:
         type: string
   responses:
+    AddressNotFound:
+      description: Dirección ausente, dada de baja o de otra cuenta (ADDRESS_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    SellerNotFound:
+      description: Perfil vendedor activo ausente (SELLER_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    SellerActivationForbidden:
+      description: Correo pendiente (EMAIL_NOT_VERIFIED) o rol sin acceso a la activación (SELLER_ACTIVATION_FORBIDDEN).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    SellerActivationConflict:
+      description: Perfil ya activado (SELLER_ALREADY_ACTIVE) o identificador ocupado (SELLER_SLUG_IN_USE).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     InvalidRequest:
       description: Datos inválidos (INVALID_REQUEST).
       content:
@@ -597,8 +786,11 @@ components:
             $ref: '#/components/schemas/Role'
     AccountResponse:
       type: object
-      required: [id, email, emailVerified, roles]
+      required: [id, email, emailVerified, roles, displayName]
       properties:
+        displayName:
+          type: [string, 'null']
+          maxLength: 80
         id:
           type: string
           format: uuid
@@ -611,6 +803,105 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Role'
+    ProfileUpdate:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+    AddressRequest:
+      type: object
+      required: [street, city, provinceCode, postalCode, country]
+      properties:
+        street:
+          type: string
+          minLength: 1
+          maxLength: 140
+        city:
+          type: string
+          minLength: 1
+          maxLength: 80
+        provinceCode:
+          type: string
+          pattern: '^AR-[ABCDEFGHJKLMNPQRSTUVWXYZ]$'
+          description: Código ISO 3166-2 de provincia o CABA.
+        postalCode:
+          type: string
+          pattern: '^([0-9]{4}|[A-Z][0-9]{4}[A-Z]{3})$'
+        country:
+          type: string
+          const: AR
+    AddressPatch:
+      type: object
+      properties:
+        street:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 140
+        city:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 80
+        provinceCode:
+          type: [string, 'null']
+          pattern: '^AR-[ABCDEFGHJKLMNPQRSTUVWXYZ]$'
+          description: Código ISO 3166-2 de provincia o CABA.
+        postalCode:
+          type: [string, 'null']
+          pattern: '^([0-9]{4}|[A-Z][0-9]{4}[A-Z]{3})$'
+        country:
+          type: [string, 'null']
+          enum: [AR, null]
+    AddressResponse:
+      allOf:
+        - $ref: '#/components/schemas/AddressRequest'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+    SellerType:
+      type: string
+      enum: [PERSONAL, COMERCIO]
+    SellerActivationRequest:
+      type: object
+      required: [type, displayName, slug]
+      properties:
+        type:
+          $ref: '#/components/schemas/SellerType'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        slug:
+          type: string
+          description: Se quitan acentos y espacios externos y se normalizan mayúsculas y separadores. El resultado tiene 3 a 50 caracteres.
+        bio:
+          type: [string, 'null']
+          maxLength: 500
+    SellerProfileResponse:
+      type: object
+      required: [type, displayName, slug, bio, reviewCount, averageRating]
+      properties:
+        type:
+          $ref: '#/components/schemas/SellerType'
+        displayName:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+        bio:
+          type: string
+        reviewCount:
+          type: integer
+          minimum: 0
+        averageRating:
+          type: [number, 'null']
+          minimum: 1
+          maximum: 5
     Role:
       type: string
       enum: [USER, SELLER, ADMIN]

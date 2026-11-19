@@ -2,7 +2,7 @@ import { ApiError, request } from "@/shared/api/http-client";
 
 type Credentials = { email: string; password: string };
 type Access = { accessToken: string; expiresIn: number; roles: string[] };
-export type Account = { id: string; email: string; emailVerified: boolean; roles: string[] };
+export type Account = { id: string; email: string; emailVerified: boolean; roles: string[]; displayName: string | null };
 
 let accessToken: string | null = null;
 let pendingRefresh: Promise<string> | undefined;
@@ -94,6 +94,10 @@ function refresh(rejectedToken: string | null, revision: number): Promise<string
     }
   }).finally(() => { pendingRefresh = undefined; });
   return pendingRefresh;
+}
+
+export function renewSession() {
+  return refresh(accessToken, sessionRevision);
 }
 
 export async function authenticatedRequest(path: string, init: RequestInit = {}): Promise<Response> {

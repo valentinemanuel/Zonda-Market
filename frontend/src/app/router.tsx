@@ -18,6 +18,9 @@ export const router = createBrowserRouter([
         hydrateFallbackElement: <p role="status">Cargando…</p>,
         children: [
           { path: "cuenta", element: <AccountPage /> },
+          { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
+          { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
+          { path: "vendedores/:slug", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).PublicSellerPage }) },
           { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
           { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },
           { path: "recuperar-acceso", lazy: async () => ({ Component: (await import("@/features/auth/email-link-pages")).PasswordRequestPage }) },

@@ -15,6 +15,9 @@ public class UserAccount extends BaseEntity {
     @Column(nullable = false, length = 254)
     private String email;
 
+    @Column(length = 80)
+    private String displayName;
+
     @Column(length = 60)
     private String passwordHash;
 
@@ -34,6 +37,16 @@ public class UserAccount extends BaseEntity {
     }
 
     public String getEmail() { return email; }
+    public String getDisplayName() { return displayName; }
+
+    public void rename(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void becomeSeller() {
+        role = Role.SELLER;
+    }
+
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public boolean isEmailVerified() { return emailVerified; }

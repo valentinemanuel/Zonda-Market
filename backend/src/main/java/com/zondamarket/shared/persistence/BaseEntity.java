@@ -30,6 +30,10 @@ public abstract class BaseEntity {
         return id;
     }
 
+    protected void markDeleted() {
+        deleted = true;
+    }
+
     @PrePersist
     protected void initializeTimestamps() {
         createdAt = Instant.now();

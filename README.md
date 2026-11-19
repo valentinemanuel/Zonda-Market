@@ -35,13 +35,25 @@ Desde la UI, abrí **Mi cuenta** para ingresar o crear una cuenta. El frontend y
 
 Google es opcional. Sin el cliente configurado, el ingreso con correo y contraseña sigue disponible. Las pruebas automatizadas usan un emisor OIDC de prueba y respuestas de interfaz simuladas.
 
-### Verificación de correo y recuperación
+#### Perfil, direcciones y vendedor
+
+1. Ingresá a [Mi cuenta](http://localhost:3000/cuenta), guardá tu nombre de perfil y abrí **Mis direcciones**. Agregá una dirección de Argentina. Probá editarla y darla de baja.
+2. Verificá tu correo desde Mi cuenta con Mailpit. En **Vender en Zonda**, elegí **Personal** o **Comercio**, completá el nombre y un identificador único y activá el perfil.
+3. En **Panel vendedor**, abrí **Ver ficha pública**. La ficha se puede abrir fuera de sesión. Con otra cuenta verificada, intentá usar el mismo identificador para comprobar el conflicto.
+
+## Verificación de correo y recuperación
 
 1. Con Compose arriba y `MAIL_PROVIDER=mailpit`, abrí [Zonda Market](http://localhost:3000/registro) y registrá un correo ficticio como `comprador@example.test`.
 2. En **Mi cuenta**, elegí **Enviar enlace de verificación**. Abrí el mensaje en [Mailpit](http://127.0.0.1:8025), seguí el enlace y elegí **Confirmar correo**. Volvé a **Mi cuenta** y comprobá que figure **Verificado**.
 3. En **Ingresar**, elegí **Olvidé mi contraseña**, pedí el enlace y abrilo desde Mailpit. Guardá una nueva contraseña. Comprobá que la anterior falla, que las sesiones anteriores deben volver a ingresar y que reutilizar el enlace muestra la opción de pedir uno nuevo. El enlace de recuperación vence a los 30 minutos y el de verificación a las 12 horas.
 
 Si cambiás el origen de navegación, configurá `MAIL_PUBLIC_ORIGIN` en `.env` con ese mismo origen. Para la demo con [Resend](https://resend.com/docs/api-reference/emails/send-email), configurá `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `MAIL_FROM` con un remitente autorizado y `MAIL_PUBLIC_ORIGIN` con el origen HTTPS. Mantené `.env` local y el backend detrás del proxy que fija la IP del cliente. El envío registra el ID lógico del evento, los intentos y el ID que devuelve el proveedor.
+
+### Perfil, direcciones y vendedor
+
+1. Ingresá a [Mi cuenta](http://localhost:3000/cuenta), guardá tu nombre de perfil y abrí **Mis direcciones**. Agregá una dirección de Argentina. Probá editarla y darla de baja.
+2. Verificá tu correo desde Mi cuenta con Mailpit. En **Vender en Zonda**, elegí **Personal** o **Comercio**, completá el nombre y un identificador único y activá el perfil.
+3. En **Panel vendedor**, abrí **Ver ficha pública**. La ficha se puede abrir fuera de sesión. Con otra cuenta verificada, intentá usar el mismo identificador para comprobar el conflicto.
 
 ## Verificación
 
@@ -58,6 +70,8 @@ npm run test:e2e
 Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de PostgreSQL, comprueba que el volumen conserva un dato temporal y lo elimina al final. Las capturas se guardan en `frontend/test-results/` y la salida registra el RSS de la JVM.
 
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
+
+Para repetir E1-04, ejecutá `npm run test:e2e -- profile` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\\mvnw.cmd verify "-Dit.test=ProfileContractIT"` en PowerShell. El contrato prueba permisos, baja lógica, activación concurrente, renovación, conflicto de slug y campos públicos.
 
 Para repetir E1-03, ejecutá `npm run test:e2e -- identity-email` desde `frontend/` con Compose y Mailpit arriba. Si usás puertos alternativos, configurá `ZONDA_SMOKE_URL` y `ZONDA_MAILPIT_URL` para Playwright. Desde `backend/`, ejecutá `.\\mvnw.cmd verify "-Dit.test=IdentityEmailContractIT"` en PowerShell. El contrato cubre expiración, consumo concurrente, revocación, límites y reintento con el mismo evento.
 
