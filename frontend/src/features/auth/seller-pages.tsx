@@ -28,7 +28,10 @@ export function SellerPanelPage() {
       {seller.data && (
         <>
           <p>El perfil de {seller.data.displayName} está activo.</p>
-          <Link className={profileLink} to={`/vendedores/${seller.data.slug}`}>Ver ficha pública</Link>
+          <div className="flex flex-wrap gap-x-4">
+            <Link className={profileLink} to="/vendedor/publicaciones">Mis publicaciones</Link>
+            <Link className={profileLink} to={`/vendedores/${seller.data.slug}`}>Ver ficha pública</Link>
+          </div>
         </>
       )}
       <div><Link className={profileLink} to="/cuenta">Volver a Mi cuenta</Link></div>

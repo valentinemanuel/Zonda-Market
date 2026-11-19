@@ -22,6 +22,7 @@ Declarar los tokens compartidos en `frontend/src/index.css` y consumirlos desde 
 - **Acceso con Google.** El alta y el ingreso muestran una acción secundaria cuando Google está habilitado. El retorno anuncia el intercambio y ofrece volver al ingreso o a la cuenta si se cancela o falla. Seguridad de cuenta muestra el estado de vinculación y permite confirmar la contraseña con un formulario en la misma tarjeta.
 
 - **Categoría y catálogo.** Cabecera y navegación compartidas, búsqueda, tarjetas de categoría y una grilla de productos. Las tarjetas de producto reservan una imagen cuadrada, precio, vendedor y disponibilidad. Mostrar descuentos, reputación y envíos cuando existan datos que los respalden.
+- **Publicaciones del vendedor.** El panel enlaza al listado de borradores. El editor toma los bloques de descripción y variantes de Ficha de producto y permite alternar con pestañas que admiten las flechas del teclado. Los atributos se eligen según la categoría. En móvil los campos se apilan y la tabla agrupa código con atributos y precio con stock. El guardado anuncia progreso, éxito y errores. Ante un conflicto de versión, la recarga explícita recupera los datos persistidos.
 - **Ficha.** Galería, información y selección de variantes, acción principal, vendedor, preguntas y reputación. En móvil, ordenar contenido y acciones siguiendo el flujo de lectura.
 - **Checkout.** Dirección, grupos de productos por vendedor, medio de pago y resumen con un solo total. Respetar el flujo de pago y los componentes del proveedor definidos en la tarjeta correspondiente.
 
