@@ -916,6 +916,80 @@ paths:
           $ref: '#/components/responses/ListingResourceNotFound'
         '409':
           $ref: '#/components/responses/ListingMediaConflict'
+  /api/v1/seller/skus/{id}/stock-adjustments:
+    parameters:
+      - $ref: '#/components/parameters/SkuPathId'
+    post:
+      summary: Ajustar el stock disponible de un SKU propio
+      description: Una clave repetida con los mismos datos devuelve el movimiento original. El motivo se compara sin espacios exteriores.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9._:-]{1,128}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '200':
+          description: Movimiento persistido o recuperado mediante su clave.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovement'
+        '400':
+          $ref: '#/components/responses/InvalidStockRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/StockConflict'
+  /api/v1/seller/skus/{id}/stock-movements:
+    parameters:
+      - $ref: '#/components/parameters/SkuPathId'
+    get:
+      summary: Consultar el historial de stock de un SKU propio
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Página de movimientos del más nuevo al más antiguo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementPage'
+        '400':
+          $ref: '#/components/responses/InvalidStockRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -923,6 +997,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    SkuPathId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
     ListingSlug:
       in: path
       name: slug
@@ -979,6 +1060,18 @@ components:
       schema:
         type: string
   responses:
+    InvalidStockRequest:
+      description: Parámetros inválidos (INVALID_REQUEST) o ajuste sin cambio o motivo válido (STOCK_ADJUSTMENT_INVALID).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    StockConflict:
+      description: Versión obsoleta, clave reutilizada con otros datos o saldo fuera de rango (VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED, INSUFFICIENT_STOCK o STOCK_LIMIT_EXCEEDED).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     InvalidListingMediaRequest:
       description: Datos inválidos (INVALID_REQUEST, IMAGE_INVALID, IMAGE_DIMENSIONS_INVALID, IMAGE_ALT_INVALID o IMAGE_POSITION_INVALID).
       content:
@@ -1555,6 +1648,80 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicSku'
+    StockAdjustmentRequest:
+      type: object
+      required: [delta, reason, expectedVersion]
+      properties:
+        delta:
+          type: integer
+          format: int32
+          not:
+            const: 0
+          example: -2
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 240
+        expectedVersion:
+          $ref: '#/components/schemas/CatalogVersion'
+    StockMovement:
+      type: object
+      required: [id, skuId, actorId, traceId, delta, reason, beforeStock, afterStock, version, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        skuId:
+          type: string
+          format: uuid
+        actorId:
+          type: string
+          format: uuid
+        traceId:
+          type: string
+          format: uuid
+          description: Correlación de la solicitud original.
+        delta:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        beforeStock:
+          type: integer
+          format: int32
+          minimum: 0
+        afterStock:
+          type: integer
+          format: int32
+          minimum: 0
+        version:
+          $ref: '#/components/schemas/CatalogVersion'
+        createdAt:
+          type: string
+          format: date-time
+    StockMovementPage:
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockMovement'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
     ProblemResponse:
       type: object
       required: [type, title, status, detail, instance, code, traceId, errors]

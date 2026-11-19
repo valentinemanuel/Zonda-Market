@@ -11,6 +11,8 @@ import { fetchListing, fetchListingCategories, fetchListings, listingStatusLabel
   type Listing, type ListingCategory, type ListingImage, type Sku } from "./listing-api";
 import { ListingImageEditor } from "./listing-image-editor";
 import { ListingPreview } from "./listing-preview";
+import { StockEditor } from "./stock-editor";
+import type { StockMovement } from "./stock-api";
 import { attributeEntries, attributeLabel, PublicationForm, SkuForm } from "./listing-forms";
 
 const base = "/vendedor/publicaciones";
@@ -111,6 +113,24 @@ export function ListingEditorPage() {
     });
   }
 
+  function stockSaved(movement: StockMovement) {
+    cache.setQueryData<Listing>(detailKey(revision, listingId!), (current) => current && {
+      ...current,
+      skus: current.skus.map((sku) => sku.id === movement.skuId && sku.version <= movement.version
+        ? { ...sku, availableStock: movement.afterStock, version: movement.version }
+        : sku),
+    });
+    if (detail.data?.slug) void cache.invalidateQueries({ queryKey: ["listing-public", detail.data.slug] });
+  }
+
+  async function reloadStock(skuId: string) {
+    const latest = await fetchListing(listingId!, AbortSignal.timeout(8_000));
+    cache.setQueryData(detailKey(revision, listingId!), latest);
+    const sku = latest.skus.find(({ id }) => id === skuId);
+    if (!sku) throw new Error("La variante no está disponible.");
+    return sku;
+  }
+
   function imagesChanged(images: ListingImage[]) {
     cache.setQueryData<Listing>(detailKey(revision, listingId!), (current) => current && { ...current, images });
     if (detail.data?.slug) void cache.invalidateQueries({ queryKey: ["listing-public", detail.data.slug] });
@@ -158,7 +178,8 @@ export function ListingEditorPage() {
               </CardContent></Card>
             </Tabs.Content>
             <Tabs.Content value="variantes" forceMount className="data-[state=inactive]:hidden">
-              <VariantsPanel key={editorRevision} listing={listing} category={category} saved={skuSaved} reload={() => void reload()} />
+              <VariantsPanel key={editorRevision} listing={listing} category={category} saved={skuSaved} reload={() => void reload()}
+                stockSaved={stockSaved} reloadStock={reloadStock} revision={revision} />
             </Tabs.Content>
             <Tabs.Content value="imagenes" forceMount className="data-[state=inactive]:hidden">
               <ListingImageEditor key={editorRevision} listingId={listing.id} images={listing.images} changed={imagesChanged} />
@@ -182,12 +203,19 @@ export function ListingEditorPage() {
   );
 }
 
-function VariantsPanel({ listing, category, saved, reload }: {
+function VariantsPanel({ listing, category, saved, reload, stockSaved, reloadStock, revision }: {
   listing: Listing; category?: ListingCategory; saved: (sku: Sku) => void; reload: () => void;
+  stockSaved: (movement: StockMovement) => void; reloadStock: (skuId: string) => Promise<Sku>; revision: number;
 }) {
-  const [editing, setEditing] = useState<string>();
+  const [editing, setEditing] = useState<{ id: string; mode: "sku" | "stock" }>();
   const formHeading = useRef<HTMLHeadingElement>(null);
-  const sku = listing.skus.find(({ id }) => id === editing);
+  const sku = listing.skus.find(({ id }) => id === editing?.id);
+  const editingStock = editing?.mode === "stock" && sku;
+
+  function select(id: string, mode: "sku" | "stock") {
+    if (editing?.id === id && editing.mode === mode) formHeading.current?.focus();
+    else setEditing({ id, mode });
+  }
   useEffect(() => {
     if (editing) formHeading.current?.focus();
   }, [editing]);
@@ -208,7 +236,7 @@ function VariantsPanel({ listing, category, saved, reload }: {
                   <th scope="col" className="hidden px-3 py-2 sm:table-cell">Combinación</th>
                   <th scope="col" className="w-[34%] px-2 py-2 sm:w-auto sm:px-3">Precio (ARS)</th>
                   <th scope="col" className="hidden px-3 py-2 sm:table-cell">Stock disponible</th>
-                  {category && <th scope="col" className="px-1 py-2 sm:px-3">Acción</th>}
+                  <th scope="col" className="px-1 py-2 sm:px-3">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -227,11 +255,14 @@ function VariantsPanel({ listing, category, saved, reload }: {
                         <span className="mt-1 block text-xs text-muted-foreground sm:hidden">{item.availableStock} en stock</span>
                       </td>
                       <td className="hidden px-3 py-2 tabular-nums sm:table-cell">{item.availableStock}</td>
-                      {category && <td className="px-1 py-2 sm:px-3">
-                        <Button type="button" variant="outline" className="min-h-11 px-1.5 sm:px-4"
-                          aria-label={"Editar " + item.code}
-                          onClick={() => editing === item.id ? formHeading.current?.focus() : setEditing(item.id)}>Editar</Button>
-                      </td>}
+                      <td className="px-1 py-2 sm:px-3">
+                        <div className="flex flex-col items-start gap-1 sm:flex-row sm:gap-2">
+                          {category && <Button type="button" variant="outline" className="min-h-11 px-1.5 sm:px-4"
+                            aria-label={"Editar " + item.code} onClick={() => select(item.id, "sku")}>Editar</Button>}
+                          <Button type="button" variant="outline" className="min-h-11 px-1.5 sm:px-4"
+                            aria-label={"Ajustar stock de " + item.code} onClick={() => select(item.id, "stock")}>Stock</Button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -240,7 +271,15 @@ function VariantsPanel({ listing, category, saved, reload }: {
           </div>
         )}
       </CardContent></Card>
-      {category ? (
+      {editingStock ? (
+        <Card className="rounded-lg"><CardContent className="space-y-4 px-4 sm:px-6">
+          <h2 ref={formHeading} tabIndex={-1} className="text-lg font-semibold [overflow-wrap:anywhere]">
+            Stock de {editingStock.code}
+          </h2>
+          <StockEditor key={editingStock.id} sku={editingStock} revision={revision} saved={stockSaved}
+            reload={() => reloadStock(editingStock.id)} />
+        </CardContent></Card>
+      ) : category ? (
         <Card className="rounded-lg"><CardContent className="space-y-4 px-4 sm:px-6">
           <h2 ref={formHeading} tabIndex={-1} className="[overflow-wrap:anywhere] text-lg font-semibold">
             {sku ? "Editar " + sku.code : "Agregar variante"}

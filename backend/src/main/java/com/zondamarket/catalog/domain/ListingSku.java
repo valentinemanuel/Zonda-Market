@@ -52,6 +52,10 @@ public class ListingSku extends BaseEntity {
         this.price = price.setScale(2);
     }
 
+    public void changeAvailableStock(int availableStock) {
+        this.availableStock = availableStock;
+    }
+
     public String getCode() { return code; }
     public Map<String, String> getAttributes() { return attributes; }
     public BigDecimal getPrice() { return price; }
