@@ -6,15 +6,10 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { authenticate } from "./session-api";
 import { useGoogleOptions } from "./google-auth";
+import { emailField, newPasswordField, passwordField } from "./credential-fields";
 
-const credentials = z.object({
-  email: z.string().trim().max(254).pipe(z.email("Ingresá un correo válido.")),
-  password: z.string().refine((value) => value.trim().length > 0, "Ingresá tu contraseña.")
-    .refine((value) => new TextEncoder().encode(value).length <= 72, "Usá hasta 72 bytes UTF-8."),
-});
-const registration = credentials.extend({
-  password: credentials.shape.password.min(12, "Usá al menos 12 caracteres."),
-});
+const credentials = z.object({ email: emailField, password: passwordField });
+const registration = credentials.extend({ password: newPasswordField });
 
 export function LoginPage() {
   return <AuthPage mode="login" />;
@@ -79,6 +74,13 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         <Button asChild variant="outline" className="mt-4 min-h-11 w-full">
           <a href="/oauth2/authorization/google">Continuar con Google</a>
         </Button>
+      )}
+      {!createAccount && (
+        <div className="mt-3">
+          <Link className="inline-flex min-h-11 items-center text-primary underline underline-offset-4" to="/recuperar-acceso">
+            Olvidé mi contraseña
+          </Link>
+        </div>
       )}
       <Link className="mt-5 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
         to={createAccount ? "/ingresar" : "/registro"}>

@@ -85,6 +85,9 @@ class IdentitySecurity {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.POST, "/api/v1/me/identities/google/start").authenticated()
                         .requestMatchers(cookieActions).permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/email-verification/request", "/api/v1/auth/email-verification/confirm",
+                                "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/status", "/api/v1/categories/*",
                                 "/api/v1/auth/oauth/google", "/oauth2/authorization/google", "/login/oauth2/code/google",
                                 "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")

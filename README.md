@@ -35,6 +35,14 @@ Desde la UI, abrí **Mi cuenta** para ingresar o crear una cuenta. El frontend y
 
 Google es opcional. Sin el cliente configurado, el ingreso con correo y contraseña sigue disponible. Las pruebas automatizadas usan un emisor OIDC de prueba y respuestas de interfaz simuladas.
 
+### Verificación de correo y recuperación
+
+1. Con Compose arriba y `MAIL_PROVIDER=mailpit`, abrí [Zonda Market](http://localhost:3000/registro) y registrá un correo ficticio como `comprador@example.test`.
+2. En **Mi cuenta**, elegí **Enviar enlace de verificación**. Abrí el mensaje en [Mailpit](http://127.0.0.1:8025), seguí el enlace y elegí **Confirmar correo**. Volvé a **Mi cuenta** y comprobá que figure **Verificado**.
+3. En **Ingresar**, elegí **Olvidé mi contraseña**, pedí el enlace y abrilo desde Mailpit. Guardá una nueva contraseña. Comprobá que la anterior falla, que las sesiones anteriores deben volver a ingresar y que reutilizar el enlace muestra la opción de pedir uno nuevo. El enlace de recuperación vence a los 30 minutos y el de verificación a las 12 horas.
+
+Si cambiás el origen de navegación, configurá `MAIL_PUBLIC_ORIGIN` en `.env` con ese mismo origen. Para la demo con [Resend](https://resend.com/docs/api-reference/emails/send-email), configurá `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `MAIL_FROM` con un remitente autorizado y `MAIL_PUBLIC_ORIGIN` con el origen HTTPS. Mantené `.env` local y el backend detrás del proxy que fija la IP del cliente. El envío registra el ID lógico del evento, los intentos y el ID que devuelve el proveedor.
+
 ## Verificación
 
 Desde `backend/`, con Java 21 y Docker, ejecutá `./mvnw verify` (Linux/macOS) o `.\mvnw.cmd verify` (Windows). Las pruebas de integración usan MockMvc y un PostgreSQL 16 de Testcontainers.
@@ -50,5 +58,7 @@ npm run test:e2e
 Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de PostgreSQL, comprueba que el volumen conserva un dato temporal y lo elimina al final. Las capturas se guardan en `frontend/test-results/` y la salida registra el RSS de la JVM.
 
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
+
+Para repetir E1-03, ejecutá `npm run test:e2e -- identity-email` desde `frontend/` con Compose y Mailpit arriba. Si usás puertos alternativos, configurá `ZONDA_SMOKE_URL` y `ZONDA_MAILPIT_URL` para Playwright. Desde `backend/`, ejecutá `.\\mvnw.cmd verify "-Dit.test=IdentityEmailContractIT"` en PowerShell. El contrato cubre expiración, consumo concurrente, revocación, límites y reintento con el mismo evento.
 
 Para repetir E1-02, ejecutá `npm run test:e2e -- google-auth` desde `frontend/` con Compose arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=GoogleAuthContractIT"` en PowerShell. El contrato prueba PKCE, issuer, audiencia, nonce, alta, vinculación, expiración y consumo único con PostgreSQL 16.

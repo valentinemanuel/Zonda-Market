@@ -5,6 +5,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
 import { GoogleSecurity } from "./google-security";
+import { EmailVerificationAction } from "./email-verification-action";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ export function AccountPage() {
         <dt className="pt-3 text-sm font-medium text-muted-foreground">Estado del correo</dt>
         <dd>{account.data.emailVerified ? "Verificado" : "Pendiente de verificación"}</dd>
       </dl>
+      {!account.data.emailVerified && <EmailVerificationAction key={account.data.id} email={account.data.email} />}
       {logoutError && <p role="alert" className="mt-4 text-sm text-destructive">No pudimos cerrar la sesión. Volvé a intentar.</p>}
       <Button type="button" variant="outline" className="mt-6 min-h-11" disabled={closing}
         onClick={() => void closeSession()}>

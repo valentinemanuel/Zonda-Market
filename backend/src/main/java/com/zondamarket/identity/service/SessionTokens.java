@@ -118,7 +118,7 @@ class SessionTokens {
     static String hash(String jti) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(jti.getBytes(StandardCharsets.US_ASCII)));
+                    .digest(jti.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
