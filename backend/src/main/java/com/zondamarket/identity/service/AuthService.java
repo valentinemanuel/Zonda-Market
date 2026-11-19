@@ -123,8 +123,7 @@ public class AuthService {
     public AccountResponse currentAccount(Jwt bearer) {
         var claims = tokens.access(bearer);
         return sessions.findActiveAccount(claims.familyId(), claims.accountId(), claims.version(), clock.instant())
-                .map(account -> new AccountResponse(account.getId(), account.getEmail(),
-                        account.isEmailVerified(), List.of(account.getRole())))
+                .map(AccountResponse::from)
                 .orElseThrow(() -> new BadCredentialsException("La sesión no es válida."));
     }
 

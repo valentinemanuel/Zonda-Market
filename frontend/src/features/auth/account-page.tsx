@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
 import { GoogleSecurity } from "./google-security";
 import { EmailVerificationAction } from "./email-verification-action";
+import { AccountProfile, AccountSeller } from "./account-profile";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -63,6 +64,8 @@ export function AccountPage() {
         onClick={() => void closeSession()}>
         {closing ? "Cerrando sesión…" : "Cerrar sesión"}
       </Button>
+      <AccountProfile key={`profile-${revision}`} account={account.data} revision={revision} />
+      <AccountSeller key={`seller-${revision}`} account={account.data} revision={revision} />
       <GoogleSecurity key={revision} revision={revision} />
     </>
   );

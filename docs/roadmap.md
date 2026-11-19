@@ -24,6 +24,8 @@ Smoke de etapa: levantar un entorno limpio, comprobar diagnóstico y readiness, 
 | E1-03 | Verificación de correo y recuperación de acceso | E1-01 |
 | E1-04 | Perfil, direcciones y activación de vendedor | E1-01, E1-03 |
 
+Smoke de etapa: registrar una cuenta, comprobar sesión y Google, verificar correo, recuperar acceso, administrar una dirección y activar un perfil vendedor. Consultar la ficha pública y comprobar los permisos de direcciones y panel.
+
 ## Etapa 2 · Catálogo · v0.3
 
 | ID | Entrega | Depende de |
