@@ -50,10 +50,7 @@ public class AuthService {
 
     @Transactional
     public IssuedSession register(RegisterRequest request, String previousRefresh) {
-        if (passwordTooLong(request.password())) {
-            throw new ApiProblemException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
-                    "La contraseña admite hasta 72 bytes UTF-8.");
-        }
+        requirePasswordLength(request.password());
         UserAccount account = new UserAccount(request.email(), passwords.encode(request.password()));
         try {
             accounts.saveAndFlush(account);
@@ -69,7 +66,8 @@ public class AuthService {
 
     @Transactional
     public IssuedSession login(LoginRequest request, String previousRefresh) {
-        var account = accounts.findByEmailAndDeletedFalse(request.email());
+        // Serialize password-based session issuance with password changes.
+        var account = accounts.lockByEmailAndDeletedFalse(request.email());
         verifyPassword(account, request.password());
         return replaceFamily(account.orElseThrow(), previousRefresh);
     }
@@ -167,6 +165,13 @@ public class AuthService {
 
     public static ApiProblemException unauthorized() {
         return new ApiProblemException(HttpStatus.UNAUTHORIZED, "INVALID_SESSION", "La sesión no es válida.");
+    }
+
+    static void requirePasswordLength(String password) {
+        if (passwordTooLong(password)) {
+            throw new ApiProblemException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+                    "La contraseña admite hasta 72 bytes UTF-8.");
+        }
     }
 
     private static boolean passwordTooLong(String password) {

@@ -249,6 +249,66 @@ paths:
                 format: uri-reference
             Set-Cookie:
               $ref: '#/components/headers/GoogleBrowserCookie'
+  /api/v1/auth/email-verification/request:
+    post:
+      summary: Solicitar enlace de verificación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLinkRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/EmailLinkAccepted'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+  /api/v1/auth/email-verification/confirm:
+    post:
+      summary: Confirmar correo con un enlace de un solo uso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationConfirmation'
+      responses:
+        '204':
+          description: Correo verificado.
+        '400':
+          $ref: '#/components/responses/InvalidEmailLink'
+        '429':
+          $ref: '#/components/responses/EmailLinkRateLimit'
+  /api/v1/auth/password-reset/request:
+    post:
+      summary: Solicitar enlace de recuperación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLinkRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/EmailLinkAccepted'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+  /api/v1/auth/password-reset/confirm:
+    post:
+      summary: Restablecer contraseña y revocar las sesiones de la cuenta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmation'
+      responses:
+        '204':
+          description: Contraseña actualizada y sesiones anteriores revocadas.
+        '400':
+          $ref: '#/components/responses/InvalidEmailLink'
+        '429':
+          $ref: '#/components/responses/EmailLinkRateLimit'
   /api/v1/auth/oauth/google:
     get:
       summary: Indicar si Google está habilitado para el host web
@@ -419,6 +479,20 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemResponse'
+    EmailLinkAccepted:
+      description: Aceptación genérica sin cuerpo para todo correo válido, incluido un correo desconocido o sujeto al límite.
+    InvalidEmailLink:
+      description: Datos inválidos (INVALID_REQUEST) o enlace vencido, consumido o de otra finalidad (INVALID_EMAIL_LINK).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    EmailLinkRateLimit:
+      description: Límite de confirmaciones por IP (EMAIL_LINK_RATE_LIMIT).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     CsrfRejected:
       description: Origin o cabecera CSRF inválidos (CSRF_REJECTED).
       content:
@@ -452,6 +526,35 @@ components:
         type: string
         format: uuid
   schemas:
+    EmailLinkRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    EmailLinkToken:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    EmailVerificationConfirmation:
+      type: object
+      required: [token]
+      properties:
+        token:
+          $ref: '#/components/schemas/EmailLinkToken'
+    PasswordResetConfirmation:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          $ref: '#/components/schemas/EmailLinkToken'
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 72
+          description: Admite hasta 72 bytes UTF-8.
     RegisterRequest:
       type: object
       required: [email, password]

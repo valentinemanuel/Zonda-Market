@@ -1,10 +1,17 @@
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
 zonda:
   auth:
     jwt-key: ${AUTH_JWT_KEY}
     allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+  mail:
+    provider: ${MAIL_PROVIDER:mailpit}
+    public-origin: ${MAIL_PUBLIC_ORIGIN:http://localhost:3000}
+    from: ${MAIL_FROM:avisos@zonda.test}
+    mailpit-url: ${MAILPIT_URL:http://localhost:8025}
+    resend-api-key: ${RESEND_API_KEY:}
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
     client-secret: ${GOOGLE_CLIENT_SECRET:}

@@ -37,4 +37,12 @@ public class UserAccount extends BaseEntity {
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public boolean isEmailVerified() { return emailVerified; }
+
+    public void verifyEmail() {
+        emailVerified = true;
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }
