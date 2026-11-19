@@ -7,13 +7,16 @@ import { getSessionRevision, subscribeToSession } from "@/features/auth/session-
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { fetchListing, fetchListingCategories, fetchListings, type Listing, type ListingCategory, type Sku } from "./listing-api";
+import { fetchListing, fetchListingCategories, fetchListings, listingStatusLabel,
+  type Listing, type ListingCategory, type ListingImage, type Sku } from "./listing-api";
+import { ListingImageEditor } from "./listing-image-editor";
+import { ListingPreview } from "./listing-preview";
 import { attributeEntries, attributeLabel, PublicationForm, SkuForm } from "./listing-forms";
 
 const base = "/vendedor/publicaciones";
 const listKey = (revision: number) => ["private", "listings", revision] as const;
 const detailKey = (revision: number, id: string) => [...listKey(revision), id] as const;
-const tabClass = "min-h-11 rounded-md px-4 text-sm font-semibold text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
+const tabClass = "min-h-11 rounded-md px-1.5 text-sm font-semibold sm:px-3 text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
 
 function ListingHeader({ title, backTo = base, backLabel = "Volver a Publicaciones" }: {
   title: string; backTo?: string; backLabel?: string;
@@ -61,7 +64,7 @@ export function ListingsPage() {
                     <Link className={profileLink + " min-w-0 [overflow-wrap:anywhere] text-base font-medium"} to={base + "/" + listing.id}>
                       {listing.title}
                     </Link>
-                    <span className="text-sm text-muted-foreground">Borrador</span>
+                    <span className="text-sm text-muted-foreground">{listingStatusLabel[listing.status]}</span>
                   </li>
                 ))}
               </ul>
@@ -79,6 +82,8 @@ export function ListingEditorPage() {
   const [editorRevision, setEditorRevision] = useState(0);
   const [reloading, setReloading] = useState(false);
   const tabs = useRef<HTMLDivElement>(null);
+  const imagesTab = useRef<HTMLButtonElement>(null);
+  const [activeTab, setActiveTab] = useState("ficha");
   const cache = useQueryClient();
   const navigate = useNavigate();
   const categories = useQuery({
@@ -94,6 +99,7 @@ export function ListingEditorPage() {
   function listingSaved(listing: Listing) {
     cache.setQueryData(detailKey(revision, listing.id), listing);
     void cache.invalidateQueries({ queryKey: listKey(revision), exact: true });
+    if (listing.slug) void cache.invalidateQueries({ queryKey: ["listing-public", listing.slug] });
     if (!listingId) void navigate(base + "/" + listing.id, { replace: true });
   }
 
@@ -103,6 +109,11 @@ export function ListingEditorPage() {
       const exists = current.skus.some(({ id }) => id === sku.id);
       return { ...current, skus: exists ? current.skus.map((item) => item.id === sku.id ? sku : item) : [...current.skus, sku] };
     });
+  }
+
+  function imagesChanged(images: ListingImage[]) {
+    cache.setQueryData<Listing>(detailKey(revision, listingId!), (current) => current && { ...current, images });
+    if (detail.data?.slug) void cache.invalidateQueries({ queryKey: ["listing-public", detail.data.slug] });
   }
 
   async function reload() {
@@ -126,7 +137,7 @@ export function ListingEditorPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <ListingHeader title={listing?.title ?? (listingId ? "Editar publicación" : "Nueva publicación")} />
-      {listing && <p className="text-sm text-muted-foreground">Borrador</p>}
+      {listing && <p className="text-sm text-muted-foreground">{listingStatusLabel[listing.status]}</p>}
       {(categories.isPending || (listingId && detail.isPending) || reloading) && <p role="status">Cargando publicación…</p>}
       {error && <LoadError error={error} detail={Boolean(listingId)} retry={() => {
         if (categories.isError) void categories.refetch();
@@ -134,18 +145,29 @@ export function ListingEditorPage() {
       }} />}
       {!error && categories.data && (
         listingId ? listing && (
-          <Tabs.Root defaultValue="ficha" key={listing.id + ":" + revision} className="space-y-4">
-            <Tabs.List ref={tabs} aria-label="Editar publicación" className="inline-flex gap-1 rounded-lg border bg-card p-1">
+          <Tabs.Root value={activeTab} onValueChange={setActiveTab} key={listing.id + ":" + revision} className="space-y-4">
+            <Tabs.List ref={tabs} aria-label="Editar publicación" className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-1 min-[365px]:grid-cols-4 sm:inline-flex">
               <Tabs.Trigger className={tabClass} value="ficha">Ficha</Tabs.Trigger>
               <Tabs.Trigger className={tabClass} value="variantes">Variantes</Tabs.Trigger>
+              <Tabs.Trigger ref={imagesTab} className={tabClass} value="imagenes">Imágenes</Tabs.Trigger>
+              <Tabs.Trigger className={tabClass} value="previa">Vista previa</Tabs.Trigger>
             </Tabs.List>
             <Tabs.Content value="ficha" forceMount className="data-[state=inactive]:hidden">
               <Card className="rounded-lg"><CardContent className="px-4 sm:px-6">
-                <PublicationForm key={editorRevision} listing={listing} categories={categories.data} saved={listingSaved} reload={() => void reload()} />
+                <PublicationForm key={editorRevision + ":" + listing.status} listing={listing} categories={categories.data} saved={listingSaved} reload={() => void reload()} />
               </CardContent></Card>
             </Tabs.Content>
             <Tabs.Content value="variantes" forceMount className="data-[state=inactive]:hidden">
               <VariantsPanel key={editorRevision} listing={listing} category={category} saved={skuSaved} reload={() => void reload()} />
+            </Tabs.Content>
+            <Tabs.Content value="imagenes" forceMount className="data-[state=inactive]:hidden">
+              <ListingImageEditor key={editorRevision} listingId={listing.id} images={listing.images} changed={imagesChanged} />
+            </Tabs.Content>
+            <Tabs.Content value="previa">
+              <ListingPreview listing={listing} category={category} sessionRevision={revision} updated={listingSaved} editImages={() => {
+                setActiveTab("imagenes");
+                imagesTab.current?.focus();
+              }} />
             </Tabs.Content>
           </Tabs.Root>
         ) : (

@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -48,6 +49,14 @@ public class RestExceptionAdvice extends ResponseEntityExceptionHandler {
                 .map(error -> new FieldError(error.getField(), error.getDefaultMessage()))
                 .toList();
         return invalidRequest(headers, status, request, errors);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        var problem = ProblemDetail.forStatusAndDetail(status, "La imagen admite hasta 5 MiB.");
+        problem.setProperty("code", "IMAGE_TOO_LARGE");
+        return createResponseEntity(problem, headers, status, request);
     }
 
     private ResponseEntity<Object> invalidRequest(

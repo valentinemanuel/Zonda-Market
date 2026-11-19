@@ -9,5 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SellerProfileRepository extends JpaRepository<SellerProfile, UUID> {
     Optional<SellerProfile> findByAccountIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(UUID accountId, Role role);
 
+    Optional<SellerProfile> findByIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(UUID id, Role role);
+
     Optional<SellerProfile> findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountRole(String slug, Role role);
 }

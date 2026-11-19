@@ -100,7 +100,7 @@ export function renewSession() {
   return refresh(accessToken, sessionRevision);
 }
 
-export async function authenticatedRequest(path: string, init: RequestInit = {}): Promise<Response> {
+export async function authenticatedRequest(path: string, init: RequestInit = {}, timeoutMs?: number): Promise<Response> {
   if (!path.startsWith("/api/v1/")) {
     throw new TypeError("La solicitud autenticada debe usar una ruta local de la API.");
   }
@@ -112,7 +112,7 @@ export async function authenticatedRequest(path: string, init: RequestInit = {})
     checkRevision(revision);
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${bearer}`);
-    return request(path, { ...init, headers });
+    return request(path, { ...init, headers }, timeoutMs);
   };
   try {
     return await send(token);

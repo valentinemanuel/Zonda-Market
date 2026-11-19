@@ -19,6 +19,10 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 - El código SKU se normaliza a mayúsculas, es inmutable y conserva unicidad global e histórica. La combinación de atributos de un SKU es única por publicación y el orden de claves no altera su identidad. La ficha y cada SKU controlan su propia versión. Una edición con versión obsoleta produce `409 VERSION_CONFLICT`.
 - El SKU guarda el precio positivo en ARS con hasta dos decimales. Durante el alta se fija el stock disponible inicial y el reservado nace en cero. La edición de la variante acepta precio y atributos. Los ajustes de inventario siguen el flujo de E2-03 y ambos saldos son no negativos.
 
+- Publicar exige ficha completa, categoría hoja, una variante vigente y al menos una imagen. La ficha pública existe mientras la publicación esté activa y su vendedor esté habilitado. Archivar devuelve la ficha a gestión privada. El slug se conserva al archivar, renombrar o volver a publicar. Los cambios de estado registran actor, instante y correlación.
+- La galería admite hasta seis imágenes JPEG, PNG o WebP decodificables de hasta 5 MiB, 12 megapíxeles y 8192 píxeles por lado. El orden es contiguo desde cero y el texto alternativo admite hasta 160 caracteres. Una publicación activa conserva al menos una imagen.
+- Retirar una imagen aplica baja lógica y encola el borrado en la misma transacción. La carga reserva una operación de limpieza antes de contactar al proveedor, que se cancela cuando se guarda la referencia. Una respuesta incierta deja la limpieza programada. El worker reintenta y confirma el borrado por identificador.
+
 ## Carrito, orden y reserva
 
 - El checkout confirma una `OrdenPago` y una `SubOrden` por vendedor en la misma transacción. Se congelan SKU, nombre, cantidad, precio, comisión, dirección y costo de envío. Los históricos conservan esos valores.

@@ -13,8 +13,8 @@ export async function getJson(path: string, signal: AbortSignal): Promise<unknow
   return (await request(path, { signal })).json();
 }
 
-export async function request(path: string, init: RequestInit = {}): Promise<Response> {
-  const timeout = AbortSignal.timeout(8_000);
+export async function request(path: string, init: RequestInit = {}, timeoutMs = 8_000): Promise<Response> {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json, application/problem+json");
   const response = await fetch(path, {
