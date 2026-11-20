@@ -44,11 +44,8 @@ public final class ListingDtos {
         }
     }
 
-    public record ListingSummary(UUID id, String title, Listing.Status status) {
-        public static ListingSummary from(Listing listing) {
-            return new ListingSummary(listing.getId(), listing.getTitle(), listing.getStatus());
-        }
-    }
+    public record ListingSummary(UUID id, String title, Listing.Status status, String slug,
+                                 String thumbnailUrl, List<SkuResponse> skus) {}
 
     public record ListingResponse(UUID id, UUID categoryId, String title, String description,
                                   Map<String, Object> specs, Listing.Status status, String slug, long version,

@@ -77,7 +77,7 @@ Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de Post
 
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
 
-Para repetir E2-03, ejecutá `npm run test:e2e -- stock` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=StockContractIT"` en PowerShell. En **Mis publicaciones → Variantes → Stock**, sumá cinco unidades, descontá dos y revisá el historial. Intentá descontar más del saldo disponible para comprobar el rechazo.
+Para repetir E2-03, ejecutá `npm run test:e2e -- stock` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=StockContractIT"` en PowerShell. En **Mis publicaciones → Ajustar stock** o desde **Inventario**, sumá cinco unidades, descontá dos y revisá el historial. Intentá descontar más del saldo disponible para comprobar el rechazo.
 
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 

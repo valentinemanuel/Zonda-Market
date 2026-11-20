@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
 import { attributeEntries, attributeLabel } from "./listing-forms";
+import { SpecificationValue } from "./specifications-editor";
 import { fetchPublicListing, type ListingImage, type PublicSku, type ListingDetail } from "./listing-api";
 
 export function listingPublicPath(slug: string) {
@@ -140,12 +141,12 @@ export function ListingDetailView({ detail, preview = false }: { detail: ViewDat
         <p className="whitespace-pre-wrap break-words text-muted-foreground">{detail.description}</p>
       </section>
       {specs.length > 0 && <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Especificaciones</h2>
+        <h2 className="text-lg font-semibold">Características</h2>
         <dl className="divide-y rounded-lg border bg-card">
           {specs.map(([key, value]) => (
             <div key={key} className="grid gap-1 px-4 py-2 [overflow-wrap:anywhere] sm:grid-cols-2">
               <dt className="font-medium">{key}</dt>
-              <dd className="text-muted-foreground">{typeof value === "string" ? value : JSON.stringify(value)}</dd>
+              <dd className="text-muted-foreground"><SpecificationValue value={value} /></dd>
             </div>
           ))}
         </dl>

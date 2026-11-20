@@ -1505,6 +1505,21 @@ components:
         - type: string
           example: '12990.50'
     ListingSummary:
+      allOf:
+        - $ref: '#/components/schemas/ListingSummaryBase'
+        - type: object
+          required: [slug, thumbnailUrl, skus]
+          properties:
+            slug:
+              type: [string, 'null']
+            thumbnailUrl:
+              type: [string, 'null']
+              format: uri-reference
+            skus:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkuResponse'
+    ListingSummaryBase:
       type: object
       required: [id, title, status]
       properties:
@@ -1518,7 +1533,7 @@ components:
           enum: [BORRADOR, ACTIVA, ARCHIVADA]
     ListingResponse:
       allOf:
-        - $ref: '#/components/schemas/ListingSummary'
+        - $ref: '#/components/schemas/ListingSummaryBase'
         - type: object
           required: [categoryId, description, specs, slug, version, skus, images]
           properties:

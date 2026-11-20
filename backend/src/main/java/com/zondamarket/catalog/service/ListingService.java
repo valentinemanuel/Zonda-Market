@@ -70,10 +70,20 @@ public class ListingService {
         return categories.findLeaves().stream().map(CategoryResponse::from).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<ListingSummary> list(UUID accountId) {
-        return listings.findAllBySellerIdAndDeletedFalseOrderByCreatedAtDescIdAsc(sellerId(accountId))
-                .stream().map(ListingSummary::from).toList();
+        UUID sellerId = sellerId(accountId);
+        var ownedListings = listings.findAllBySellerIdAndDeletedFalseOrderByCreatedAtDescIdAsc(sellerId);
+        if (ownedListings.isEmpty()) {
+            return List.of();
+        }
+        var stockByListing = skus.findSellerSkus(sellerId).stream().collect(Collectors.groupingBy(
+                ListingSku::getListingId, Collectors.mapping(SkuResponse::from, Collectors.toList())));
+        var covers = images.findSellerCovers(sellerId).stream().collect(Collectors.toMap(
+                ListingImage::getListingId, ListingImage::getThumbnailUrl, (first, next) -> first));
+        return ownedListings.stream().map(listing -> new ListingSummary(listing.getId(), listing.getTitle(),
+                listing.getStatus(), listing.getSlug(), covers.get(listing.getId()),
+                stockByListing.getOrDefault(listing.getId(), List.of()))).toList();
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { linkFromMail } from "./mailpit";
+import { productPhoto } from "./product-photo";
 
 test.use({
   baseURL: process.env.ZONDA_SMOKE_URL ?? "http://localhost:3000",
@@ -31,7 +32,7 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
   await page.getByRole("button", { name: "Crear borrador" }).press("Enter");
 
   const previewTab = page.getByRole("tab", { name: "Vista previa" });
-  const imagesTab = page.getByRole("tab", { name: "Imágenes" });
+  const imagesTab = page.getByRole("tab", { name: "Fotos" });
   await previewTab.press("Enter");
   const incomplete = page.waitForResponse((response) => response.url().endsWith("/publish"));
   await page.getByRole("button", { name: "Publicar ficha" }).press("Enter");
@@ -60,23 +61,7 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
   expect(await oversized.json()).toMatchObject({ code: "IMAGE_TOO_LARGE" });
 
   async function attach(name: string, alt: string, tint: string) {
-    const picture = await page.evaluate((color) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 320;
-      canvas.height = 280;
-      const context = canvas.getContext("2d")!;
-      context.fillStyle = "#ebf2f8";
-      context.fillRect(0, 0, 320, 280);
-      context.fillStyle = color;
-      context.beginPath();
-      [[110, 45], [136, 38], [148, 55], [172, 55], [184, 38], [210, 45], [261, 95], [224, 133],
-        [204, 116], [204, 236], [116, 236], [116, 116], [96, 133], [59, 95]]
-        .forEach(([x, y]) => context.lineTo(x, y));
-      context.closePath();
-      context.fill();
-      return canvas.toDataURL("image/png").split(",")[1];
-    }, tint);
-    await file.setInputFiles({ name, mimeType: "image/png", buffer: Buffer.from(picture, "base64") });
+    await file.setInputFiles({ name, mimeType: "image/png", buffer: await productPhoto(page, tint) });
     await page.getByLabel("Texto alternativo para la imagen nueva").fill(alt);
     await upload.press("Enter");
     await expect(page.getByRole("img", { name: alt, exact: true })).toBeVisible();
@@ -93,14 +78,14 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
   await expect(page.getByRole("img", { name: "Vista violeta" })).toBeVisible();
 
   await imagesTab.press("ArrowLeft");
-  await expect(page.getByRole("tab", { name: "Variantes" })).toBeFocused();
+  await expect(page.getByRole("tab", { name: "Opciones de venta" })).toBeFocused();
   async function addSku(color: string, price: string, stock: string) {
-    await page.getByLabel("Código SKU").fill(color + "-" + suffix);
+    await page.getByLabel("Código interno (SKU)").fill(color + "-" + suffix);
     await page.getByLabel("Color", { exact: true }).selectOption(color);
     await page.getByLabel("Talle", { exact: true }).selectOption("M");
     await page.getByLabel("Precio (ARS)").fill(price);
     await page.getByLabel("Stock inicial").fill(stock);
-    await page.getByRole("button", { name: "Agregar variante" }).press("Enter");
+    await page.getByRole("button", { name: "Agregar opción" }).press("Enter");
     await expect(page.getByRole("row", { name: new RegExp(color + "-" + suffix, "i") })).toBeVisible();
   }
   await addSku("Azul", "12900,50", "5");
