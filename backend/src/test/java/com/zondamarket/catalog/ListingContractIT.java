@@ -59,7 +59,11 @@ class ListingContractIT {
         addSku(path, seller, "remera-azul", "Azul", "L");
 
         mvc.perform(auth(get(LISTINGS), seller)).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].title").value("Remera ficticia"));
+                .andExpect(jsonPath("$[0].title").value("Remera ficticia"))
+                .andExpect(jsonPath("$[0].thumbnailUrl").hasJsonPath())
+                .andExpect(jsonPath("$[0].skus.length()").value(2))
+                .andExpect(jsonPath("$[0].skus[0].availableStock").value(7))
+                .andExpect(jsonPath("$[0].skus[0].reservedStock").doesNotExist());
         mvc.perform(auth(get(path), seller)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.skus.length()").value(2))
                 .andExpect(jsonPath("$.specs.material").value("algodón"));

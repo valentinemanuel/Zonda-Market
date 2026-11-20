@@ -47,6 +47,7 @@ public class ListingImage extends BaseEntity {
     public void changeAlt(String alt) { this.alt = alt; }
     public void archive() { markDeleted(); }
 
+    public UUID getListingId() { return listingId; }
     public String getProvider() { return provider; }
     public UUID getPublicId() { return publicId; }
     public String getUrl() { return url; }

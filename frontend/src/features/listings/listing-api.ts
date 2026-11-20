@@ -13,7 +13,8 @@ export const listingStatusLabel: Record<ListingStatus, string> = {
   ARCHIVADA: "Archivada",
 };
 
-export type ListingSummary = { id: string; title: string; status: ListingStatus };
+type ListingIdentity = { id: string; title: string; status: ListingStatus; slug: string | null };
+export type ListingSummary = ListingIdentity & { thumbnailUrl: string | null; skus: Sku[] };
 export type PublicationFields = {
   categoryId: string;
   title: string;
@@ -21,8 +22,8 @@ export type PublicationFields = {
   specs: Record<string, unknown>;
 };
 export type ListingImage = { id: string; url: string; thumbnailUrl: string; alt: string; position: number };
-export type Listing = ListingSummary & PublicationFields & {
-  slug: string | null; version: number; skus: Sku[]; images: ListingImage[];
+export type Listing = ListingIdentity & PublicationFields & {
+  version: number; skus: Sku[]; images: ListingImage[];
 };
 export type PublicSku = Pick<Sku, "id" | "attributes" | "price"> & { available: boolean };
 export type ListingDetail = Pick<PublicationFields, "title" | "description" | "specs"> & {

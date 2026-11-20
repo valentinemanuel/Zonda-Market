@@ -56,6 +56,7 @@ public class ListingSku extends BaseEntity {
         this.availableStock = availableStock;
     }
 
+    public UUID getListingId() { return listingId; }
     public String getCode() { return code; }
     public Map<String, String> getAttributes() { return attributes; }
     public BigDecimal getPrice() { return price; }
