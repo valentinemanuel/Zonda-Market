@@ -10,10 +10,12 @@ export const router = createBrowserRouter([
   {
     element: <SiteLayout />,
     children: [
-      { index: true, element: <Navigate to="/estado" replace /> },
+      { index: true, element: <Navigate to="/catalogo" replace /> },
+      { path: "catalogo", lazy: async () => ({ Component: (await import("@/features/listings/catalog-page")).PublicCatalogPage }) },
       { path: "estado", element: <StatusPage /> },
       { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
       { path: "vendedor/inventario", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).InventoryPage }) },
+      { path: "vendedor/preguntas", lazy: async () => ({ Component: (await import("@/features/listings/listing-questions")).SellerQuestionsPage }) },
       { path: "vendedor/publicaciones", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).ListingsPage }) },
       { path: "vendedor/publicaciones/nueva", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
       { path: "vendedor/publicaciones/:listingId", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },

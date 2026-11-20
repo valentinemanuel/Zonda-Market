@@ -4,7 +4,8 @@ import { ownSeller } from "@/features/auth/profile-api";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { changePublicationState, type Listing, type ListingCategory } from "./listing-api";
-import { ListingDetailView, listingPublicPath } from "./listing-detail";
+import { ListingDetailView } from "./listing-detail";
+import { listingPublicPath } from "./public-listing-format";
 import { useSave } from "./listing-forms";
 
 export function ListingPreview({ listing, category, sessionRevision, updated, editImages }: {

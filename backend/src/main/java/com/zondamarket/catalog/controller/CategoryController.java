@@ -1,6 +1,7 @@
 package com.zondamarket.catalog.controller;
 
 import com.zondamarket.catalog.dto.CategoryResponse;
+import com.zondamarket.catalog.dto.DiscoveryDtos.CategoryNode;
 import com.zondamarket.catalog.service.CategoryService;
 import com.zondamarket.shared.errors.ApiProblemException;
 import com.zondamarket.shared.errors.ProblemResponse;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +30,12 @@ public class CategoryController {
 
     public CategoryController(CategoryService categories) {
         this.categories = categories;
+    }
+
+    @GetMapping
+    @Operation(summary = "Consultar el árbol público de categorías")
+    List<CategoryNode> tree() {
+        return categories.tree();
     }
 
     @GetMapping("/{id}")

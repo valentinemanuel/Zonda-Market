@@ -35,6 +35,8 @@ Smoke de etapa: registrar una cuenta, comprobar sesión y Google, verificar corr
 | E2-03 | Ajustar stock disponible con trazabilidad | E2-01, E2-02 |
 | E2-04 | Descubrir publicaciones y conversar en público | E2-02, E1-01 |
 
+Smoke de etapa: crear una ficha con dos variantes y una foto, publicarla y ajustar el stock de una variante. Encontrarla por un término flexionado y combinar filtros sobre una única variante. Preguntar con una cuenta distinta, responder desde el panel del titular y comprobar como visitante que el texto es visible. Archivar la ficha y comprobar que desaparece del catálogo y que el hilo deja de estar disponible.
+
 ## Etapa 3 · Carrito, subórdenes y reserva · v0.4
 
 | ID | Entrega | Depende de |

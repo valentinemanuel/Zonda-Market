@@ -1,8 +1,8 @@
-import { ArrowRight, ArrowUpRight, Boxes, LayoutList, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Boxes, LayoutList, MessageCircle, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { inventoryPath, sellerListingsPath, SellerHeading } from "@/features/listings/seller-workspace";
+import { inventoryPath, sellerListingsPath, sellerQuestionsPath, SellerHeading } from "@/features/listings/seller-workspace";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { ownSeller, publicSeller, type Seller } from "./profile-api";
@@ -49,6 +49,14 @@ export function SellerPanelPage() {
             <span className="min-w-40 flex-1 space-y-1">
               <span className="block text-lg font-semibold">Inventario</span>
               <span className="block text-sm text-muted-foreground">Consultá cuántas unidades tenés y registrá reposiciones o bajas.</span>
+            </span>
+            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+          </Link>
+          <Link aria-label="Preguntas" to={sellerQuestionsPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
+            <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><MessageCircle size={23} aria-hidden="true" /></span>
+            <span className="min-w-40 flex-1 space-y-1">
+              <span className="block text-lg font-semibold">Preguntas</span>
+              <span className="block text-sm text-muted-foreground">Respondé las preguntas pendientes sobre tus publicaciones.</span>
             </span>
             <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>

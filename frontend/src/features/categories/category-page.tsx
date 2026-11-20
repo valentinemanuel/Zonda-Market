@@ -60,6 +60,9 @@ export function CategoryPage() {
                 <LayoutGrid size={24} aria-hidden="true" />
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{category.name}</h1>
+              <Button asChild className="min-h-11 w-fit">
+                <Link to={"/catalogo?category=" + category.id}>Explorar publicaciones</Link>
+              </Button>
             </CardHeader>
             {category.parentId && (
               <CardContent className="border-t px-6 py-3 sm:px-8">

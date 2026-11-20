@@ -12,7 +12,7 @@ export function SiteLayout() {
       </a>
       <header className="border-b border-brand-ink/15 bg-brand text-brand-ink">
         <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link to="/estado" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold focus-visible:outline-brand-ink">
+          <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold focus-visible:outline-brand-ink">
             <img src="/brand/zonda-isotipo.svg#color" alt="" width="36" height="36" />
             <span className="font-wordmark text-[1.375rem] leading-none tracking-[-0.045em]">zonda market</span>
           </Link>
@@ -24,6 +24,9 @@ export function SiteLayout() {
       <main id="contenido" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <Outlet />
       </main>
+      <footer className="mx-auto max-w-7xl border-t px-4 py-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
+        <Link to="/estado" className="inline-flex min-h-11 items-center underline underline-offset-4">Estado del sistema</Link>
+      </footer>
     </>
   );
 }
