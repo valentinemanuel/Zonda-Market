@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
+import { listingPublicPath } from "@/features/listings/public-listing-format";
 import { authenticate } from "./session-api";
 import { useGoogleOptions } from "./google-auth";
 import { emailField, newPasswordField, passwordField } from "./credential-fields";
@@ -23,6 +24,9 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const createAccount = mode === "register";
   const title = createAccount ? "Crear cuenta" : "Iniciar sesión";
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const listingSlug = typeof state?.listingSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.listingSlug)
+    ? state.listingSlug : null;
   const google = useGoogleOptions();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(createAccount ? registration : credentials),
@@ -31,7 +35,8 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const submit = handleSubmit(async (data) => {
     try {
       await authenticate(mode, data);
-      navigate("/cuenta", { replace: true });
+      navigate(listingSlug ? listingPublicPath(listingSlug) + "#preguntas" : "/cuenta",
+        { replace: true, state: listingSlug ? { catalogSearch: state?.catalogSearch } : undefined });
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 0;
       const message = status === 401 ? "El correo o la contraseña son incorrectos."
@@ -83,7 +88,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         </div>
       )}
       <Link className="mt-5 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
-        to={createAccount ? "/ingresar" : "/registro"}>
+        to={createAccount ? "/ingresar" : "/registro"} state={state}>
         {createAccount ? "Ya tengo una cuenta" : "Crear una cuenta"}
       </Link>
     </>

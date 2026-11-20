@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -8,13 +8,14 @@ import { profileControl, profileLink } from "@/features/auth/profile-fields";
 import { attributeEntries, attributeLabel } from "./listing-forms";
 import { SpecificationValue } from "./specifications-editor";
 import { fetchPublicListing, type ListingImage, type PublicSku, type ListingDetail } from "./listing-api";
-
-export function listingPublicPath(slug: string) {
-  return "/publicaciones/" + encodeURIComponent(slug);
-}
+import { formattedPrice } from "./public-listing-format";
+import { ListingQuestions } from "./listing-questions";
 
 export function PublicListingPage() {
   const { slug = "" } = useParams();
+  const { state } = useLocation();
+  const catalogSearch = typeof state?.catalogSearch === "string" ? state.catalogSearch : "";
+  const catalog = { pathname: "/catalogo", search: catalogSearch };
   const detail = useQuery({
     queryKey: ["listing-public", slug],
     queryFn: ({ signal }) => fetchPublicListing(slug, signal),
@@ -26,7 +27,7 @@ export function PublicListingPage() {
     return detail.error instanceof ApiError && detail.error.status === 404 ? (
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Publicación no disponible</h1>
-        <Link className={profileLink} to="/">Volver al inicio</Link>
+        <Link className={profileLink} to={catalog}>Volver al catálogo</Link>
       </div>
     ) : (
       <div className="space-y-3">
@@ -35,7 +36,13 @@ export function PublicListingPage() {
       </div>
     );
   }
-  return <ListingDetailView key={slug} detail={detail.data} />;
+  return <div className="space-y-6">
+    <div className="mx-auto max-w-5xl">
+      <Link className={profileLink + " text-sm"} to={catalog}>Volver al catálogo</Link>
+    </div>
+    <ListingDetailView key={slug} detail={detail.data} />
+    <ListingQuestions key={detail.data.id} listingId={detail.data.id} />
+  </div>;
 }
 
 function ImageView({ image, title }: { image: ListingImage; title: string }) {
@@ -70,11 +77,6 @@ function Gallery({ images, title }: { images: ListingImage[]; title: string }) {
       )}
     </section>
   );
-}
-
-function formattedPrice(price: string) {
-  const [whole, cents = "00"] = price.split(".");
-  return "$ " + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + cents;
 }
 
 function VariantPicker({ skus }: { skus: PublicSku[] }) {

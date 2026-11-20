@@ -12,6 +12,7 @@ Requisitos: Docker con Compose v2 y los puertos locales 3000 y 8080 disponibles.
 
 | Ruta local | Resultado |
 | --- | --- |
+| [Catálogo](http://localhost:3000/catalogo) | Búsqueda, filtros y acceso a las fichas y sus preguntas públicas |
 | `http://localhost:3000/estado` | Versión, disponibilidad y acción de actualizar o reintentar |
 | `http://localhost:8080/api/v1/status` | Estado de la API y versión del build |
 | `http://localhost:8080/actuator/health/readiness` | Estado de preparación, incluida la conexión a PostgreSQL |
@@ -22,7 +23,7 @@ Para reproducir un fallo, ejecutá `docker compose stop postgres` y actualizá l
 
 ## Contrato y diseño
 
-El [contrato OpenAPI](docs/openapi.yaml) describe el diagnóstico, la lectura pública de categorías, la autenticación y los errores REST. La [guía de diseño](docs/diseno.md) define los tokens y los estados de interfaz.
+El [contrato OpenAPI](docs/openapi.yaml) describe el diagnóstico, las categorías, el catálogo, las preguntas públicas, la autenticación y los errores REST. La [guía de diseño](docs/diseno.md) define los tokens y los estados de interfaz.
 
 Desde la UI, abrí **Mi cuenta** para ingresar o crear una cuenta. El frontend y la API comparten origen por el proxy. Compose habilita `localhost` y `127.0.0.1` en el puerto web configurado. En otros entornos definí `AUTH_ALLOWED_ORIGINS` con los orígenes exactos separados por comas y usá HTTPS para la cookie segura. Si usás Vite con el backend de Compose, agregá el origen local de Vite a esa lista.
 
@@ -78,6 +79,8 @@ Usá un entorno local de prueba. El smoke detiene y recrea el contenedor de Post
 Para repetir la verificación de identidad, ejecutá `npm run test:e2e -- auth` desde `frontend/` con el stack arriba. Cubre alta, recarga en dos pestañas, cierre, ingreso con una contraseña incorrecta y reintento. `AuthContractIT` cubre expiración, reutilización y carrera de refresh, credenciales inválidas y protección por origen.
 
 Para repetir E2-03, ejecutá `npm run test:e2e -- stock` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=StockContractIT"` en PowerShell. En **Mis publicaciones → Ajustar stock** o desde **Inventario**, sumá cinco unidades, descontá dos y revisá el historial. Intentá descontar más del saldo disponible para comprobar el rechazo.
+
+Para repetir E2-04, ejecutá `npm run test:e2e -- discovery` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=DiscoveryContractIT"` en PowerShell. El contrato imprime el plan de búsqueda con 12.001 publicaciones ficticias y comprueba el uso del índice GIN con la configuración normal de PostgreSQL.
 
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 

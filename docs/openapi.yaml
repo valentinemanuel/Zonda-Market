@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Diagnóstico y categorías públicas, autenticación, cuenta actual, publicaciones de vendedor y fichas públicas.
+  description: Diagnóstico, catálogo y preguntas públicas, autenticación, cuenta actual y publicaciones de vendedor.
 security: []
 paths:
   /api/v1/status:
@@ -22,6 +22,18 @@ paths:
                     const: UP
                   version:
                     type: string
+  /api/v1/categories:
+    get:
+      summary: Consultar el árbol público de categorías
+      responses:
+        '200':
+          description: Categorías raíz con sus descendientes vigentes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
   /api/v1/categories/{id}:
     get:
       summary: Consultar una categoría activa
@@ -772,6 +784,171 @@ paths:
           $ref: '#/components/responses/ListingResourceNotFound'
         '409':
           $ref: '#/components/responses/ListingConflict'
+  /api/v1/listings:
+    get:
+      summary: Buscar publicaciones visibles
+      description: La búsqueda en español abarca título y descripción. Los filtros de variante se aplican al mismo SKU.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 160 }
+        - name: category
+          in: query
+          description: UUID de una categoría o de la rama que la contiene.
+          schema: { type: string, format: uuid }
+        - name: min
+          in: query
+          description: Precio mínimo inclusivo en ARS.
+          schema: { type: number, minimum: 0, multipleOf: 0.01 }
+        - name: max
+          in: query
+          description: Precio máximo inclusivo en ARS.
+          schema: { type: number, minimum: 0, multipleOf: 0.01 }
+        - name: seller
+          in: query
+          description: Identificador público del vendedor.
+          schema: { type: string, maxLength: 50 }
+        - name: attr
+          in: query
+          description: 'Un valor por atributo en el formato nombre:valor. Repetir el parámetro para combinar atributos.'
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 16
+            items: { type: string, maxLength: 241 }
+          example: ['color:Azul', 'talle:M']
+        - name: inStock
+          in: query
+          description: True pide variantes disponibles y false pide variantes agotadas.
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CatalogPage'
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 48, default: 12 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, newest, price_asc, price_desc], default: relevance }
+      responses:
+        '200':
+          description: Página de publicaciones y facetas del conjunto filtrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingSearchPage'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+  /api/v1/listings/{id}/questions:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    get:
+      summary: Leer las preguntas de una publicación visible
+      parameters:
+        - $ref: '#/components/parameters/CatalogPage'
+        - $ref: '#/components/parameters/QuestionPageSize'
+      responses:
+        '200':
+          description: Página de preguntas y respuestas públicas.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/QuestionPage'
+                  - properties:
+                      content:
+                        items: { $ref: '#/components/schemas/PublicQuestion' }
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+    post:
+      summary: Publicar una pregunta desde una cuenta autenticada
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '201':
+          $ref: '#/components/responses/QuestionWritten'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '429':
+          $ref: '#/components/responses/QuestionRateLimit'
+  /api/v1/seller/questions:
+    get:
+      summary: Listar preguntas pendientes de mis publicaciones visibles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogPage'
+        - $ref: '#/components/parameters/QuestionPageSize'
+      responses:
+        '200':
+          description: Página de preguntas pendientes, de la más antigua a la más reciente.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/QuestionPage'
+                  - properties:
+                      content:
+                        items: { $ref: '#/components/schemas/PendingQuestion' }
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+  /api/v1/seller/questions/{id}/answer:
+    put:
+      summary: Responder una pregunta de una publicación propia
+      description: Repetir el mismo texto devuelve la respuesta guardada.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          $ref: '#/components/responses/QuestionWritten'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: Pregunta ausente, ajena o de una publicación inactiva. Código QUESTION_NOT_FOUND.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemResponse' }
+        '409':
+          description: Ya existe otro texto de respuesta. Código QUESTION_ALREADY_ANSWERED.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemResponse' }
+        '429':
+          $ref: '#/components/responses/QuestionRateLimit'
   /api/v1/listings/{slug}:
     parameters:
       - $ref: '#/components/parameters/ListingSlug'
@@ -997,6 +1174,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    CatalogPage:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    QuestionPageSize:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 48, default: 10 }
     SkuPathId:
       in: path
       name: id
@@ -1060,6 +1245,16 @@ components:
       schema:
         type: string
   responses:
+    QuestionWritten:
+      description: Mensaje guardado como texto plano.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PublicQuestion' }
+    QuestionRateLimit:
+      description: Presupuesto de la cuenta agotado en esta hora UTC. Código QUESTION_RATE_LIMIT.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
     InvalidStockRequest:
       description: Parámetros inválidos (INVALID_REQUEST) o ajuste sin cambio o motivo válido (STOCK_ADJUSTMENT_INVALID).
       content:
@@ -1197,6 +1392,86 @@ components:
         type: string
         format: uuid
   schemas:
+    CategoryNode:
+      type: object
+      required: [category, children]
+      properties:
+        category: { $ref: '#/components/schemas/CategoryResponse' }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/CategoryNode' }
+    ListingSearchPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages, facets, sellers]
+      properties:
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/ListingCardResponse' }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 48 }
+        totalElements: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        facets:
+          type: array
+          maxItems: 40
+          items:
+            type: object
+            required: [key, value, count]
+            properties:
+              key: { type: string }
+              value: { type: string }
+              count: { type: integer, minimum: 1 }
+        sellers:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [slug, name, count]
+            properties:
+              slug: { type: string }
+              name: { type: string }
+              count: { type: integer, minimum: 1 }
+    ListingCardResponse:
+      type: object
+      required: [id, slug, title, categoryId, seller, sellerName, thumbnailUrl, price, available]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        categoryId: { type: string, format: uuid }
+        seller: { type: string }
+        sellerName: { type: string }
+        thumbnailUrl: { type: [string, 'null'] }
+        price:
+          type: string
+          description: Precio decimal en ARS de la variante coincidente más económica, con prioridad a las disponibles.
+          example: '150.00'
+        available: { type: boolean }
+    QuestionPage:
+      type: object
+      required: [content, page, hasNext]
+      properties:
+        content: { type: array }
+        page: { type: integer, minimum: 0 }
+        hasNext: { type: boolean }
+    PublicQuestion:
+      type: object
+      required: [id, text, createdAt, answer, answeredAt]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        answer: { type: [string, 'null'], maxLength: 1000 }
+        answeredAt: { type: [string, 'null'], format: date-time }
+    PendingQuestion:
+      type: object
+      required: [id, text, createdAt, listingSlug, listingTitle]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        listingSlug: { type: string }
+        listingTitle: { type: string }
     EmailLinkRequest:
       type: object
       required: [email]

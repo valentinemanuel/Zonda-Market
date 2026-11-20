@@ -1,10 +1,11 @@
-import { Boxes, LayoutList, Package, Store } from "lucide-react";
+import { Boxes, LayoutList, MessageCircle, Package, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { listingStatusLabel, type ListingStatus } from "./listing-api";
 
 export const sellerListingsPath = "/vendedor/publicaciones";
 export const sellerInventoryPath = "/vendedor/inventario";
+export const sellerQuestionsPath = "/vendedor/preguntas";
 export const listingCollectionKey = (revision: number) => ["private", "listings", revision] as const;
 export const listingDetailKey = (revision: number, id: string) => [...listingCollectionKey(revision), id] as const;
 export const unitFormat = new Intl.NumberFormat("es-AR");
@@ -20,11 +21,12 @@ const navigation = [
   { to: "/vendedor", label: "Panel vendedor", short: "Panel", icon: Store, end: true },
   { to: sellerListingsPath, label: "Mis publicaciones", short: "Publicaciones", icon: LayoutList, end: false },
   { to: sellerInventoryPath, label: "Inventario", short: "Inventario", icon: Boxes, end: false },
+  { to: sellerQuestionsPath, label: "Preguntas", short: "Preguntas", icon: MessageCircle, end: false },
 ];
 
 export function SellerNavigation() {
   return (
-    <nav aria-label="Herramientas de venta" className="grid grid-cols-3 gap-1 rounded-xl border bg-card p-1.5 sm:flex sm:w-fit">
+    <nav aria-label="Herramientas de venta" className="grid grid-cols-2 gap-1 rounded-xl border bg-card p-1.5 min-[410px]:grid-cols-4 sm:flex sm:w-fit">
       {navigation.map(({ to, label, short, icon: Icon, end }) => (
         <NavLink key={to} to={to} end={end} aria-label={label}
           className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-lg px-0.5 text-xs font-semibold sm:gap-1.5 sm:text-sm text-muted-foreground hover:bg-muted hover:text-foreground aria-[current=page]:bg-secondary aria-[current=page]:text-accent-foreground sm:px-3">

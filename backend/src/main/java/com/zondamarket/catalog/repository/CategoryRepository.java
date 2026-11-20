@@ -13,6 +13,8 @@ public interface CategoryRepository extends Repository<Category, UUID> {
 
     Optional<Category> findByIdAndDeletedFalse(UUID id);
 
+    List<Category> findAllByDeletedFalseOrderByNameAscIdAsc();
+
     @Query("from Category c where " + LEAF + " order by c.name, c.id")
     List<Category> findLeaves();
 
