@@ -10,11 +10,16 @@ export const router = createBrowserRouter([
   {
     element: <SiteLayout />,
     children: [
-      { index: true, element: <Navigate to="/estado" replace /> },
+      { index: true, element: <Navigate to="/catalogo" replace /> },
+      { path: "catalogo", lazy: async () => ({ Component: (await import("@/features/listings/catalog-page")).PublicCatalogPage }) },
       { path: "estado", element: <StatusPage /> },
-      { path: "vendedor/publicaciones", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingsPage }) },
+      { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
+      { path: "vendedor/inventario", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).InventoryPage }) },
+      { path: "vendedor/preguntas", lazy: async () => ({ Component: (await import("@/features/listings/listing-questions")).SellerQuestionsPage }) },
+      { path: "vendedor/publicaciones", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).ListingsPage }) },
       { path: "vendedor/publicaciones/nueva", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
       { path: "vendedor/publicaciones/:listingId", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
+      { path: "publicaciones/:slug", lazy: async () => ({ Component: (await import("@/features/listings/listing-detail")).PublicListingPage }) },
       { path: "categorias/:id", element: <CategoryPage /> },
       {
         element: <PrivateLayout />,
@@ -22,7 +27,6 @@ export const router = createBrowserRouter([
         children: [
           { path: "cuenta", element: <AccountPage /> },
           { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
-          { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
           { path: "vendedores/:slug", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).PublicSellerPage }) },
           { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
           { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },

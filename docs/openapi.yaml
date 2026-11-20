@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Diagnóstico y categorías públicas, autenticación, cuenta actual y borradores privados de vendedor.
+  description: Diagnóstico, catálogo y preguntas públicas, autenticación, cuenta actual y publicaciones de vendedor.
 security: []
 paths:
   /api/v1/status:
@@ -22,6 +22,18 @@ paths:
                     const: UP
                   version:
                     type: string
+  /api/v1/categories:
+    get:
+      summary: Consultar el árbol público de categorías
+      responses:
+        '200':
+          description: Categorías raíz con sus descendientes vigentes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
   /api/v1/categories/{id}:
     get:
       summary: Consultar una categoría activa
@@ -772,6 +784,389 @@ paths:
           $ref: '#/components/responses/ListingResourceNotFound'
         '409':
           $ref: '#/components/responses/ListingConflict'
+  /api/v1/listings:
+    get:
+      summary: Buscar publicaciones visibles
+      description: La búsqueda en español abarca título y descripción. Los filtros de variante se aplican al mismo SKU.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 160 }
+        - name: category
+          in: query
+          description: UUID de una categoría o de la rama que la contiene.
+          schema: { type: string, format: uuid }
+        - name: min
+          in: query
+          description: Precio mínimo inclusivo en ARS.
+          schema: { type: number, minimum: 0, multipleOf: 0.01 }
+        - name: max
+          in: query
+          description: Precio máximo inclusivo en ARS.
+          schema: { type: number, minimum: 0, multipleOf: 0.01 }
+        - name: seller
+          in: query
+          description: Identificador público del vendedor.
+          schema: { type: string, maxLength: 50 }
+        - name: attr
+          in: query
+          description: 'Un valor por atributo en el formato nombre:valor. Repetir el parámetro para combinar atributos.'
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 16
+            items: { type: string, maxLength: 241 }
+          example: ['color:Azul', 'talle:M']
+        - name: inStock
+          in: query
+          description: True pide variantes disponibles y false pide variantes agotadas.
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CatalogPage'
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 48, default: 12 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, newest, price_asc, price_desc], default: relevance }
+      responses:
+        '200':
+          description: Página de publicaciones y facetas del conjunto filtrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingSearchPage'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+  /api/v1/listings/{id}/questions:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    get:
+      summary: Leer las preguntas de una publicación visible
+      parameters:
+        - $ref: '#/components/parameters/CatalogPage'
+        - $ref: '#/components/parameters/QuestionPageSize'
+      responses:
+        '200':
+          description: Página de preguntas y respuestas públicas.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/QuestionPage'
+                  - properties:
+                      content:
+                        items: { $ref: '#/components/schemas/PublicQuestion' }
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+    post:
+      summary: Publicar una pregunta desde una cuenta autenticada
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '201':
+          $ref: '#/components/responses/QuestionWritten'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '429':
+          $ref: '#/components/responses/QuestionRateLimit'
+  /api/v1/seller/questions:
+    get:
+      summary: Listar preguntas pendientes de mis publicaciones visibles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogPage'
+        - $ref: '#/components/parameters/QuestionPageSize'
+      responses:
+        '200':
+          description: Página de preguntas pendientes, de la más antigua a la más reciente.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/QuestionPage'
+                  - properties:
+                      content:
+                        items: { $ref: '#/components/schemas/PendingQuestion' }
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+  /api/v1/seller/questions/{id}/answer:
+    put:
+      summary: Responder una pregunta de una publicación propia
+      description: Repetir el mismo texto devuelve la respuesta guardada.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          $ref: '#/components/responses/QuestionWritten'
+        '400':
+          $ref: '#/components/responses/InvalidCatalogRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: Pregunta ausente, ajena o de una publicación inactiva. Código QUESTION_NOT_FOUND.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemResponse' }
+        '409':
+          description: Ya existe otro texto de respuesta. Código QUESTION_ALREADY_ANSWERED.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemResponse' }
+        '429':
+          $ref: '#/components/responses/QuestionRateLimit'
+  /api/v1/listings/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/ListingSlug'
+    get:
+      summary: Consultar una publicación visible por slug
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetailResponse'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+  /api/v1/seller/listings/{id}/images:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    post:
+      summary: Adjuntar una imagen a mi publicación
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ListingImageUpload'
+      responses:
+        '201':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingImageResponse'
+        '400':
+          $ref: '#/components/responses/InvalidListingMediaRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingMediaConflict'
+        '413':
+          $ref: '#/components/responses/ListingImageTooLarge'
+        '503':
+          $ref: '#/components/responses/ListingMediaUnavailable'
+  /api/v1/seller/listings/{id}/images/{imageId}:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+      - $ref: '#/components/parameters/ImageId'
+    patch:
+      summary: Editar texto alternativo u ordenar una imagen
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingImagePatch'
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListingImageResponse'
+        '400':
+          $ref: '#/components/responses/InvalidListingMediaRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+    delete:
+      summary: Retirar una imagen y encolar el borrado
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Imagen retirada. El borrado en el proveedor se procesa en segundo plano.
+        '400':
+          $ref: '#/components/responses/InvalidListingMediaRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingMediaConflict'
+  /api/v1/seller/listings/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    post:
+      summary: Publicar o volver a publicar mi ficha
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidListingMediaRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingMediaConflict'
+  /api/v1/seller/listings/{id}/archive:
+    parameters:
+      - $ref: '#/components/parameters/ListingId'
+    post:
+      summary: Archivar mi publicación
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Operación completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidListingMediaRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/ListingMediaConflict'
+  /api/v1/seller/skus/{id}/stock-adjustments:
+    parameters:
+      - $ref: '#/components/parameters/SkuPathId'
+    post:
+      summary: Ajustar el stock disponible de un SKU propio
+      description: Una clave repetida con los mismos datos devuelve el movimiento original. El motivo se compara sin espacios exteriores.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9._:-]{1,128}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '200':
+          description: Movimiento persistido o recuperado mediante su clave.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovement'
+        '400':
+          $ref: '#/components/responses/InvalidStockRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
+        '409':
+          $ref: '#/components/responses/StockConflict'
+  /api/v1/seller/skus/{id}/stock-movements:
+    parameters:
+      - $ref: '#/components/parameters/SkuPathId'
+    get:
+      summary: Consultar el historial de stock de un SKU propio
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Página de movimientos del más nuevo al más antiguo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementPage'
+        '400':
+          $ref: '#/components/responses/InvalidStockRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SellerRequired'
+        '404':
+          $ref: '#/components/responses/ListingResourceNotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -779,6 +1174,35 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    CatalogPage:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    QuestionPageSize:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 48, default: 10 }
+    SkuPathId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ListingSlug:
+      in: path
+      name: slug
+      required: true
+      schema:
+        type: string
+        maxLength: 200
+    ImageId:
+      in: path
+      name: imageId
+      required: true
+      schema:
+        type: string
+        format: uuid
     ListingId:
       in: path
       name: id
@@ -821,6 +1245,52 @@ components:
       schema:
         type: string
   responses:
+    QuestionWritten:
+      description: Mensaje guardado como texto plano.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PublicQuestion' }
+    QuestionRateLimit:
+      description: Presupuesto de la cuenta agotado en esta hora UTC. Código QUESTION_RATE_LIMIT.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    InvalidStockRequest:
+      description: Parámetros inválidos (INVALID_REQUEST) o ajuste sin cambio o motivo válido (STOCK_ADJUSTMENT_INVALID).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    StockConflict:
+      description: Versión obsoleta, clave reutilizada con otros datos o saldo fuera de rango (VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED, INSUFFICIENT_STOCK o STOCK_LIMIT_EXCEEDED).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    InvalidListingMediaRequest:
+      description: Datos inválidos (INVALID_REQUEST, IMAGE_INVALID, IMAGE_DIMENSIONS_INVALID, IMAGE_ALT_INVALID o IMAGE_POSITION_INVALID).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    ListingMediaConflict:
+      description: Operación incompatible con el estado o los límites (IMAGE_LIMIT_REACHED, IMAGE_REQUIRED, LISTING_INCOMPLETE o LISTING_NOT_ACTIVE).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    ListingImageTooLarge:
+      description: El archivo supera 5 MiB (IMAGE_TOO_LARGE). El proxy también puede responder 413 ante un cuerpo superior a 6 MiB.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    ListingMediaUnavailable:
+      description: El proveedor o la validación están temporalmente indisponibles (MEDIA_UNAVAILABLE o IMAGE_VALIDATION_BUSY).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     InvalidCatalogRequest:
       description: Datos inválidos (INVALID_REQUEST, CATEGORY_NOT_LEAF, LISTING_TEXT_INVALID, SPECS_TOO_LARGE, SPECS_INVALID o SKU_ATTRIBUTES_INVALID).
       content:
@@ -834,7 +1304,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemResponse'
     ListingResourceNotFound:
-      description: Publicación o SKU privado ausente, archivado o ajeno (LISTING_NOT_FOUND o SKU_NOT_FOUND).
+      description: Publicación, variante o imagen ausente, ajena o no visible en la ficha pública (LISTING_NOT_FOUND, SKU_NOT_FOUND o IMAGE_NOT_FOUND).
       content:
         application/problem+json:
           schema:
@@ -922,6 +1392,86 @@ components:
         type: string
         format: uuid
   schemas:
+    CategoryNode:
+      type: object
+      required: [category, children]
+      properties:
+        category: { $ref: '#/components/schemas/CategoryResponse' }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/CategoryNode' }
+    ListingSearchPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages, facets, sellers]
+      properties:
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/ListingCardResponse' }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 48 }
+        totalElements: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        facets:
+          type: array
+          maxItems: 40
+          items:
+            type: object
+            required: [key, value, count]
+            properties:
+              key: { type: string }
+              value: { type: string }
+              count: { type: integer, minimum: 1 }
+        sellers:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [slug, name, count]
+            properties:
+              slug: { type: string }
+              name: { type: string }
+              count: { type: integer, minimum: 1 }
+    ListingCardResponse:
+      type: object
+      required: [id, slug, title, categoryId, seller, sellerName, thumbnailUrl, price, available]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        categoryId: { type: string, format: uuid }
+        seller: { type: string }
+        sellerName: { type: string }
+        thumbnailUrl: { type: [string, 'null'] }
+        price:
+          type: string
+          description: Precio decimal en ARS de la variante coincidente más económica, con prioridad a las disponibles.
+          example: '150.00'
+        available: { type: boolean }
+    QuestionPage:
+      type: object
+      required: [content, page, hasNext]
+      properties:
+        content: { type: array }
+        page: { type: integer, minimum: 0 }
+        hasNext: { type: boolean }
+    PublicQuestion:
+      type: object
+      required: [id, text, createdAt, answer, answeredAt]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        answer: { type: [string, 'null'], maxLength: 1000 }
+        answeredAt: { type: [string, 'null'], format: date-time }
+    PendingQuestion:
+      type: object
+      required: [id, text, createdAt, listingSlug, listingTitle]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        listingSlug: { type: string }
+        listingTitle: { type: string }
     EmailLinkRequest:
       type: object
       required: [email]
@@ -1230,6 +1780,21 @@ components:
         - type: string
           example: '12990.50'
     ListingSummary:
+      allOf:
+        - $ref: '#/components/schemas/ListingSummaryBase'
+        - type: object
+          required: [slug, thumbnailUrl, skus]
+          properties:
+            slug:
+              type: [string, 'null']
+            thumbnailUrl:
+              type: [string, 'null']
+              format: uri-reference
+            skus:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkuResponse'
+    ListingSummaryBase:
       type: object
       required: [id, title, status]
       properties:
@@ -1240,12 +1805,12 @@ components:
           type: string
         status:
           type: string
-          const: BORRADOR
+          enum: [BORRADOR, ACTIVA, ARCHIVADA]
     ListingResponse:
       allOf:
-        - $ref: '#/components/schemas/ListingSummary'
+        - $ref: '#/components/schemas/ListingSummaryBase'
         - type: object
-          required: [categoryId, description, specs, version, skus]
+          required: [categoryId, description, specs, slug, version, skus, images]
           properties:
             categoryId:
               type: string
@@ -1256,10 +1821,16 @@ components:
               $ref: '#/components/schemas/ListingSpecs'
             version:
               $ref: '#/components/schemas/CatalogVersion'
+            slug:
+              type: [string, 'null']
             skus:
               type: array
               items:
                 $ref: '#/components/schemas/SkuResponse'
+            images:
+              type: array
+              items:
+                $ref: '#/components/schemas/ListingImageResponse'
     SkuResponse:
       type: object
       required: [id, code, attributes, price, availableStock, version]
@@ -1282,6 +1853,165 @@ components:
           minimum: 0
         version:
           $ref: '#/components/schemas/CatalogVersion'
+    ListingImageUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: JPEG, PNG o WebP decodificable. Hasta 5 MiB, 12 megapíxeles y 8192 píxeles por lado.
+        alt:
+          type: string
+          maxLength: 160
+          description: Texto alternativo opcional.
+    ListingImagePatch:
+      type: object
+      properties:
+        alt:
+          type: [string, 'null']
+          maxLength: 160
+        position:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 5
+          description: Posición a partir de cero en la galería actual. La API reordena las demás imágenes.
+    ListingImageResponse:
+      type: object
+      required: [id, url, thumbnailUrl, alt, position]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri-reference
+        thumbnailUrl:
+          type: string
+          format: uri-reference
+        alt:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+          maximum: 5
+    PublicSku:
+      type: object
+      required: [id, attributes, price, available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        attributes:
+          $ref: '#/components/schemas/SkuAttributes'
+        price:
+          type: string
+          pattern: '^[0-9]{1,17}\.[0-9]{2}$'
+          description: Decimal exacto en ARS.
+        available:
+          type: boolean
+          description: Indica si el stock disponible es mayor que cero.
+    ListingDetailResponse:
+      type: object
+      required: [id, slug, title, description, specs, category, seller, images, skus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        specs:
+          $ref: '#/components/schemas/ListingSpecs'
+        category:
+          $ref: '#/components/schemas/CategoryResponse'
+        seller:
+          $ref: '#/components/schemas/SellerProfileResponse'
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingImageResponse'
+        skus:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicSku'
+    StockAdjustmentRequest:
+      type: object
+      required: [delta, reason, expectedVersion]
+      properties:
+        delta:
+          type: integer
+          format: int32
+          not:
+            const: 0
+          example: -2
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 240
+        expectedVersion:
+          $ref: '#/components/schemas/CatalogVersion'
+    StockMovement:
+      type: object
+      required: [id, skuId, actorId, traceId, delta, reason, beforeStock, afterStock, version, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        skuId:
+          type: string
+          format: uuid
+        actorId:
+          type: string
+          format: uuid
+        traceId:
+          type: string
+          format: uuid
+          description: Correlación de la solicitud original.
+        delta:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        beforeStock:
+          type: integer
+          format: int32
+          minimum: 0
+        afterStock:
+          type: integer
+          format: int32
+          minimum: 0
+        version:
+          $ref: '#/components/schemas/CatalogVersion'
+        createdAt:
+          type: string
+          format: date-time
+    StockMovementPage:
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockMovement'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
     ProblemResponse:
       type: object
       required: [type, title, status, detail, instance, code, traceId, errors]

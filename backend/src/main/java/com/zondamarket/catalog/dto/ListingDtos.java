@@ -2,6 +2,8 @@ package com.zondamarket.catalog.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.zondamarket.catalog.domain.Listing;
+import com.zondamarket.catalog.domain.ListingImage;
+import com.zondamarket.catalog.dto.ListingMediaDtos.ImageResponse;
 import com.zondamarket.catalog.domain.ListingSku;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -42,18 +44,17 @@ public final class ListingDtos {
         }
     }
 
-    public record ListingSummary(UUID id, String title, Listing.Status status) {
-        public static ListingSummary from(Listing listing) {
-            return new ListingSummary(listing.getId(), listing.getTitle(), listing.getStatus());
-        }
-    }
+    public record ListingSummary(UUID id, String title, Listing.Status status, String slug,
+                                 String thumbnailUrl, List<SkuResponse> skus) {}
 
     public record ListingResponse(UUID id, UUID categoryId, String title, String description,
-                                  Map<String, Object> specs, Listing.Status status, long version, List<SkuResponse> skus) {
-        public static ListingResponse from(Listing listing, List<ListingSku> skus) {
+                                  Map<String, Object> specs, Listing.Status status, String slug, long version,
+                                  List<SkuResponse> skus, List<ImageResponse> images) {
+        public static ListingResponse from(Listing listing, List<ListingSku> skus, List<ListingImage> images) {
             return new ListingResponse(listing.getId(), listing.getCategoryId(), listing.getTitle(),
-                    listing.getDescription(), listing.getSpecs(), listing.getStatus(), listing.getVersion(),
-                    skus.stream().map(SkuResponse::from).toList());
+                    listing.getDescription(), listing.getSpecs(), listing.getStatus(), listing.getSlug(),
+                    listing.getVersion(), skus.stream().map(SkuResponse::from).toList(),
+                    images.stream().map(ImageResponse::from).toList());
         }
     }
 

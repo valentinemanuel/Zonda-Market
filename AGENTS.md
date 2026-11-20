@@ -18,3 +18,10 @@
 - Para permisos, ejercitá el caso autorizado y el acceso ajeno por API. Para inventario y dinero, probá concurrencia, idempotencia y recuperación cuando el cambio afecte esas reglas.
 - Demostrá estados de carga y error, y revisá teclado cuando cambie una pantalla. Usá datos ficticios y evidencia sin secretos.
 - Una revisión independiente de solo lectura puede ayudar en identidad, concurrencia, pagos y reembolsos. El agente principal integra los hallazgos y ejecuta la verificación final.
+
+## Entornos locales por tarjeta
+
+- Usá un proyecto de Docker Compose separado, con puertos libres, un volumen propio y datos ficticios para las pruebas aisladas. Guardá la evidencia antes de retirar el entorno.
+- Con la tarjeta integrada y los checks en verde, sincronizá el `develop` local cuando el árbol de trabajo esté limpio. Desde el repositorio principal, actualizá el proyecto `zonda-market` con `docker compose up --build --wait`, reutilizá el volumen `zonda-market_postgres-data` y verificá el ingreso y la funcionalidad entregada en el puerto habitual `3000`.
+- Cuando el entorno principal esté verificado, retirá los contenedores y la red del proyecto de prueba con `docker compose -p <proyecto-de-prueba> down`. Eliminá sus imágenes específicas cuando ya no se utilicen y agregá `-v` solo si confirmaste que el volumen contiene datos de prueba descartables. Conservá el volumen principal y los recursos de otros proyectos.
+- Dejá corriendo el proyecto principal para la prueba del usuario. Si una tarjeta requiere conservar un entorno aislado temporalmente, registrá el motivo y cuándo se retirará.

@@ -1,21 +1,34 @@
+import { Check, ClipboardList, Plus } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ProfileInput, profileControl } from "@/features/auth/profile-fields";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
+import { readSpecifications, SpecificationError, specificationRows, SpecificationsEditor } from "./specifications-editor";
 import {
   createListing, editListing, saveSku,
-  type Listing, type ListingCategory, type PublicationFields, type Sku,
+  type Listing, type ListingCategory, type Sku,
 } from "./listing-api";
 
 const messages: Record<string, string> = {
   INVALID_REQUEST: "Revisá los valores ingresados.",
+  STOCK_ADJUSTMENT_INVALID: "Ingresá un ajuste distinto de cero y un motivo válido.",
+  INSUFFICIENT_STOCK: "El ajuste dejaría el stock disponible por debajo de cero.",
+  STOCK_LIMIT_EXCEEDED: "El ajuste supera el máximo de stock disponible.",
+  IDEMPOTENCY_KEY_REUSED: "La clave de este ajuste ya se usó con otros datos.",
+  IMAGE_INVALID: "Elegí una imagen JPEG, PNG o WebP válida.",
+  IMAGE_DIMENSIONS_INVALID: "La imagen admite hasta 12 megapíxeles y 8192 píxeles por lado.",
+  IMAGE_TOO_LARGE: "La imagen admite hasta 5 MiB.",
+  IMAGE_LIMIT_REACHED: "La publicación admite hasta seis imágenes.",
+  IMAGE_REQUIRED: "Agregá otra imagen o archivá la ficha antes de retirar esta foto.",
+  IMAGE_VALIDATION_BUSY: "La validación está ocupada. Volvé a intentar.",
+  MEDIA_UNAVAILABLE: "El proveedor de imágenes no está disponible. Volvé a intentar.",
+  LISTING_INCOMPLETE: "Completá la ficha, una variante vigente y al menos una imagen para publicar.",
   UNAUTHENTICATED: "Tu sesión venció. Volvé a ingresar.",
-  SPECS_FORMAT_INVALID: "Ingresá un objeto JSON válido para las especificaciones.",
   CATEGORY_NOT_LEAF: "Elegí una categoría final disponible.",
   CATEGORY_SKUS_INCOMPATIBLE: "La categoría elegida debe admitir todas las variantes guardadas.",
   LISTING_TEXT_INVALID: "Ingresá un título y una descripción válidos.",
-  SPECS_TOO_LARGE: "Las especificaciones admiten hasta 8 KiB de JSON.",
+  SPECS_TOO_LARGE: "Las características superan el tamaño permitido. Acortá algunos valores.",
   SPECS_INVALID: "Revisá el contenido de las especificaciones.",
   SKU_CODE_IN_USE: "Ese código SKU ya está en uso.",
   SKU_COMBINATION_IN_USE: "Esa combinación de atributos ya existe en esta publicación.",
@@ -23,7 +36,7 @@ const messages: Record<string, string> = {
   VERSION_CONFLICT: "Hay cambios más recientes. Recargá la publicación para seguir editando.",
 };
 
-function useSave() {
+export function useSave() {
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string }>();
@@ -39,9 +52,9 @@ function useSave() {
       await action();
       setSuccess(confirmation);
     } catch (failure) {
-      const code = failure instanceof InvalidSpecs ? "SPECS_FORMAT_INVALID"
-        : failure instanceof ApiError ? failure.status === 401 ? "UNAUTHENTICATED" : failure.code ?? "" : "";
-      const message = messages[code] ?? "No pudimos guardar los cambios. Volvé a intentar.";
+      const code = failure instanceof SpecificationError ? "SPECS_FORM_INVALID"
+        : failure instanceof ApiError ? failure.status === 401 ? "UNAUTHENTICATED" : failure.status === 413 ? "IMAGE_TOO_LARGE" : failure.code ?? "" : "";
+      const message = failure instanceof SpecificationError ? failure.message : messages[code] ?? "No pudimos guardar los cambios. Volvé a intentar.";
       setError({ code, message });
     } finally {
       submitting.current = false;
@@ -66,20 +79,6 @@ function SaveFeedback({
   );
 }
 
-class InvalidSpecs extends Error {}
-
-function parseSpecs(value: string): PublicationFields["specs"] {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as PublicationFields["specs"];
-    }
-  } catch {
-    throw new InvalidSpecs();
-  }
-  throw new InvalidSpecs();
-}
-
 export function PublicationForm({
   listing, categories, saved, reload,
 }: {
@@ -90,24 +89,24 @@ export function PublicationForm({
 }) {
   const state = useSave();
   const [version, setVersion] = useState(listing?.version ?? 0);
+  const [rows, setRows] = useState(() => specificationRows(listing?.specs ?? {}));
+  const [specificationsChanged, setSpecificationsChanged] = useState(false);
   const categoryMissing = listing && !categories.some((category) => category.id === listing.categoryId);
-  const specsInvalid = state.error?.code === "SPECS_FORMAT_INVALID";
-  const initialSpecs = JSON.stringify(listing?.specs ?? {}, null, 2);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     void state.submit(async () => {
-      const specs = String(form.get("specs"));
       const fields = {
         categoryId: String(form.get("categoryId")),
         title: String(form.get("title")),
         description: String(form.get("description")),
       };
       const result = listing
-        ? await editListing(listing, specs === initialSpecs ? fields : { ...fields, specs: parseSpecs(specs) }, version)
-        : await createListing({ ...fields, specs: parseSpecs(specs) });
+        ? await editListing(listing, specificationsChanged ? { ...fields, specs: readSpecifications(rows) } : fields, version)
+        : await createListing({ ...fields, specs: readSpecifications(rows) });
       setVersion(result.version);
+      setSpecificationsChanged(false);
       saved(result);
     }, "Ficha guardada.");
   }
@@ -115,33 +114,42 @@ export function PublicationForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <fieldset disabled={state.busy} className="min-w-0 space-y-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="listing-category">Categoría</label>
-          <select className={profileControl} id="listing-category" name="categoryId" required defaultValue={categoryMissing ? "" : listing?.categoryId ?? ""}>
-            <option value="" disabled>Elegí una categoría</option>
-            {categories.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </div>
-        <ProfileInput id="listing-title" name="title" label="Título" defaultValue={listing?.title} maxLength={160} required />
-        <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="listing-description">Descripción</label>
-          <textarea className={profileControl} id="listing-description" name="description" rows={4}
-            defaultValue={listing?.description} maxLength={5000} required />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="listing-specs">Especificaciones</label>
-          <textarea className={profileControl + " font-mono text-sm"} id="listing-specs" name="specs" rows={4}
-            aria-describedby={specsInvalid ? "listing-specs-help listing-form-error" : "listing-specs-help"}
-            aria-invalid={specsInvalid || undefined} defaultValue={initialSpecs} required />
-          <p id="listing-specs-help" className="text-sm text-muted-foreground">
-            Formato JSON. Por ejemplo, <code>{'{"material": "algodón"}'}</code>. Usá <code>{"{}"}</code> si está vacío.
-          </p>
-        </div>
+        <section className="space-y-4 rounded-xl border bg-card p-4 sm:p-6" aria-labelledby="listing-data-title">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-accent-foreground"><ClipboardList size={19} aria-hidden="true" /></span>
+            <div className="space-y-1">
+              <h2 id="listing-data-title" className="font-semibold">Datos del producto</h2>
+              <p className="text-sm text-muted-foreground">Elegí la categoría y describí lo que vendés.</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(13rem,.52fr)]">
+            <ProfileInput id="listing-title" name="title" label="Título" defaultValue={listing?.title}
+              placeholder="Ej. Remera de algodón cuello redondo" maxLength={160} required />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium" htmlFor="listing-category">Categoría</label>
+              <select className={profileControl} id="listing-category" name="categoryId" required defaultValue={categoryMissing ? "" : listing?.categoryId ?? ""}>
+                <option value="" disabled>Elegí una categoría</option>
+                {categories.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="listing-description">Descripción</label>
+            <textarea className={profileControl} id="listing-description" name="description" rows={4}
+              placeholder="Describí el producto, su estado y qué incluye." defaultValue={listing?.description} maxLength={5000} required />
+          </div>
+        </section>
+        <SpecificationsEditor rows={rows} changed={(next) => {
+          setRows(next);
+          setSpecificationsChanged(true);
+        }} />
       </fieldset>
-      <Button type="submit" className="min-h-11" disabled={state.busy || state.error?.code === "VERSION_CONFLICT"}>
-        {listing ? "Guardar ficha" : "Crear borrador"}
-      </Button>
-      <SaveFeedback state={state} reload={reload} errorId="listing-form-error" />
+      <div className="space-y-2 rounded-xl border bg-card p-4 sm:px-6">
+        <Button type="submit" className="min-h-11" disabled={state.busy || state.error?.code === "VERSION_CONFLICT"}>
+          {listing ? <Check /> : <Plus />}{listing ? "Guardar ficha" : "Crear borrador"}
+        </Button>
+        <SaveFeedback state={state} reload={reload} errorId="listing-form-error" />
+      </div>
     </form>
   );
 }
@@ -187,7 +195,7 @@ export function SkuForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <fieldset disabled={state.busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
-        {!sku && <ProfileInput id="sku-code" name="code" label="Código SKU" maxLength={64} required
+        {!sku && <ProfileInput id="sku-code" name="code" label="Código interno (SKU)" maxLength={64} required
           pattern="[A-Za-z0-9]([A-Za-z0-9_]|-){0,63}" title="Letras, números, guion o guion bajo. Empezá con una letra o un número."
           aria-invalid={state.error?.code === "SKU_CODE_IN_USE" || undefined}
           aria-describedby={state.error?.code === "SKU_CODE_IN_USE" ? "sku-form-error" : undefined} />}
@@ -208,7 +216,7 @@ export function SkuForm({
           max={2147483647} step={1} defaultValue={0} required />}
       </fieldset>
       <Button type="submit" className="min-h-11" disabled={state.busy || state.error?.code === "VERSION_CONFLICT"}>
-        {sku ? "Guardar variante" : "Agregar variante"}
+        {sku ? "Guardar opción" : "Agregar opción"}
       </Button>
       <SaveFeedback state={state} reload={reload} errorId="sku-form-error" />
     </form>
