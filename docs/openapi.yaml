@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Diagnóstico, catálogo y preguntas públicas, autenticación, cuenta actual y publicaciones de vendedor.
+  description: Diagnóstico, catálogo, identidad, publicaciones de vendedor, carrito, checkout y reservas.
 security: []
 paths:
   /api/v1/status:
@@ -1167,6 +1167,239 @@ paths:
           $ref: '#/components/responses/SellerRequired'
         '404':
           $ref: '#/components/responses/ListingResourceNotFound'
+  /api/v1/cart:
+    get:
+      summary: Cotizar el carrito de la cuenta con precios y disponibilidad vigentes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/cart/items/{skuId}:
+    parameters:
+      - name: skuId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      summary: Establecer la cantidad de una variante en el carrito propio
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: Variante inexistente o retirada (SKU_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: CART_VERSION_CONFLICT, CART_ITEM_RESERVED, INSUFFICIENT_STOCK o SELF_PURCHASE.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+    delete:
+      summary: Quitar una variante del carrito propio, incluso si quedó no disponible
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: expectedVersion
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La línea no pertenece al carrito actual (CART_ITEM_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: Versión obsoleta (CART_VERSION_CONFLICT) o línea reservada (CART_ITEM_RESERVED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/checkout/quote:
+    post:
+      summary: Crear una cotización vigente por cinco minutos
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+      responses:
+        '200':
+          description: Cotización para la dirección y versión seleccionadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CheckoutEmailRequired'
+        '404':
+          $ref: '#/components/responses/AddressNotFound'
+        '409':
+          $ref: '#/components/responses/CheckoutConflict'
+  /api/v1/checkout/confirm:
+    post:
+      summary: Congelar la orden de una cotización propia y reservar todos sus SKU
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          description: Clave por cuenta. Repetir con el mismo quoteId recupera la orden original.
+          schema: { type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutConfirmRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CheckoutOrder'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/CheckoutEmailRequired'
+        '404':
+          description: Cotización ajena o inexistente (QUOTE_NOT_FOUND) o dirección retirada (ADDRESS_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          $ref: '#/components/responses/CheckoutConflict'
+  /api/v1/orders:
+    get:
+      summary: Listar las órdenes propias, más recientes primero
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de órdenes propias con estado persistido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/test-fixtures/orders/{id}/payment-outcome:
+    post:
+      summary: Simular un pago de una orden propia en local o test
+      description: Disponible en local y test. Demo deshabilita el endpoint aunque local también esté activo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, reference]
+              properties:
+                outcome: { type: string, enum: [APPROVED, REJECTED] }
+                reference: { type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$' }
+      responses:
+        '200':
+          $ref: '#/components/responses/CheckoutOrder'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La orden pertenece a otra cuenta, no existe o el simulador está deshabilitado.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: PAYMENT_REFERENCE_MISMATCH, PAYMENT_OUTCOME_CONFLICT, PAYMENT_ORDER_CLOSED o PAYMENT_AMOUNT_MISMATCH.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/orders/active:
+    get:
+      summary: Recuperar la orden activa de la cuenta
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CheckoutOrder'
+        '204':
+          description: La cuenta no tiene una orden activa.
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/orders/{id}:
+    get:
+      summary: Consultar el detalle congelado y materializar el vencimiento de una orden propia
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          $ref: '#/components/responses/CheckoutOrder'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La orden no existe o pertenece a otra cuenta (ORDER_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1245,6 +1478,36 @@ components:
       schema:
         type: string
   responses:
+    CheckoutOrder:
+      description: Orden propia con subórdenes congeladas y un plazo de reserva de 15 minutos.
+      headers:
+        Cache-Control:
+          schema: { type: string, const: no-store }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrderResponse'
+    CheckoutEmailRequired:
+      description: La cuenta requiere verificación de correo (EMAIL_NOT_VERIFIED).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    CheckoutConflict:
+      description: CART_EMPTY, CART_VERSION_CONFLICT, STOCK_CHANGED, QUOTE_EXPIRED, QUOTE_CHANGED, QUOTE_ALREADY_CONFIRMED, ORDER_ALREADY_ACTIVE, CHECKOUT_EXPIRED, CHECKOUT_TOTAL_LIMIT o IDEMPOTENCY_KEY_REUSED.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    CartQuote:
+      description: Estado del carrito propio en ARS. Los productos no elegibles quedan fuera de los subtotales y del total.
+      headers:
+        Cache-Control:
+          schema: { type: string, const: no-store }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CartResponse'
     QuestionWritten:
       description: Mensaje guardado como texto plano.
       content:
@@ -1392,6 +1655,206 @@ components:
         type: string
         format: uuid
   schemas:
+    QuoteRequest:
+      type: object
+      required: [addressId, cartVersion]
+      properties:
+        addressId: { type: string, format: uuid }
+        cartVersion: { type: integer, format: int64, minimum: 0 }
+    CheckoutConfirmRequest:
+      type: object
+      required: [quoteId]
+      properties:
+        quoteId: { type: string, format: uuid }
+    QuoteResponse:
+      type: object
+      required: [id, expiresAt, serverNow, cartVersion, address, groups, total, currency]
+      properties:
+        id: { type: string, format: uuid }
+        expiresAt: { type: string, format: date-time }
+        serverNow: { type: string, format: date-time }
+        cartVersion: { type: integer, format: int64, minimum: 0 }
+        address:
+          $ref: '#/components/schemas/AddressResponse'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutSellerGroup'
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+    OrderResponse:
+      type: object
+      required: [id, expiresAt, serverNow, status, subOrders, total, currency, testPayment]
+      properties:
+        id: { type: string, format: uuid }
+        expiresAt: { type: string, format: date-time }
+        serverNow: { type: string, format: date-time }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        subOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutSubOrder'
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+        testPayment:
+          type: [object, 'null']
+          description: Detalle de pago simulado cuando el puerto local está habilitado.
+          required: [reference, result]
+          properties:
+            reference: { type: string }
+            result:
+              type: [string, 'null']
+              enum: [APPROVED, REJECTED, LATE_APPROVAL, EXPIRED, null]
+    OrderPage:
+      type: object
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    OrderSummary:
+      type: object
+      required: [id, createdAt, expiresAt, status, total, currency]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+    CheckoutSubOrder:
+      type: object
+      required: [id, status, address, group]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO] }
+        address:
+          $ref: '#/components/schemas/AddressResponse'
+        group:
+          $ref: '#/components/schemas/CheckoutSellerGroup'
+    CheckoutSellerGroup:
+      type: object
+      required: [sellerId, sellerName, items, merchandise, shipping, commission, subtotal]
+      properties:
+        sellerId: { type: string, format: uuid }
+        sellerName: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutLine'
+        merchandise:
+          $ref: '#/components/schemas/CartAmount'
+        shipping:
+          $ref: '#/components/schemas/CartAmount'
+        commission:
+          $ref: '#/components/schemas/CartAmount'
+        subtotal:
+          description: Mercadería más envío.
+          $ref: '#/components/schemas/CartAmount'
+    CheckoutLine:
+      type: object
+      required: [skuId, skuCode, title, attributes, quantity, unitPrice, subtotal, commissionBps, commission]
+      properties:
+        skuId: { type: string, format: uuid }
+        skuCode: { type: string }
+        title: { type: string }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        unitPrice:
+          $ref: '#/components/schemas/CartAmount'
+        subtotal:
+          $ref: '#/components/schemas/CartAmount'
+        commissionBps: { type: integer, minimum: 0, maximum: 10000 }
+        commission:
+          $ref: '#/components/schemas/CartAmount'
+    CartItemRequest:
+      type: object
+      required: [quantity, expectedVersion]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        expectedVersion: { type: integer, format: int64, minimum: 0 }
+    CartResponse:
+      type: object
+      required: [version, groups, unavailable, total, currency, itemCount, activeOrderId]
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Empieza en 0 y aumenta con cada edición persistida.
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartSellerGroup'
+        unavailable:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+        activeOrderId:
+          type: [string, 'null']
+          format: uuid
+          description: Orden activa que bloquea las líneas reservadas, cuando existe.
+        itemCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total de unidades agregadas, incluidas las no disponibles.
+    CartSellerGroup:
+      type: object
+      required: [sellerId, sellerSlug, sellerName, items, subtotal]
+      properties:
+        sellerId: { type: string, format: uuid }
+        sellerSlug: { type: string }
+        sellerName: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          $ref: '#/components/schemas/CartAmount'
+    CartItem:
+      type: object
+      required: [skuId, listingSlug, title, attributes, quantity, availableStock, unitPrice, referencePrice, subtotal, reason, reserved]
+      properties:
+        skuId: { type: string, format: uuid }
+        listingSlug: { type: [string, 'null'] }
+        title: { type: string }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        availableStock: { type: integer, minimum: 0 }
+        unitPrice:
+          description: Precio vigente para variantes públicas. Para variantes retiradas, último precio guardado.
+          $ref: '#/components/schemas/CartAmount'
+        referencePrice:
+          description: Precio guardado al agregar o confirmar la cantidad.
+          $ref: '#/components/schemas/CartAmount'
+        subtotal:
+          oneOf:
+            - $ref: '#/components/schemas/CartAmount'
+            - type: 'null'
+        reason:
+          type: [string, 'null']
+          enum: [LISTING_UNAVAILABLE, SKU_UNAVAILABLE, INSUFFICIENT_STOCK, SELF_PURCHASE, null]
+        reserved:
+          type: boolean
+          description: Una reserva propia bloquea la edición y remoción de la línea.
+    CartAmount:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{2}$'
     CategoryNode:
       type: object
       required: [category, children]

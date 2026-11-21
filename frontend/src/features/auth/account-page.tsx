@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useSyncExternalStore } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
 import { GoogleSecurity } from "./google-security";
 import { EmailVerificationAction } from "./email-verification-action";
 import { AccountProfile, AccountSeller } from "./account-profile";
+import { profileLink } from "./profile-fields";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ export function AccountPage() {
         <dd>{account.data.emailVerified ? "Verificado" : "Pendiente de verificación"}</dd>
       </dl>
       {!account.data.emailVerified && <EmailVerificationAction key={account.data.id} email={account.data.email} />}
+      <div className="mt-3"><Link className={profileLink} to="/mis-ordenes">Mis órdenes</Link></div>
       {logoutError && <p role="alert" className="mt-4 text-sm text-destructive">No pudimos cerrar la sesión. Volvé a intentar.</p>}
       <Button type="button" variant="outline" className="mt-6 min-h-11" disabled={closing}
         onClick={() => void closeSession()}>

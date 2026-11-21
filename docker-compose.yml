@@ -34,6 +34,7 @@ services:
         condition: service_healthy
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-zonda_market}?connectTimeout=2&socketTimeout=3
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_USER: ${POSTGRES_USER:-zonda}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
       AUTH_JWT_KEY: ${AUTH_JWT_KEY:?Definí AUTH_JWT_KEY en .env}

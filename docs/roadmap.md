@@ -46,6 +46,8 @@ Smoke de etapa: crear una ficha con dos variantes y una foto, publicarla y ajust
 | E3-03 | Liberar reservas y conservar el carrito | E3-02 |
 | E3-04 | Demostrar consumo atómico de reserva en local | E3-03 |
 
+Smoke de etapa: cotizar un carrito de dos vendedores, reservar ambos SKU y simular un pago. Reintentar la aprobación y comprobar una sola transición de inventario. Repetir con rechazo y con una orden vencida, y verificar que el carrito siga disponible para recotizar. Verificar el arranque demo y el 404 del simulador con una sesión válida.
+
 ## Etapa 4 · Pagos y webhooks · v0.5
 
 | ID | Entrega | Depende de |

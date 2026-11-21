@@ -10,6 +10,7 @@ import { SpecificationValue } from "./specifications-editor";
 import { fetchPublicListing, type ListingImage, type PublicSku, type ListingDetail } from "./listing-api";
 import { formattedPrice } from "./public-listing-format";
 import { ListingQuestions } from "./listing-questions";
+import { AddToCart } from "@/features/cart/add-to-cart";
 
 export function PublicListingPage() {
   const { slug = "" } = useParams();
@@ -40,7 +41,7 @@ export function PublicListingPage() {
     <div className="mx-auto max-w-5xl">
       <Link className={profileLink + " text-sm"} to={catalog}>Volver al catálogo</Link>
     </div>
-    <ListingDetailView key={slug} detail={detail.data} />
+    <ListingDetailView key={slug} detail={detail.data} purchase={{ slug, catalogSearch }} />
     <ListingQuestions key={detail.data.id} listingId={detail.data.id} />
   </div>;
 }
@@ -79,7 +80,9 @@ function Gallery({ images, title }: { images: ListingImage[]; title: string }) {
   );
 }
 
-function VariantPicker({ skus }: { skus: PublicSku[] }) {
+type Purchase = { slug: string; catalogSearch: string };
+
+function VariantPicker({ skus, purchase }: { skus: PublicSku[]; purchase?: Purchase }) {
   const id = useId();
   const [selectedId, select] = useState<string>();
   const selected = skus.find(({ id }) => id === selectedId) ?? skus.find((sku) => sku.available) ?? skus[0];
@@ -105,6 +108,7 @@ function VariantPicker({ skus }: { skus: PublicSku[] }) {
           {selected.available ? "Disponible" : "Sin stock"}
         </p>
       </div>
+      {purchase && <AddToCart skuId={selected.id} available={selected.available} {...purchase} />}
     </div>
   );
 }
@@ -114,7 +118,7 @@ type ViewData = Pick<ListingDetail, "title" | "description" | "images" | "skus" 
   seller?: ListingDetail["seller"];
 };
 
-export function ListingDetailView({ detail, preview = false }: { detail: ViewData; preview?: boolean }) {
+export function ListingDetailView({ detail, preview = false, purchase }: { detail: ViewData; preview?: boolean; purchase?: Purchase }) {
   const Title = preview ? "h2" : "h1";
   const specs = Object.entries(detail.specs);
   return (
@@ -125,7 +129,7 @@ export function ListingDetailView({ detail, preview = false }: { detail: ViewDat
         <Gallery images={detail.images} title={detail.title} />
         <div className="min-w-0 space-y-5">
           <Title className="break-words text-2xl font-semibold sm:text-3xl">{detail.title}</Title>
-          <VariantPicker skus={detail.skus} />
+          <VariantPicker skus={detail.skus} purchase={purchase} />
           {detail.seller && (
             <Card className="gap-2 rounded-lg py-4">
               <CardContent className="space-y-1 px-4">

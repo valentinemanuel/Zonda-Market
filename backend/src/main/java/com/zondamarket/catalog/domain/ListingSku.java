@@ -61,5 +61,6 @@ public class ListingSku extends BaseEntity {
     public Map<String, String> getAttributes() { return attributes; }
     public BigDecimal getPrice() { return price; }
     public int getAvailableStock() { return availableStock; }
+    public int getReservedStock() { return reservedStock; }
     public long getVersion() { return version; }
 }
