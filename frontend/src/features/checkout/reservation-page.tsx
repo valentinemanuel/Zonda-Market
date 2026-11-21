@@ -8,6 +8,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order } from "./checkout-api";
 import { addressText, CheckoutSummary } from "./checkout-summary";
+import { TestPaymentAction } from "./test-payment-action";
 
 export function ReservationPage() {
   const { id = "" } = useParams();
@@ -47,11 +48,11 @@ export function ReservationPage() {
             ? "No encontramos esa reserva." : "No pudimos cargar la reserva."}</p>
           <Button variant="outline" onClick={() => void order.refetch()}>Reintentar</Button>
         </div>
-      : <Reservation key={order.data.id + order.data.serverNow} order={order.data} />}
+      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} />}
   </div>;
 }
 
-function Reservation({ order }: { order: Order }) {
+function Reservation({ order, revision }: { order: Order; revision: number }) {
   const [seconds, setSeconds] = useState(() => secondsLeft(order));
   useEffect(() => {
     if (!running(order.status)) return;
@@ -60,22 +61,25 @@ function Reservation({ order }: { order: Order }) {
   }, [order]);
   const expired = order.status === "EXPIRADA";
   const active = running(order.status);
-  const time = Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  const remaining = Math.min(seconds, secondsLeft(order));
+  const time = Math.floor(remaining / 60) + ":" + String(remaining % 60).padStart(2, "0");
   const address = order.subOrders[0]?.address;
 
   return <div className="space-y-5">
     <div className="space-y-2 rounded-lg border bg-card p-4">
       <p role="status" className={expired ? "font-semibold text-destructive" : "font-semibold text-success"}>
-        {expired ? "La reserva venció." : active && seconds === 0 ? "Comprobando vencimiento…"
+        {expired ? "La reserva venció." : active && remaining === 0 ? "Comprobando vencimiento…"
           : order.status === "RESERVADA" ? "Productos reservados" : orderStatus(order.status)}
       </p>
-      {active && seconds > 0 && <p>Tiempo restante <span role="timer" className="font-semibold tabular-nums">{time}</span></p>}
+      {active && remaining > 0 && <p>Tiempo restante <span role="timer" className="font-semibold tabular-nums">{time}</span></p>}
       <p className="break-words text-sm text-muted-foreground">Orden {order.id}</p>
-      {expired && <div className="space-y-2">
+      {(expired || order.status === "FALLIDA") && <div className="space-y-2">
         <p className="text-sm">Tus productos siguen en el carrito.</p>
         <Button asChild><Link to="/checkout">Volver a cotizar</Link></Button>
       </div>}
     </div>
+    {order.testPayment && <TestPaymentAction order={order} fixture={order.testPayment}
+      enabled={active && remaining > 0} revision={revision} />}
     {address && <section aria-label="Dirección de entrega" className="space-y-1 rounded-lg border bg-card p-4">
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>

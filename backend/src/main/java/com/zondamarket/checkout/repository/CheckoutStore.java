@@ -71,6 +71,11 @@ public class CheckoutStore {
                 .param("id", id).param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
     }
 
+    public Optional<Order> lock(UUID buyer, UUID id) {
+        return sql.sql(ORDER_COLUMNS + " WHERE id = :id AND buyer_id = :buyer FOR UPDATE")
+                .param("id", id).param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
+    }
+
     public Optional<Order> active(UUID buyer) {
         return sql.sql(ORDER_COLUMNS + " WHERE buyer_id = :buyer AND status IN ('RESERVADA', 'PAGO_PENDIENTE')")
                 .param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();

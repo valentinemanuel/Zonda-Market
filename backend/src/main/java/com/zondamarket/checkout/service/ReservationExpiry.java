@@ -1,6 +1,6 @@
 package com.zondamarket.checkout.service;
 
-import com.zondamarket.checkout.repository.ReservationExpiryStore;
+import com.zondamarket.checkout.repository.ReservationStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -18,13 +18,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ReservationExpiry {
     private static final Logger LOG = LoggerFactory.getLogger(ReservationExpiry.class);
     private static final int BATCH_SIZE = 20;
-    private final ReservationExpiryStore store;
+    private final ReservationStore store;
     private final Clock clock;
     private final TransactionTemplate transaction;
     private final Counter released;
     private final Counter failures;
 
-    ReservationExpiry(ReservationExpiryStore store, Clock clock, PlatformTransactionManager manager, MeterRegistry metrics) {
+    ReservationExpiry(ReservationStore store, Clock clock, PlatformTransactionManager manager, MeterRegistry metrics) {
         this.store = store;
         this.clock = clock;
         transaction = new TransactionTemplate(manager);

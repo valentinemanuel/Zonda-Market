@@ -114,6 +114,19 @@ public class CartStore {
                 """).param("cart", cartId).query(Long.class).single();
     }
 
+    public int subtractPurchased(UUID cartId, UUID orderId) {
+        return sql.sql("""
+                UPDATE zonda_market.cart_item item
+                SET quantity = CASE WHEN item.quantity = reservation.quantity THEN item.quantity
+                                    ELSE item.quantity - reservation.quantity END,
+                    deleted = item.quantity = reservation.quantity, updated_at = CURRENT_TIMESTAMP
+                FROM zonda_market.stock_reservation reservation
+                WHERE reservation.order_id = :order AND reservation.status = 'CONSUMIDA'
+                    AND reservation.sku_id = item.sku_id AND item.cart_id = :cart
+                    AND NOT item.deleted AND item.quantity >= reservation.quantity
+                """).param("cart", cartId).param("order", orderId).update();
+    }
+
     private Offer readOffer(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new Offer(rs.getObject("sku_id", UUID.class), rs.getBigDecimal("price"),
                 json.readValue(rs.getString("attributes"), ATTRIBUTES), rs.getInt("available_stock"),

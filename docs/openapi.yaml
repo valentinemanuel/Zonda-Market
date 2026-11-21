@@ -1325,6 +1325,46 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '401':
           $ref: '#/components/responses/InvalidSession'
+  /api/v1/test-fixtures/orders/{id}/payment-outcome:
+    post:
+      summary: Simular un pago de una orden propia en local o test
+      description: Disponible en local y test. Demo deshabilita el endpoint aunque local también esté activo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, reference]
+              properties:
+                outcome: { type: string, enum: [APPROVED, REJECTED] }
+                reference: { type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$' }
+      responses:
+        '200':
+          $ref: '#/components/responses/CheckoutOrder'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La orden pertenece a otra cuenta, no existe o el simulador está deshabilitado.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: PAYMENT_REFERENCE_MISMATCH, PAYMENT_OUTCOME_CONFLICT, PAYMENT_ORDER_CLOSED o PAYMENT_AMOUNT_MISMATCH.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
   /api/v1/orders/active:
     get:
       summary: Recuperar la orden activa de la cuenta
@@ -1645,12 +1685,12 @@ components:
         currency: { type: string, const: ARS }
     OrderResponse:
       type: object
-      required: [id, expiresAt, serverNow, status, subOrders, total, currency]
+      required: [id, expiresAt, serverNow, status, subOrders, total, currency, testPayment]
       properties:
         id: { type: string, format: uuid }
         expiresAt: { type: string, format: date-time }
         serverNow: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
         subOrders:
           type: array
           items:
@@ -1658,6 +1698,15 @@ components:
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
+        testPayment:
+          type: [object, 'null']
+          description: Detalle de pago simulado cuando el puerto local está habilitado.
+          required: [reference, result]
+          properties:
+            reference: { type: string }
+            result:
+              type: [string, 'null']
+              enum: [APPROVED, REJECTED, LATE_APPROVAL, EXPIRED, null]
     OrderPage:
       type: object
       required: [content, page, size, hasNext]
@@ -1676,7 +1725,7 @@ components:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
@@ -1685,7 +1734,7 @@ components:
       required: [id, status, address, group]
       properties:
         id: { type: string, format: uuid }
-        status: { type: string, enum: [ESPERA_PAGO, CANCELADA] }
+        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO] }
         address:
           $ref: '#/components/schemas/AddressResponse'
         group:
