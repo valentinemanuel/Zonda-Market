@@ -1,7 +1,10 @@
 package com.zondamarket.checkout;
 
 import com.jayway.jsonpath.JsonPath;
+import com.zondamarket.checkout.service.LocalPaymentPort;
+import com.zondamarket.checkout.service.PaymentConfirmationService;
 import com.zondamarket.checkout.service.ReservationExpiry;
+import com.zondamarket.shared.errors.ApiProblemException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -28,6 +31,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -36,6 +40,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,6 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "zonda.checkout.expiry.enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
+@ActiveProfiles("test")
 @Import(CheckoutContractIT.TimeConfiguration.class)
 class CheckoutContractIT {
     private static final UUID CATEGORY = UUID.fromString("e2010000-0000-4000-8000-000000000001");
@@ -63,6 +69,7 @@ class CheckoutContractIT {
     @Autowired JdbcClient sql;
     @Autowired TestClock clock;
     @Autowired ReservationExpiry expiry;
+    @Autowired PaymentConfirmationService payment;
 
     @BeforeEach
     void resetClock() {
@@ -317,6 +324,127 @@ class CheckoutContractIT {
         return uuid(mvc.perform(auth(post("/api/v1/me/addresses"), buyer).content("""
                 {"street":"Calle Ficticia 123","city":"La Plata","provinceCode":"AR-B","postalCode":"1900","country":"AR"}
                 """)).andExpect(status().isCreated()).andReturn());
+    }
+
+    @Test
+    void approvesOnceAndKeepsOtherCartLinesEvenAfterAFailedWrite() throws Exception {
+        var buyer = account(true);
+        var other = account(true);
+        var sku = product("Vendido", "8.50", "0.00", 4);
+        var unrelated = product("Otro producto", "3.00", "0.00", 4);
+        add(buyer, sku, 2, 0);
+        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
+        var created = confirm(buyer, quote, "approval").andExpect(status().isOk()).andReturn();
+        UUID order = uuid(created);
+        String reference = LocalPaymentPort.reference(order);
+        assertEquals(reference, field(created, "testPayment.reference"));
+        add(buyer, unrelated, 1, 1);
+        outcome(other, order, reference, "APPROVED").andExpect(status().isNotFound());
+        outcome(buyer, order, "local-otra-orden", "APPROVED").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_REFERENCE_MISMATCH"));
+        var wrongAmount = new LocalPaymentPort.VerifiedOutcome(reference, LocalPaymentPort.Outcome.APPROVED, BigDecimal.ONE, "ARS");
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", assertThrows(ApiProblemException.class,
+                () -> payment.applyVerifiedOutcome(buyer.id(), order, wrongAmount, UUID.randomUUID()))
+                .getBody().getProperties().get("code"));
+
+        sql.sql("ALTER TABLE zonda_market.checkout_payment_outcome ADD CONSTRAINT fixture_fail_payment CHECK (false) NOT VALID").update();
+        try {
+            outcome(buyer, order, reference, "APPROVED").andExpect(status().isInternalServerError());
+            assertStock(sku, 2, 2);
+            assertEquals("ACTIVA", reservationState(order));
+            assertEquals(0, eventCount(order, "CHECKOUT_PAID"));
+        } finally {
+            sql.sql("ALTER TABLE zonda_market.checkout_payment_outcome DROP CONSTRAINT fixture_fail_payment").update();
+        }
+
+        clock.set(clock.instant().plusSeconds(899));
+        var fresh = login(buyer);
+        outcome(fresh, order, reference, "APPROVED").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGADA"))
+                .andExpect(jsonPath("$.testPayment.result").value("APPROVED"))
+                .andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"));
+        clock.set(clock.instant().plusSeconds(1));
+        expiry.sweep();
+        outcome(fresh, order, reference, "APPROVED").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGADA"));
+        outcome(fresh, order, reference, "REJECTED").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_OUTCOME_CONFLICT"));
+        mvc.perform(auth(get("/api/v1/cart"), fresh)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(3)).andExpect(jsonPath("$.itemCount").value(1))
+                .andExpect(jsonPath("$.groups[0].items[0].skuId").value(unrelated.toString()));
+        assertEquals("CONSUMIDA", reservationState(order));
+        assertStock(sku, 2, 0);
+        assertEquals(1, eventCount(order, "CHECKOUT_PAID"));
+        assertEquals(0, eventCount(order, "CHECKOUT_EXPIRED"));
+    }
+
+    @Test
+    void rejectsAndRestoresStockWithoutChangingTheCart() throws Exception {
+        var buyer = account(true);
+        var sku = product("Rechazado", "8.50", "0.00", 1);
+        add(buyer, sku, 1, 0);
+        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, quote, "rejection").andExpect(status().isOk()).andReturn());
+        String reference = LocalPaymentPort.reference(order);
+        outcome(buyer, order, reference, "REJECTED").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FALLIDA"))
+                .andExpect(jsonPath("$.subOrders[0].status").value("CANCELADA"))
+                .andExpect(jsonPath("$.testPayment.result").value("REJECTED"));
+        outcome(buyer, order, reference, "REJECTED").andExpect(status().isOk());
+        assertStock(sku, 1, 0);
+        assertEquals("LIBERADA", reservationState(order));
+        assertEquals(1, eventCount(order, "CHECKOUT_PAYMENT_REJECTED"));
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.itemCount").value(1));
+    }
+
+    @Test
+    void reconcilesApprovalRacingExpirationAtTheDeadline() throws Exception {
+        var buyer = account(true);
+        var sku = product("Carrera pago", "8.50", "0.00", 1);
+        add(buyer, sku, 1, 0);
+        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
+        UUID order = uuid(confirm(buyer, quote, "race-payment").andExpect(status().isOk()).andReturn());
+        String reference = LocalPaymentPort.reference(order);
+        clock.set(clock.instant().plusSeconds(900));
+        var fresh = login(buyer);
+        var start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var scheduled = pool.submit(() -> { start.await(5, TimeUnit.SECONDS); expiry.sweep(); return null; });
+            var approved = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return outcome(fresh, order, reference, "APPROVED").andExpect(status().isOk())
+                        .andExpect(jsonPath("$.status").value("EXPIRADA"))
+                        .andExpect(jsonPath("$.testPayment.result").value("LATE_APPROVAL")).andReturn();
+            });
+            scheduled.get(15, TimeUnit.SECONDS);
+            approved.get(15, TimeUnit.SECONDS);
+        }
+        outcome(fresh, order, reference, "APPROVED").andExpect(status().isOk());
+        assertStock(sku, 1, 0);
+        assertEquals("LIBERADA", reservationState(order));
+        assertEquals(1, eventCount(order, "CHECKOUT_EXPIRED"));
+        assertEquals(1, eventCount(order, "LOCAL_PAYMENT_LATE"));
+        assertEquals(0, eventCount(order, "CHECKOUT_PAID"));
+        mvc.perform(auth(get("/api/v1/cart"), fresh)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemCount").value(1));
+    }
+
+    private ResultActions outcome(Account buyer, UUID order, String reference, String result) throws Exception {
+        return mvc.perform(auth(post("/api/v1/test-fixtures/orders/" + order + "/payment-outcome"), buyer)
+                .content("""
+                        {"reference":"%s","outcome":"%s"}
+                        """.formatted(reference, result)));
+    }
+
+    private String reservationState(UUID order) {
+        return sql.sql("SELECT status FROM zonda_market.stock_reservation WHERE order_id = :id")
+                .param("id", order).query(String.class).single();
+    }
+
+    private int eventCount(UUID order, String type) {
+        return sql.sql("SELECT count(*) FROM zonda_market.checkout_outbox WHERE order_id = :id AND event_type = :type")
+                .param("id", order).param("type", type).query(Integer.class).single();
     }
 
     private Account account(boolean verified) throws Exception {

@@ -8,11 +8,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class ReservationExpiryStore {
+public class ReservationStore {
     private static final String ACTIVE = "status IN ('RESERVADA', 'PAGO_PENDIENTE')";
     private final JdbcClient sql;
 
-    ReservationExpiryStore(JdbcClient sql) {
+    ReservationStore(JdbcClient sql) {
         this.sql = sql;
     }
 
@@ -72,29 +72,42 @@ public class ReservationExpiryStore {
     }
 
     public void release(UUID order, UUID trace, Instant now) {
+        settle(order, false, "EXPIRADA", "CANCELADA", "CHECKOUT_EXPIRED", trace, now);
+    }
+
+    public int settle(UUID order, boolean consume, String orderStatus, String subStatus,
+                      String eventType, UUID trace, Instant now) {
         var timestamp = now.atOffset(ZoneOffset.UTC);
-        int released = sql.sql("""
-                WITH released AS (
-                    UPDATE zonda_market.stock_reservation SET status = 'LIBERADA', updated_at = :now
+        int settled = sql.sql("""
+                WITH settled AS (
+                    UPDATE zonda_market.stock_reservation SET status = :status, updated_at = :now
                     WHERE order_id = :order AND status = 'ACTIVA' RETURNING sku_id, quantity
                 ), restored AS (
-                    UPDATE zonda_market.listing_sku sku SET available_stock = sku.available_stock + released.quantity,
-                        reserved_stock = sku.reserved_stock - released.quantity, updated_at = :now, version = sku.version + 1
-                    FROM released WHERE sku.id = released.sku_id RETURNING sku.id
+                    UPDATE zonda_market.listing_sku sku
+                    SET available_stock = sku.available_stock + CASE WHEN :consume THEN 0 ELSE settled.quantity END,
+                        reserved_stock = sku.reserved_stock - settled.quantity, updated_at = :now, version = sku.version + 1
+                    FROM settled WHERE sku.id = settled.sku_id RETURNING sku.id
                 )
                 SELECT count(*) FROM restored
-                """).param("order", order).param("now", timestamp).query(Integer.class).single();
-        if (released == 0) throw new IllegalStateException("No hay reservas activas para la orden vencida.");
+                """).param("order", order).param("now", timestamp).param("consume", consume)
+                .param("status", consume ? "CONSUMIDA" : "LIBERADA").query(Integer.class).single();
+        if (settled == 0) throw new IllegalStateException("La orden no tiene reservas activas.");
         sql.sql("""
-                UPDATE zonda_market.checkout_sub_order SET status = 'CANCELADA', updated_at = :now
+                UPDATE zonda_market.checkout_sub_order SET status = :status, updated_at = :now
                 WHERE order_id = :order AND status = 'ESPERA_PAGO'
-                """).param("order", order).param("now", timestamp).update();
+                """).param("order", order).param("now", timestamp).param("status", subStatus).update();
         sql.sql("""
-                UPDATE zonda_market.checkout_order SET status = 'EXPIRADA', updated_at = :now WHERE id = :order
-                """).param("order", order).param("now", timestamp).update();
+                UPDATE zonda_market.checkout_order SET status = :status, updated_at = :now WHERE id = :order
+                """).param("order", order).param("now", timestamp).param("status", orderStatus).update();
+        event(order, eventType, trace, now);
+        return settled;
+    }
+
+    public void event(UUID order, String eventType, UUID trace, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.checkout_outbox (id, order_id, event_type, trace_id, created_at)
-                VALUES (:id, :order, 'CHECKOUT_EXPIRED', :trace, :now)
-                """).param("id", UUID.randomUUID()).param("order", order).param("trace", trace).param("now", timestamp).update();
+                VALUES (:id, :order, :type, :trace, :now)
+                """).param("id", UUID.randomUUID()).param("order", order).param("trace", trace)
+                .param("type", eventType).param("now", now.atOffset(ZoneOffset.UTC)).update();
     }
 }

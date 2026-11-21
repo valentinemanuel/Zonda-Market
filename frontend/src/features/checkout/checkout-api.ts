@@ -20,7 +20,11 @@ export type Quote = Received<Timed & {
 
 export type Order = Received<Timed & {
   id: string; status: string; subOrders: { id: string; status: string; address: Address; group: Group }[]; total: string;
+  testPayment: { reference: string; result: PaymentResult | null } | null;
 }>;
+
+export type PaymentOutcome = "APPROVED" | "REJECTED";
+type PaymentResult = PaymentOutcome | "LATE_APPROVAL" | "EXPIRED";
 
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
@@ -39,6 +43,8 @@ export function orderStatus(status: string) {
     case "RESERVADA": return "Reservada";
     case "PAGO_PENDIENTE": return "Pago pendiente";
     case "EXPIRADA": return "Vencida";
+    case "PAGADA": return "Pagada";
+    case "FALLIDA": return "Pago rechazado";
     default: return status.replaceAll("_", " ").toLowerCase();
   }
 }
@@ -75,6 +81,11 @@ export async function activeOrder(signal: AbortSignal): Promise<Order | null> {
 
 export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
+}
+
+export async function simulatePayment(id: string, reference: string, outcome: PaymentOutcome): Promise<Order> {
+  return timed(await authenticatedRequest("/api/v1/test-fixtures/orders/" + encodeURIComponent(id) + "/payment-outcome",
+    post({ reference, outcome })));
 }
 
 export function checkoutError(error: unknown) {

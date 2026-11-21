@@ -9,8 +9,10 @@ import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
+import com.zondamarket.checkout.dto.CheckoutDtos.TestPayment;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.CheckoutStore.Order;
+import com.zondamarket.checkout.repository.PaymentOutcomeStore;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +45,16 @@ public class CheckoutService {
 
     private final CartStore carts;
     private final CheckoutStore store;
+    private final PaymentOutcomeStore outcomes;
+    private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
 
-    CheckoutService(CartStore carts, CheckoutStore store, Clock clock) {
+    CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes,
+                    ObjectProvider<LocalPaymentPort> localPayment, Clock clock) {
         this.carts = carts;
         this.store = store;
+        this.outcomes = outcomes;
+        this.localPayment = localPayment;
         this.clock = clock;
     }
 
@@ -131,8 +139,11 @@ public class CheckoutService {
 
     private OrderResponse response(Order order) {
         var subOrders = store.subOrders(order.id());
+        TestPayment fixture = localPayment.getIfAvailable() == null ? null
+                : new TestPayment(LocalPaymentPort.reference(order.id()),
+                    outcomes.find(order.id()).map(saved -> saved.result().name()).orElse(null));
         return new OrderResponse(order.id(), order.expiresAt(), now(), order.status(),
-                subOrders, order.total().toPlainString(), order.currency());
+                subOrders, order.total().toPlainString(), order.currency(), fixture);
     }
 
     private Snapshot snapshot(UUID buyer, UUID cart, AddressResponse address) {

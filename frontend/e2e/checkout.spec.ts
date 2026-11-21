@@ -146,4 +146,32 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await page.getByRole("link", { name: "Volver a cotizar" }).press("Enter");
   await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
   await expect(page.getByText("Cotización lista. El total es $ 371,15.")).toBeVisible();
+  await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
+  const approve = page.getByRole("button", { name: "Simular aprobación" });
+  await expect(approve).toBeVisible();
+  let send!: () => void;
+  const pending = new Promise<void>((resolve) => { send = resolve; });
+  await page.route("**/test-fixtures/orders/*/payment-outcome", async (route) => {
+    await pending;
+    const saved = await route.fetch();
+    expect(saved.status()).toBe(200);
+    await route.abort("failed");
+  }, { times: 1 });
+  await approve.press("Enter");
+  try {
+    await expect(page.getByText("Registrando resultado…")).toBeVisible();
+  } finally {
+    send();
+  }
+  await expect(page.getByRole("alert")).toContainText("No pudimos registrar el resultado.");
+  await page.screenshot({ path: testInfo.outputPath("checkout-pago-respuesta-perdida-movil.png"), fullPage: true });
+  await approve.press("Enter");
+  await expect(page.getByText("Pago de prueba aprobado. Las subórdenes están en preparación.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Carrito", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Pago de prueba aprobado. Las subórdenes están en preparación.")).toBeVisible();
+  await expect(page.getByRole("timer")).toHaveCount(0);
+  await expect(approve).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: testInfo.outputPath("checkout-pago-aprobado-movil.png"), fullPage: true });
 });
