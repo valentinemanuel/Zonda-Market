@@ -91,14 +91,16 @@ function CartLine({ item, busy, save, remove }: {
 }) {
   const inputId = useId();
   const [draft, setDraft] = useState({ original: item.quantity, value: String(item.quantity) });
-  const quantity = draft.original === item.quantity ? draft.value : String(item.quantity);
+  if (draft.original !== item.quantity) {
+    setDraft({ original: item.quantity, value: String(item.quantity) });
+  }
   const editable = item.reason === null || (item.reason === "INSUFFICIENT_STOCK" && item.availableStock > 0);
   const max = Math.min(99, item.availableStock);
   const attributes = attributeEntries(item.attributes).map(([name, value]) => attributeLabel(name) + " " + value).join(" · ");
   const priceChanged = item.unitPrice !== item.referencePrice;
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!busy) save(Number(quantity));
+    if (!busy) save(Number(draft.value));
   }
   return <li className="space-y-2 py-3">
     <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
@@ -120,7 +122,7 @@ function CartLine({ item, busy, save, remove }: {
         <div>
           <label htmlFor={inputId} className="block text-sm font-medium">Cantidad <span className="sr-only">de {item.title} {attributes}</span></label>
           <input className={profileControl + " w-20 tabular-nums"} id={inputId} type="number" inputMode="numeric"
-            min={1} max={max} required value={quantity}
+            min={1} max={max} required readOnly={busy} value={draft.value}
             onChange={(event) => setDraft({ original: item.quantity, value: event.currentTarget.value })} />
         </div>
         <Button type="submit" variant="outline" aria-disabled={busy} className="min-h-11">Guardar</Button>

@@ -73,6 +73,7 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
   await page.goto(firstPath);
   await page.getByRole("link", { name: "Ingresá para agregar al carrito" }).press("Enter");
   await page.getByRole("link", { name: "Crear una cuenta" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Crear cuenta" })).toBeVisible();
   await credentials(page, email);
   await expect(page).toHaveURL(origin + firstPath);
   const add = page.getByRole("button", { name: "Agregar al carrito" });
@@ -94,6 +95,7 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
   try {
     await device.goto(origin + "/carrito");
     await device.getByRole("link", { name: "Iniciar sesión" }).press("Enter");
+    await expect(device.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
     await credentials(device, email);
     await expect(device).toHaveURL(origin + "/carrito");
     await expect(device.getByText("$ 351,15", { exact: true })).toBeVisible();
