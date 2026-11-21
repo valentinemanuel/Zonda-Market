@@ -1302,6 +1302,29 @@ paths:
                 $ref: '#/components/schemas/ProblemResponse'
         '409':
           $ref: '#/components/responses/CheckoutConflict'
+  /api/v1/orders:
+    get:
+      summary: Listar las órdenes propias, más recientes primero
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de órdenes propias con estado persistido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
   /api/v1/orders/active:
     get:
       summary: Recuperar la orden activa de la cuenta
@@ -1316,7 +1339,7 @@ paths:
           $ref: '#/components/responses/InvalidSession'
   /api/v1/orders/{id}:
     get:
-      summary: Consultar el detalle congelado de una orden propia
+      summary: Consultar el detalle congelado y materializar el vencimiento de una orden propia
       security:
         - bearerAuth: []
       parameters:
@@ -1431,7 +1454,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemResponse'
     CheckoutConflict:
-      description: CART_EMPTY, CART_VERSION_CONFLICT, STOCK_CHANGED, QUOTE_EXPIRED, QUOTE_CHANGED, ORDER_ALREADY_ACTIVE, CHECKOUT_EXPIRED, CHECKOUT_TOTAL_LIMIT o IDEMPOTENCY_KEY_REUSED.
+      description: CART_EMPTY, CART_VERSION_CONFLICT, STOCK_CHANGED, QUOTE_EXPIRED, QUOTE_CHANGED, QUOTE_ALREADY_CONFIRMED, ORDER_ALREADY_ACTIVE, CHECKOUT_EXPIRED, CHECKOUT_TOTAL_LIMIT o IDEMPOTENCY_KEY_REUSED.
       content:
         application/problem+json:
           schema:
@@ -1627,11 +1650,33 @@ components:
         id: { type: string, format: uuid }
         expiresAt: { type: string, format: date-time }
         serverNow: { type: string, format: date-time }
-        status: { type: string, const: RESERVADA }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA] }
         subOrders:
           type: array
           items:
             $ref: '#/components/schemas/CheckoutSubOrder'
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+    OrderPage:
+      type: object
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    OrderSummary:
+      type: object
+      required: [id, createdAt, expiresAt, status, total, currency]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA] }
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
@@ -1640,7 +1685,7 @@ components:
       required: [id, status, address, group]
       properties:
         id: { type: string, format: uuid }
-        status: { type: string, const: ESPERA_PAGO }
+        status: { type: string, enum: [ESPERA_PAGO, CANCELADA] }
         address:
           $ref: '#/components/schemas/AddressResponse'
         group:

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { credentials, publish } from "./cart-fixtures";
+import { compose, sql } from "./compose-fixture";
 import { linkFromMail } from "./mailpit";
 import { productPhoto } from "./product-photo";
 
@@ -112,4 +113,37 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByRole("link", { name: "Ver mi reserva" })).toHaveAttribute("href", "/checkout/reserva/" + originalId);
   await expect(page.getByText("Incluido en tu reserva.")).toHaveCount(2);
   await expect(page.getByRole("button", { name: /^Quitar / })).toHaveCount(0);
+
+  // Only the order created by this test is aged, while no worker is running.
+  expect(originalId).toMatch(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/);
+  await compose("stop", "backend");
+  try {
+    await sql(`
+      UPDATE zonda_market.checkout_order SET created_at = now() - interval '16 minutes',
+        expires_at = now() - interval '1 minute' WHERE id = '${originalId}';
+      UPDATE zonda_market.stock_reservation SET created_at = now() - interval '16 minutes',
+        expires_at = now() - interval '1 minute' WHERE order_id = '${originalId}';
+    `);
+    expect(await sql(`SELECT status FROM zonda_market.checkout_order WHERE id = '${originalId}';`)).toBe("RESERVADA");
+  } finally {
+    await compose("start", "backend");
+  }
+  await expect.poll(() => sql(`SELECT status FROM zonda_market.checkout_order WHERE id = '${originalId}';`),
+    { timeout: 35_000 }).toBe("EXPIRADA");
+  await expect.poll(async () => (await request.get("/actuator/health/readiness")).status(), { timeout: 20_000 }).toBe(200);
+
+  await page.goto("/checkout/reserva/" + originalId);
+  await expect(page.getByText("La reserva venció.")).toBeVisible();
+  await expect(page.getByText("Tus productos siguen en el carrito.")).toBeVisible();
+  await expect(page.getByRole("timer")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("checkout-reserva-vencida-movil.png"), fullPage: true });
+  await page.getByRole("link", { name: "Mis órdenes" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
+  await expect(page.getByText("Vencida", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: testInfo.outputPath("checkout-historial-movil.png"), fullPage: true });
+  await page.getByRole("link", { name: "Ver orden " + originalId }).press("Enter");
+  await page.getByRole("link", { name: "Volver a cotizar" }).press("Enter");
+  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+  await expect(page.getByText("Cotización lista. El total es $ 371,15.")).toBeVisible();
 });

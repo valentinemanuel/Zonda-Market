@@ -4,6 +4,7 @@ import com.zondamarket.cart.repository.CartStore;
 import com.zondamarket.cart.service.CartService;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
+import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
@@ -80,6 +81,10 @@ public class CheckoutService {
         var quote = store.quote(cart.id(), quoteId).orElseThrow(() ->
                 new ApiProblemException(HttpStatus.NOT_FOUND, "QUOTE_NOT_FOUND", "No encontramos esa cotización."));
         requireNoActiveOrder(account.id());
+        store.confirmedStatus(account.id(), quoteId).ifPresent(status -> {
+            if ("EXPIRADA".equals(status)) throw conflict("CHECKOUT_EXPIRED", "La reserva anterior venció.");
+            throw conflict("QUOTE_ALREADY_CONFIRMED", "La cotización ya confirmó una orden.");
+        });
         requireVersion(cart.version(), quote.cartVersion());
         requireCurrentQuote(quote.expiresAt(), now());
         var address = address(account.id(), quote.snapshot().address().id(), true);
@@ -116,6 +121,12 @@ public class CheckoutService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Optional<OrderResponse> active(UUID buyer) {
         return store.active(buyer).map(this::response);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderPage history(UUID buyer, int page, int size) {
+        var orders = store.history(buyer, page, size);
+        return new OrderPage(orders.subList(0, Math.min(size, orders.size())), page, size, orders.size() > size);
     }
 
     private OrderResponse response(Order order) {

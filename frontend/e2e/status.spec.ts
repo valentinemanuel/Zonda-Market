@@ -1,27 +1,8 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
+import { compose, sql } from "./compose-fixture";
 
-const run = promisify(execFile);
-const composeDirectory = fileURLToPath(new URL("../../", import.meta.url));
 const readinessPath = "/actuator/health/readiness";
-
-async function compose(...args: string[]) {
-  const { stdout } = await run("docker", ["compose", ...args], {
-    cwd: composeDirectory,
-    timeout: 45_000,
-  });
-  return stdout.trim();
-}
-
-function sql(statement: string) {
-  return compose("exec", "-T", "postgres", "sh", "-c",
-    'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "$1"',
-    "psql", statement,
-  );
-}
 
 test("diagnóstico, caída de PostgreSQL, recuperación y persistencia", async ({ page, request }, testInfo) => {
   const statusResponse = await request.get("/api/v1/status");

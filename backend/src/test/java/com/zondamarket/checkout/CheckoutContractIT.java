@@ -1,19 +1,29 @@
 package com.zondamarket.checkout;
 
 import com.jayway.jsonpath.JsonPath;
+import com.zondamarket.checkout.service.ReservationExpiry;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -34,9 +44,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "zonda.auth.jwt-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+@SpringBootTest(properties = {"zonda.auth.jwt-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "zonda.checkout.expiry.enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
+@Import(CheckoutContractIT.TimeConfiguration.class)
 class CheckoutContractIT {
     private static final UUID CATEGORY = UUID.fromString("e2010000-0000-4000-8000-000000000001");
     private static final String QUOTE = "/api/v1/checkout/quote";
@@ -49,6 +61,13 @@ class CheckoutContractIT {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcClient sql;
+    @Autowired TestClock clock;
+    @Autowired ReservationExpiry expiry;
+
+    @BeforeEach
+    void resetClock() {
+        clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+    }
 
     @Test
     void freezesTwoSellerOrdersPreservesCartAndReplaysTheOriginalKey() throws Exception {
@@ -82,7 +101,7 @@ class CheckoutContractIT {
                 .andExpect(jsonPath("$.subOrders[0].address.street").value("Calle Ficticia 123"))
                 .andExpect(jsonPath("$.total").value("46.24")).andReturn();
         assertEquals(900, Duration.between(Instant.parse(field(result, "serverNow")),
-                Instant.parse(field(result, "expiresAt"))).toSeconds() + 1);
+                Instant.parse(field(result, "expiresAt"))).toSeconds());
         UUID order = uuid(result);
         assertStock(alpha, 3, 2);
         assertStock(beta, 2, 1);
@@ -184,6 +203,101 @@ class CheckoutContractIT {
         return confirm(buyer, quote, "same-key").andReturn();
     }
 
+    @Test
+    void expiresExactlyOnceAtTheDeadlineAndKeepsTheCart() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var address = address(buyer);
+        var alpha = product("Expira Alfa", "10.05", "0.00", 6);
+        var beta = product("Expira Beta", "20.04", "0.00", 4);
+        add(buyer, alpha, 2, 0);
+        add(buyer, beta, 3, 1);
+        var quote = uuid(quote(buyer, address, 2).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, quote, "initial").andExpect(status().isOk()).andReturn());
+        Instant expiresAt = clock.instant().plusSeconds(900);
+
+        clock.set(expiresAt.minusSeconds(1));
+        final var validBuyer = login(buyer);
+        expiry.sweep();
+        mvc.perform(auth(get(ORDERS + order), validBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESERVADA"));
+        assertStock(alpha, 4, 2);
+        assertStock(beta, 1, 3);
+
+        clock.set(expiresAt);
+        mvc.perform(auth(get(ORDERS + order), login(outsider))).andExpect(status().isNotFound());
+        assertStock(alpha, 4, 2);
+
+        var start = new CyclicBarrier(3);
+        try (var pool = Executors.newFixedThreadPool(3)) {
+            var scheduled = pool.submit(() -> { start.await(5, TimeUnit.SECONDS); expiry.sweep(); return null; });
+            var reopened = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return mvc.perform(auth(get(ORDERS + order), validBuyer)).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.status").value("EXPIRADA")).andReturn();
+            });
+            var rejected = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return confirm(validBuyer, quote, "new-at-deadline").andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.code").value("CHECKOUT_EXPIRED")).andReturn();
+            });
+            scheduled.get(15, TimeUnit.SECONDS);
+            reopened.get(15, TimeUnit.SECONDS);
+            rejected.get(15, TimeUnit.SECONDS);
+        }
+        expiry.sweep();
+        assertStock(alpha, 6, 0);
+        assertStock(beta, 4, 0);
+        assertEquals(1, sql.sql("""
+                SELECT count(*) FROM zonda_market.checkout_outbox WHERE order_id = :id AND event_type = 'CHECKOUT_EXPIRED'
+                """).param("id", order).query(Integer.class).single());
+        assertEquals(2, sql.sql("""
+                SELECT count(*) FROM zonda_market.stock_reservation WHERE order_id = :id AND status = 'LIBERADA'
+                """).param("id", order).query(Integer.class).single());
+        confirm(validBuyer, quote, "initial").andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(order.toString()))
+                .andExpect(jsonPath("$.subOrders.length()").value(2))
+                .andExpect(jsonPath("$.subOrders[0].status").value("CANCELADA"))
+                .andExpect(jsonPath("$.subOrders[1].status").value("CANCELADA"));
+        mvc.perform(auth(get(ORDERS + "active"), validBuyer)).andExpect(status().isNoContent());
+        mvc.perform(auth(get("/api/v1/orders?size=1"), validBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(order.toString()))
+                .andExpect(jsonPath("$.content[0].status").value("EXPIRADA"));
+        mvc.perform(auth(get("/api/v1/orders"), login(outsider))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(auth(get("/api/v1/cart"), validBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.itemCount").value(5))
+                .andExpect(jsonPath("$.groups[0].items[0].reserved").value(false));
+
+        var replacement = uuid(quote(validBuyer, address, 2).andExpect(status().isOk()).andReturn());
+        confirm(validBuyer, replacement, "replacement").andExpect(status().isOk());
+        mvc.perform(auth(get("/api/v1/orders?size=1"), validBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasNext").value(true));
+        mvc.perform(auth(get("/api/v1/orders?page=1&size=1"), validBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(order.toString()));
+    }
+
+    @Test
+    void aDifferentBuyerCanQuoteTheSkuOfAnExpiredReservationWithTheWorkerDisabled() throws Exception {
+        var first = account(true);
+        var second = account(true);
+        var sku = product("Oportunista", "8.50", "0.00", 1);
+        add(first, sku, 1, 0);
+        add(second, sku, 1, 0);
+        var secondAddress = address(second);
+        var quote = uuid(quote(first, address(first), 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(first, quote, "first").andExpect(status().isOk()).andReturn());
+        clock.set(clock.instant().plusSeconds(900));
+
+        var validBuyer = login(second);
+        var quoteAfterExpiry = uuid(quote(validBuyer, secondAddress, 1).andExpect(status().isOk()).andReturn());
+        assertStock(sku, 1, 0);
+        confirm(validBuyer, quoteAfterExpiry, "second").andExpect(status().isOk());
+        assertStock(sku, 0, 1);
+        mvc.perform(auth(get(ORDERS + order), login(first))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRADA"));
+    }
+
     private ResultActions quote(Account buyer, UUID address, long version) throws Exception {
         return mvc.perform(auth(post(QUOTE), buyer)
                 .content("{\"addressId\":\"%s\",\"cartVersion\":%d}".formatted(address, version)));
@@ -206,17 +320,26 @@ class CheckoutContractIT {
     }
 
     private Account account(boolean verified) throws Exception {
+        String email = UUID.randomUUID() + "@example.test";
         var session = mvc.perform(post("/api/v1/auth/register").header(HttpHeaders.ORIGIN, "http://localhost:3000")
                 .header("X-Zonda-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
-                {"email":"%s@example.test","password":"password-ficticia-e302"}
-                """.formatted(UUID.randomUUID()))).andExpect(status().isCreated()).andReturn();
+                {"email":"%s","password":"password-ficticia-e302"}
+                """.formatted(email))).andExpect(status().isCreated()).andReturn();
         var token = field(session, "accessToken");
-        var account = new Account(uuid(mvc.perform(auth(get("/api/v1/me"), new Account(null, token)))
-                .andExpect(status().isOk()).andReturn()), token);
+        var account = new Account(uuid(mvc.perform(auth(get("/api/v1/me"), new Account(null, token, email)))
+                .andExpect(status().isOk()).andReturn()), token, email);
         if (verified) {
             sql.sql("UPDATE zonda_market.user_account SET email_verified = TRUE WHERE id = :id").param("id", account.id()).update();
         }
         return account;
+    }
+
+    private Account login(Account account) throws Exception {
+        var result = mvc.perform(post("/api/v1/auth/login").header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                .header("X-Zonda-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("""
+                {"email":"%s","password":"password-ficticia-e302"}
+                """.formatted(account.email()))).andExpect(status().isOk()).andReturn();
+        return new Account(account.id(), field(result, "accessToken"), account.email());
     }
 
     private UUID product(String name, String price, String shipping, int stock) throws Exception {
@@ -266,5 +389,19 @@ class CheckoutContractIT {
         return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + account.token()).contentType(MediaType.APPLICATION_JSON);
     }
 
-    private record Account(UUID id, String token) {}
+    private record Account(UUID id, String token, String email) {}
+
+    @TestConfiguration
+    static class TimeConfiguration {
+        @Bean @Primary TestClock checkoutTestClock() { return new TestClock(); }
+    }
+
+    static final class TestClock extends Clock {
+        private volatile Instant time = Instant.now();
+
+        void set(Instant time) { this.time = time; }
+        @Override public Instant instant() { return time; }
+        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
+        @Override public Clock withZone(ZoneId zone) { return Clock.fixed(time, zone); }
+    }
 }

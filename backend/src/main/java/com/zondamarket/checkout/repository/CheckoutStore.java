@@ -2,6 +2,7 @@ package com.zondamarket.checkout.repository;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
+import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
@@ -73,6 +74,23 @@ public class CheckoutStore {
     public Optional<Order> active(UUID buyer) {
         return sql.sql(ORDER_COLUMNS + " WHERE buyer_id = :buyer AND status IN ('RESERVADA', 'PAGO_PENDIENTE')")
                 .param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
+    }
+
+    public Optional<String> confirmedStatus(UUID buyer, UUID quote) {
+        return sql.sql("SELECT status FROM zonda_market.checkout_order WHERE buyer_id = :buyer AND quote_id = :quote")
+                .param("buyer", buyer).param("quote", quote).query(String.class).optional();
+    }
+
+    public List<OrderSummary> history(UUID buyer, int page, int size) {
+        return sql.sql("""
+                SELECT id, created_at, expires_at, status, total, currency FROM zonda_market.checkout_order
+                WHERE buyer_id = :buyer ORDER BY created_at DESC, id DESC OFFSET :offset LIMIT :limit
+                """).param("buyer", buyer).param("offset", (long) page * size).param("limit", size + 1)
+                .query((rs, row) -> new OrderSummary(rs.getObject("id", UUID.class),
+                        rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+                        rs.getObject("expires_at", OffsetDateTime.class).toInstant(),
+                        rs.getString("status"), rs.getBigDecimal("total").toPlainString(), rs.getString("currency")))
+                .list();
     }
 
     public Optional<Order> replay(UUID buyer, String key) {

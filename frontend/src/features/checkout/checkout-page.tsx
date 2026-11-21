@@ -9,7 +9,7 @@ import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { activeOrder, activeOrderKey, checkoutError, confirmCheckout, orderKey, quoteCheckout,
+import { activeOrder, activeOrderKey, checkoutError, confirmCheckout, orderKey, ordersKey, quoteCheckout,
   reservationPath, type Quote } from "./checkout-api";
 import { addressText, CheckoutSummary } from "./checkout-summary";
 
@@ -32,7 +32,7 @@ export function CheckoutPage() {
       <Link className={profileLink + " text-sm"} to="/carrito">Volver al carrito</Link>
       <h1 className="text-3xl font-semibold">Confirmar compra</h1>
     </div>
-    {active.data ? <Navigate to={reservationPath(active.data.id)} replace />
+    {active.data && !active.isFetching ? <Navigate to={reservationPath(active.data.id)} replace />
       : queries.some((query) => signInRequired(query.error)) ? <Button asChild>
           <Link to="/ingresar" state={{ returnToCheckout: true }}>Iniciar sesión para comprar</Link>
         </Button>
@@ -40,7 +40,7 @@ export function CheckoutPage() {
           <p role="alert" className="text-destructive">No pudimos preparar el checkout.</p>
           <Button variant="outline" onClick={reload}>Reintentar</Button>
         </div>
-      : cart.data && account.data && addresses.data && active.isSuccess
+      : cart.data && !(cart.data.activeOrderId && cart.isFetching) && account.data && addresses.data && active.isSuccess && !active.data
         ? <CheckoutContent key={revision} revision={revision} cart={cart.data} verified={account.data.emailVerified}
             addresses={addresses.data} reload={reload} />
         : <p role="status">Preparando checkout…</p>}
@@ -90,6 +90,7 @@ function CheckoutForm({ revision, cart, addresses, reload }: {
       client.setQueryData(orderKey(revision, result.id), result);
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
+      void client.invalidateQueries({ queryKey: ordersKey(revision) });
       navigate(reservationPath(result.id), { replace: true });
     },
     onError: (error) => {

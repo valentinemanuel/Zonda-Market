@@ -39,6 +39,9 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
       await authenticate(mode, data);
       const returnPath = cartListingSlug ? listingPublicPath(cartListingSlug)
         : listingSlug ? listingPublicPath(listingSlug) + "#preguntas"
+        : typeof state?.returnToOrder === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToOrder)
+          ? "/checkout/reserva/" + state.returnToOrder
+        : state?.returnToOrders === true ? "/mis-ordenes"
         : state?.returnToCheckout === true ? "/checkout"
         : state?.returnToCart === true ? "/carrito" : "/cuenta";
       navigate(returnPath, {
