@@ -34,4 +34,8 @@ public final class CheckoutDtos {
 
     public record OrderResponse(UUID id, Instant expiresAt, Instant serverNow, String status,
                                 List<SubOrder> subOrders, String total, String currency) {}
+
+    public record OrderSummary(UUID id, Instant createdAt, Instant expiresAt, String status, String total, String currency) {}
+
+    public record OrderPage(List<OrderSummary> content, int page, int size, boolean hasNext) {}
 }

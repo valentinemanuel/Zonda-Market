@@ -59,9 +59,9 @@ public class StockService {
             throw new ApiProblemException(HttpStatus.CONFLICT, "INSUFFICIENT_STOCK",
                     "El ajuste dejaría el stock disponible por debajo de cero.");
         }
-        if (after > Integer.MAX_VALUE) {
+        if (after + sku.getReservedStock() > Integer.MAX_VALUE) {
             throw new ApiProblemException(HttpStatus.CONFLICT, "STOCK_LIMIT_EXCEEDED",
-                    "El ajuste supera el máximo de stock disponible.");
+                    "El ajuste supera el máximo entre stock disponible y reservado.");
         }
 
         sku.changeAvailableStock((int) after);

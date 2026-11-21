@@ -24,7 +24,28 @@ export type Order = Received<Timed & {
 
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
+export const ordersKey = (revision: number) => ["private", "orders", revision] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
+
+export type OrderPage = {
+  content: { id: string; createdAt: string; expiresAt: string; status: string; total: string; currency: "ARS" }[];
+  page: number;
+  size: number;
+  hasNext: boolean;
+};
+
+export function orderStatus(status: string) {
+  switch (status) {
+    case "RESERVADA": return "Reservada";
+    case "PAGO_PENDIENTE": return "Pago pendiente";
+    case "EXPIRADA": return "Vencida";
+    default: return status.replaceAll("_", " ").toLowerCase();
+  }
+}
+
+export async function fetchOrders(page: number, signal: AbortSignal): Promise<OrderPage> {
+  return (await authenticatedRequest("/api/v1/orders?page=" + page, { signal })).json();
+}
 
 async function timed<T>(response: Response): Promise<T & { receivedAt: number }> {
   const receivedAt = performance.now();
@@ -67,6 +88,7 @@ export function checkoutError(error: unknown) {
       case "CART_EMPTY": return "Agregá productos al carrito para cotizar.";
       case "ORDER_ALREADY_ACTIVE": return "Ya tenés una reserva para esta cuenta.";
       case "CHECKOUT_EXPIRED": return "Tu reserva anterior venció.";
+      case "QUOTE_ALREADY_CONFIRMED": return "Esta cotización ya generó una orden.";
       case "EMAIL_NOT_VERIFIED": return "Verificá tu correo desde Mi cuenta.";
       case "CHECKOUT_TOTAL_LIMIT": return "El importe supera el máximo de una orden. Revisá el carrito.";
     }
