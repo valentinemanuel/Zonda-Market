@@ -19,6 +19,7 @@ export type CartItem = {
   referencePrice: string;
   subtotal: string | null;
   reason: UnavailableReason | null;
+  reserved: boolean;
 };
 
 export type Cart = {
@@ -28,6 +29,7 @@ export type Cart = {
   total: string;
   currency: "ARS";
   itemCount: number;
+  activeOrderId: string | null;
 };
 
 type Edit = { skuId: string; expectedVersion: number } & (
@@ -89,6 +91,7 @@ export function cartEditError(error: unknown) {
       case "SELF_PURCHASE": return "No podés agregar una publicación propia.";
       case "SKU_NOT_FOUND": return "La variante ya no está disponible.";
       case "CART_ITEM_NOT_FOUND": return "La variante ya no está en tu carrito.";
+      case "CART_ITEM_RESERVED": return "La variante está incluida en una reserva.";
     }
   }
   return "No pudimos actualizar el carrito. Volvé a intentar.";

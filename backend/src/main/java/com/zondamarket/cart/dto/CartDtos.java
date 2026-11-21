@@ -19,11 +19,11 @@ public final class CartDtos {
             @NotNull @Min(0) @Max(Long.MAX_VALUE) @Digits(integer = 19, fraction = 0) BigDecimal expectedVersion) {}
 
     public record CartResponse(long version, List<SellerGroup> groups, List<Item> unavailable,
-                               String total, String currency, long itemCount) {}
+                               String total, String currency, long itemCount, UUID activeOrderId) {}
 
     public record SellerGroup(UUID sellerId, String sellerSlug, String sellerName, List<Item> items, String subtotal) {}
 
     public record Item(UUID skuId, String listingSlug, String title, Map<String, String> attributes,
                        int quantity, int availableStock, String unitPrice, String referencePrice,
-                       String subtotal, UnavailableReason reason) {}
+                       String subtotal, UnavailableReason reason, boolean reserved) {}
 }

@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -30,13 +31,14 @@ public class CartService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public CartResponse get(UUID buyer) {
         return store.find(buyer).map(cart -> quote(buyer, cart.id(), cart.version()))
-                .orElseGet(() -> new CartResponse(0, List.of(), List.of(), ZERO.toPlainString(), "ARS", 0));
+                .orElseGet(() -> new CartResponse(0, List.of(), List.of(), ZERO.toPlainString(), "ARS", 0, null));
     }
 
     @Transactional
     public CartResponse put(UUID buyer, UUID skuId, int quantity, long expectedVersion) {
         var cart = store.lock(buyer);
         requireVersion(cart.version(), expectedVersion);
+        requireEditable(cart.id(), skuId);
         var offer = store.offer(skuId).orElseThrow(CartService::missingSku);
         var reason = unavailable(buyer, offer, quantity);
         if (reason != null) {
@@ -56,6 +58,7 @@ public class CartService {
     public CartResponse remove(UUID buyer, UUID skuId, long expectedVersion) {
         var cart = store.lock(buyer);
         requireVersion(cart.version(), expectedVersion);
+        requireEditable(cart.id(), skuId);
         if (!store.remove(cart.id(), skuId)) {
             throw new ApiProblemException(HttpStatus.NOT_FOUND, "CART_ITEM_NOT_FOUND", "La variante no está en tu carrito.");
         }
@@ -63,6 +66,9 @@ public class CartService {
     }
 
     private CartResponse quote(UUID buyer, UUID cartId, long version) {
+        var reservations = store.reserved(cartId);
+        var reserved = reservations.stream().map(CartStore.ReservedLine::skuId).collect(Collectors.toSet());
+        UUID activeOrder = reservations.isEmpty() ? null : reservations.getFirst().orderId();
         Map<UUID, Group> groups = new LinkedHashMap<>();
         List<Item> unavailable = new ArrayList<>();
         long itemCount = 0;
@@ -75,7 +81,7 @@ public class CartService {
                     current ? offer.title() : line.referenceTitle(),
                     current ? offer.attributes() : line.referenceAttributes(), line.quantity(), current ? offer.stock() : 0,
                     (current ? offer.price() : line.referencePrice()).toPlainString(), line.referencePrice().toPlainString(),
-                    reason == null ? subtotal.toPlainString() : null, reason);
+                    reason == null ? subtotal.toPlainString() : null, reason, reserved.contains(offer.skuId()));
             itemCount += line.quantity();
             if (reason != null) {
                 unavailable.add(item);
@@ -87,15 +93,22 @@ public class CartService {
         }
         var total = groups.values().stream().map(group -> group.subtotal).reduce(ZERO, BigDecimal::add);
         return new CartResponse(version, groups.values().stream().map(Group::response).toList(),
-                unavailable, total.toPlainString(), "ARS", itemCount);
+                unavailable, total.toPlainString(), "ARS", itemCount, activeOrder);
     }
 
-    private static UnavailableReason unavailable(UUID buyer, Offer offer, int quantity) {
+    public static UnavailableReason unavailable(UUID buyer, Offer offer, int quantity) {
         if (!offer.visible()) return UnavailableReason.LISTING_UNAVAILABLE;
         if (offer.deleted()) return UnavailableReason.SKU_UNAVAILABLE;
         if (buyer.equals(offer.sellerAccountId())) return UnavailableReason.SELF_PURCHASE;
         if (offer.stock() < quantity) return UnavailableReason.INSUFFICIENT_STOCK;
         return null;
+    }
+
+    private void requireEditable(UUID cart, UUID sku) {
+        if (store.reserved(cart).stream().anyMatch(line -> line.skuId().equals(sku))) {
+            throw new ApiProblemException(HttpStatus.CONFLICT, "CART_ITEM_RESERVED",
+                    "La variante está incluida en una reserva.");
+        }
     }
 
     private static void requireVersion(long current, long expected) {

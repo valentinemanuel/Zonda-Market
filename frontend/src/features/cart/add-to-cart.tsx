@@ -29,13 +29,15 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
     <Button type="button" variant="outline" onClick={retry}>Reintentar carrito</Button>
   </div>;
 
-  const quantity = (cart.groups.flatMap((group) => group.items).find((item) => item.skuId === skuId)
-    ?? cart.unavailable.find((item) => item.skuId === skuId))?.quantity ?? 0;
+  const item = cart.groups.flatMap((group) => group.items).find((item) => item.skuId === skuId)
+    ?? cart.unavailable.find((item) => item.skuId === skuId);
+  const quantity = item?.quantity ?? 0;
   return <div className="space-y-2">
-    <Button type="button" disabled={edit.isPending || quantity >= 99}
+    <Button type="button" disabled={edit.isPending || item?.reserved || quantity >= 99}
       onClick={() => edit.mutate({ kind: "put", skuId, quantity: quantity + 1, expectedVersion: cart.version })}>
       {edit.isPending ? "Agregando…" : "Agregar al carrito"}
     </Button>
+    {item?.reserved && <p className="text-sm text-muted-foreground">Esta variante está incluida en tu reserva.</p>}
     {quantity >= 99 && <p className="text-sm text-muted-foreground">Alcanzaste el máximo de 99 unidades de esta variante.</p>}
     {edit.isSuccess && <p role="status" className="text-sm text-success">Agregaste una unidad al carrito.</p>}
     {edit.isError && <p role="alert" className="text-sm text-destructive">{cartEditError(edit.error)}</p>}

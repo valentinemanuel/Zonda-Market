@@ -37,6 +37,8 @@ export function CartPage() {
 
 function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: number; focusHeading: () => void }) {
   const edit = useCartEdit(revision);
+  const unavailable = cart.unavailable.filter((item) => !item.reserved);
+  const reserved = cart.unavailable.filter((item) => item.reserved);
   function remove(skuId: string) {
     edit.mutate({ kind: "remove", skuId, expectedVersion: cart.version }, { onSuccess: focusHeading });
   }
@@ -65,10 +67,16 @@ function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: n
               </CardContent>
             </Card>
           ))}
-          {cart.unavailable.length > 0 && <Card className="gap-0 py-4">
+          {reserved.length > 0 && <Card className="gap-0 py-4">
+            <CardContent className="space-y-2 px-4 sm:px-6">
+              <h2 className="text-lg font-semibold">Productos reservados</h2>
+              <ul className="divide-y">{reserved.map(renderItem)}</ul>
+            </CardContent>
+          </Card>}
+          {unavailable.length > 0 && <Card className="gap-0 py-4">
             <CardContent className="space-y-2 px-4 sm:px-6">
               <h2 className="text-lg font-semibold">Productos no disponibles</h2>
-              <ul className="divide-y">{cart.unavailable.map(renderItem)}</ul>
+              <ul className="divide-y">{unavailable.map(renderItem)}</ul>
             </CardContent>
           </Card>}
         </div>
@@ -79,6 +87,11 @@ function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: n
               Total <span>{formattedPrice(cart.total)}</span>
             </p>
             {cart.unavailable.length > 0 && <p className="text-sm text-muted-foreground">El total incluye los productos disponibles.</p>}
+            {cart.activeOrderId ? <Button className="min-h-11 w-full" asChild>
+              <Link to={"/checkout/reserva/" + cart.activeOrderId}>Ver mi reserva</Link>
+            </Button> : !unavailable.length && <Button className="min-h-11 w-full" asChild>
+              <Link to="/checkout">Continuar al checkout</Link>
+            </Button>}
           </CardContent>
         </Card>
       </div>
@@ -94,7 +107,7 @@ function CartLine({ item, busy, save, remove }: {
   if (draft.original !== item.quantity) {
     setDraft({ original: item.quantity, value: String(item.quantity) });
   }
-  const editable = item.reason === null || (item.reason === "INSUFFICIENT_STOCK" && item.availableStock > 0);
+  const editable = !item.reserved && (item.reason === null || (item.reason === "INSUFFICIENT_STOCK" && item.availableStock > 0));
   const max = Math.min(99, item.availableStock);
   const attributes = attributeEntries(item.attributes).map(([name, value]) => attributeLabel(name) + " " + value).join(" · ");
   const priceChanged = item.unitPrice !== item.referencePrice;
@@ -114,7 +127,8 @@ function CartLine({ item, busy, save, remove }: {
     {priceChanged && (editable || item.reason === "INSUFFICIENT_STOCK") && <p className="text-sm text-foreground">
       Cambió el precio por unidad. Antes {formattedPrice(item.referencePrice)}, ahora {formattedPrice(item.unitPrice)}.
     </p>}
-    {item.reason && <p className="text-sm text-destructive">
+    {item.reserved && <p className="text-sm text-success">Incluido en tu reserva.</p>}
+    {item.reason && !item.reserved && <p className="text-sm text-destructive">
       {reasonText[item.reason]} {item.reason === "INSUFFICIENT_STOCK" && `Disponibles: ${item.availableStock}.`}
     </p>}
     <div className="flex flex-wrap items-end gap-2">
@@ -127,10 +141,10 @@ function CartLine({ item, busy, save, remove }: {
         </div>
         <Button type="submit" variant="outline" aria-disabled={busy} className="min-h-11">Guardar</Button>
       </form> : <p className="self-center text-sm">Cantidad: {item.quantity}</p>}
-      <Button type="button" variant="ghost" className="min-h-11" aria-disabled={busy}
+      {!item.reserved && <Button type="button" variant="ghost" className="min-h-11" aria-disabled={busy}
         aria-label={`Quitar ${item.title}${attributes ? " " + attributes : ""}`} onClick={() => { if (!busy) remove(); }}>
         Quitar
-      </Button>
+      </Button>}
     </div>
   </li>;
 }
