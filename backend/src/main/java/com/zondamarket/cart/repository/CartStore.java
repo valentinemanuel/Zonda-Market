@@ -17,11 +17,12 @@ public class CartStore {
             SELECT sku.id AS sku_id, sku.price, sku.attributes, sku.available_stock, sku.deleted AS sku_deleted,
                    listing.slug AS listing_slug, listing.title, seller.id AS seller_id, seller.slug AS seller_slug,
                    seller.display_name AS seller_name, seller.account_id AS seller_account_id,
-                   public_listing.id IS NOT NULL AS visible
+                   public_listing.id IS NOT NULL AS visible, sku.code, category.commission_bps, seller.shipping_cost
             """;
     private static final String OFFER_JOINS = """
             JOIN zonda_market.listing listing ON listing.id = sku.listing_id
             JOIN zonda_market.seller_profile seller ON seller.id = listing.seller_id
+            JOIN zonda_market.category category ON category.id = listing.category_id
             LEFT JOIN zonda_market.public_listing public_listing ON public_listing.id = listing.id
             """;
 
@@ -37,10 +38,21 @@ public class CartStore {
 
     public record Offer(UUID skuId, BigDecimal price, Map<String, String> attributes, int stock, boolean deleted,
                         String listingSlug, String title, UUID sellerId, String sellerSlug, String sellerName,
-                        UUID sellerAccountId, boolean visible) {}
+                        UUID sellerAccountId, boolean visible, String code, int commissionBps, BigDecimal shipping) {}
 
     public record Line(Offer offer, int quantity, BigDecimal referencePrice, String referenceTitle,
                        Map<String, String> referenceAttributes) {}
+
+    public record ReservedLine(UUID orderId, UUID skuId) {}
+
+    public List<ReservedLine> reserved(UUID cart) {
+        return sql.sql("""
+                SELECT orders.id AS order_id, reservation.sku_id FROM zonda_market.checkout_order orders
+                JOIN zonda_market.stock_reservation reservation ON reservation.order_id = orders.id
+                WHERE orders.cart_id = :cart AND orders.status IN ('RESERVADA', 'PAGO_PENDIENTE')
+                    AND reservation.status = 'ACTIVA'
+                """).param("cart", cart).query(ReservedLine.class).list();
+    }
 
     public Optional<Cart> find(UUID buyer) {
         return sql.sql("SELECT id, version FROM zonda_market.cart WHERE account_id = :buyer")
@@ -107,6 +119,7 @@ public class CartStore {
                 json.readValue(rs.getString("attributes"), ATTRIBUTES), rs.getInt("available_stock"),
                 rs.getBoolean("sku_deleted"), rs.getString("listing_slug"), rs.getString("title"),
                 rs.getObject("seller_id", UUID.class), rs.getString("seller_slug"), rs.getString("seller_name"),
-                rs.getObject("seller_account_id", UUID.class), rs.getBoolean("visible"));
+                rs.getObject("seller_account_id", UUID.class), rs.getBoolean("visible"), rs.getString("code"),
+                rs.getInt("commission_bps"), rs.getBigDecimal("shipping_cost"));
     }
 }

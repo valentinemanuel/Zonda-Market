@@ -39,6 +39,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
       await authenticate(mode, data);
       const returnPath = cartListingSlug ? listingPublicPath(cartListingSlug)
         : listingSlug ? listingPublicPath(listingSlug) + "#preguntas"
+        : state?.returnToCheckout === true ? "/checkout"
         : state?.returnToCart === true ? "/carrito" : "/cuenta";
       navigate(returnPath, {
         replace: true,
