@@ -27,6 +27,8 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const { state } = useLocation();
   const listingSlug = typeof state?.listingSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.listingSlug)
     ? state.listingSlug : null;
+  const cartListingSlug = typeof state?.cartListingSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.cartListingSlug)
+    ? state.cartListingSlug : null;
   const google = useGoogleOptions();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(createAccount ? registration : credentials),
@@ -35,8 +37,13 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const submit = handleSubmit(async (data) => {
     try {
       await authenticate(mode, data);
-      navigate(listingSlug ? listingPublicPath(listingSlug) + "#preguntas" : "/cuenta",
-        { replace: true, state: listingSlug ? { catalogSearch: state?.catalogSearch } : undefined });
+      const returnPath = cartListingSlug ? listingPublicPath(cartListingSlug)
+        : listingSlug ? listingPublicPath(listingSlug) + "#preguntas"
+        : state?.returnToCart === true ? "/carrito" : "/cuenta";
+      navigate(returnPath, {
+        replace: true,
+        state: listingSlug || cartListingSlug ? { catalogSearch: state?.catalogSearch } : undefined,
+      });
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 0;
       const message = status === 401 ? "El correo o la contraseña son incorrectos."
