@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: API de Zonda Market
   version: 0.1.0
-  description: Diagnóstico, catálogo y preguntas públicas, autenticación, cuenta actual y publicaciones de vendedor.
+  description: Diagnóstico, catálogo y preguntas públicas, autenticación, cuenta, publicaciones de vendedor y carrito.
 security: []
 paths:
   /api/v1/status:
@@ -1167,6 +1167,79 @@ paths:
           $ref: '#/components/responses/SellerRequired'
         '404':
           $ref: '#/components/responses/ListingResourceNotFound'
+  /api/v1/cart:
+    get:
+      summary: Cotizar el carrito de la cuenta con precios y disponibilidad vigentes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/cart/items/{skuId}:
+    parameters:
+      - name: skuId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      summary: Establecer la cantidad de una variante en el carrito propio
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: Variante inexistente o retirada (SKU_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: CART_VERSION_CONFLICT, INSUFFICIENT_STOCK o SELF_PURCHASE.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+    delete:
+      summary: Quitar una variante del carrito propio, incluso si quedó no disponible
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: expectedVersion
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+      responses:
+        '200':
+          $ref: '#/components/responses/CartQuote'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La línea no pertenece al carrito actual (CART_ITEM_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+        '409':
+          description: Versión obsoleta (CART_VERSION_CONFLICT). Consultar GET /api/v1/cart antes de reintentar.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1245,6 +1318,15 @@ components:
       schema:
         type: string
   responses:
+    CartQuote:
+      description: Estado del carrito propio en ARS. Los productos no elegibles quedan fuera de los subtotales y del total.
+      headers:
+        Cache-Control:
+          schema: { type: string, const: no-store }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CartResponse'
     QuestionWritten:
       description: Mensaje guardado como texto plano.
       content:
@@ -1392,6 +1474,78 @@ components:
         type: string
         format: uuid
   schemas:
+    CartItemRequest:
+      type: object
+      required: [quantity, expectedVersion]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        expectedVersion: { type: integer, format: int64, minimum: 0 }
+    CartResponse:
+      type: object
+      required: [version, groups, unavailable, total, currency, itemCount]
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Empieza en 0 y aumenta con cada edición persistida.
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartSellerGroup'
+        unavailable:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        total:
+          $ref: '#/components/schemas/CartAmount'
+        currency: { type: string, const: ARS }
+        itemCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total de unidades agregadas, incluidas las no disponibles.
+    CartSellerGroup:
+      type: object
+      required: [sellerId, sellerSlug, sellerName, items, subtotal]
+      properties:
+        sellerId: { type: string, format: uuid }
+        sellerSlug: { type: string }
+        sellerName: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          $ref: '#/components/schemas/CartAmount'
+    CartItem:
+      type: object
+      required: [skuId, listingSlug, title, attributes, quantity, availableStock, unitPrice, referencePrice, subtotal, reason]
+      properties:
+        skuId: { type: string, format: uuid }
+        listingSlug: { type: [string, 'null'] }
+        title: { type: string }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        availableStock: { type: integer, minimum: 0 }
+        unitPrice:
+          description: Precio vigente para variantes públicas. Para variantes retiradas, último precio guardado.
+          $ref: '#/components/schemas/CartAmount'
+        referencePrice:
+          description: Precio guardado al agregar o confirmar la cantidad.
+          $ref: '#/components/schemas/CartAmount'
+        subtotal:
+          oneOf:
+            - $ref: '#/components/schemas/CartAmount'
+            - type: 'null'
+        reason:
+          type: [string, 'null']
+          enum: [LISTING_UNAVAILABLE, SKU_UNAVAILABLE, INSUFFICIENT_STOCK, SELF_PURCHASE, null]
+    CartAmount:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{2}$'
     CategoryNode:
       type: object
       required: [category, children]

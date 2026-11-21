@@ -1,5 +1,21 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
+import { useCart } from "@/features/cart/cart-api";
+
+function CartLink() {
+  const { pathname } = useLocation();
+  // Identity flows manage their own refresh cookie, including the previous session in Google exchange.
+  const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
+  const { query } = useCart(!identityFlow);
+  const count = query.isSuccess ? query.data.itemCount : 0;
+  return <Link to="/carrito" aria-label={count > 0 ? `Carrito, ${count} ${count === 1 ? "unidad" : "unidades"}` : "Carrito"}
+    className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-lg px-1 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
+    Carrito
+    {count > 0 && <span aria-hidden="true" className="rounded-full bg-brand-ink px-1.5 text-xs text-white tabular-nums">
+      {count > 99 ? "99+" : count}
+    </span>}
+  </Link>;
+}
 
 export function SiteLayout() {
   return (
@@ -12,13 +28,16 @@ export function SiteLayout() {
       </a>
       <header className="border-b border-brand-ink/15 bg-brand text-brand-ink">
         <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-2.5 rounded-lg font-extrabold focus-visible:outline-brand-ink">
-            <img src="/brand/zonda-isotipo.svg#color" alt="" width="36" height="36" />
-            <span className="font-wordmark text-[1.375rem] leading-none tracking-[-0.045em]">zonda market</span>
+          <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg font-extrabold focus-visible:outline-brand-ink sm:gap-2.5">
+            <img src="/brand/zonda-isotipo.svg#color" alt="" width="36" height="36" className="size-7 sm:size-9" />
+            <span className="font-wordmark text-lg leading-none tracking-[-0.045em] sm:text-[1.375rem]">zonda market</span>
           </Link>
-          <Link to="/cuenta" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
-            Mi cuenta
-          </Link>
+          <nav aria-label="Cuenta y compras" className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <CartLink />
+            <Link to="/cuenta" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-1 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
+              Mi cuenta
+            </Link>
+          </nav>
         </div>
       </header>
       <main id="contenido" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">

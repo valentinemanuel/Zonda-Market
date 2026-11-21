@@ -30,6 +30,8 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 
 ## Carrito, orden y reserva
 
+- Cada cuenta tiene un carrito persistente con una línea por SKU y cantidades de 1 a 99. El titular puede quitar cualquier línea propia. Agregar o editar exige una publicación ajena visible, una variante vigente y stock suficiente. Cada edición valida la versión del carrito bajo bloqueo y actualiza la versión en la misma transacción.
+- El carrito cotiza en ARS con el precio y stock vigentes, sin reservar unidades. La API agrupa las líneas elegibles por vendedor y calcula los subtotales y el total en el servidor. Las líneas no elegibles quedan visibles con su motivo y fuera del cálculo. Una variante retirada conserva los datos de la última edición del carrito. La diferencia entre el precio vigente y el guardado se muestra hasta confirmar una cantidad o quitar la línea.
 - El checkout confirma una `OrdenPago` y una `SubOrden` por vendedor en la misma transacción. Se congelan SKU, nombre, cantidad, precio, comisión, dirección y costo de envío. Los históricos conservan esos valores.
 - Los importes se calculan en servidor en ARS con `BigDecimal` y `NUMERIC(19,2)`. La comisión se calcula sobre mercadería y redondea por línea con `HALF_UP`. El envío tiene un costo fijo configurable por vendedor y su valor por defecto es cero.
 - La reserva dura 15 minutos. Pasa cantidad de disponible a reservado, se consume una vez al aplicar el cobro elegible y se libera una vez al vencer o fallar definitivamente. El carrito se conserva hasta el pago y se descuenta solo lo comprado.

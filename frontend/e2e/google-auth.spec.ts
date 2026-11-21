@@ -35,6 +35,9 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre la cuenta en m
     json: { id: "comprador", email, emailVerified: false, roles: ["USER"] },
   }));
   await page.route("**/api/v1/me/identities/google", (route) => route.fulfill({ json: { linked: true } }));
+  await page.route("**/api/v1/cart", (route) => route.fulfill({
+    json: { version: 0, groups: [], unavailable: [], total: "0.00", currency: "ARS", itemCount: 0 },
+  }));
 
   let release!: () => void;
   const hold = new Promise<void>((resolve) => { release = resolve; });

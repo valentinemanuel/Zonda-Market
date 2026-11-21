@@ -25,6 +25,7 @@ test("ajusta stock, recupera una respuesta perdida y actualiza la ficha pública
   await page.getByLabel("Identificador público").fill("stock-" + suffix);
   await page.getByRole("button", { name: "Activar perfil de vendedor" }).press("Enter");
   await page.getByRole("link", { name: "Mis publicaciones" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Todavía no creaste publicaciones." })).toBeVisible();
   await page.getByRole("link", { name: "Crear publicación" }).press("Enter");
   await page.getByLabel("Categoría").selectOption({ label: "Indumentaria" });
   await page.getByLabel("Título").fill("Remera de inventario");
