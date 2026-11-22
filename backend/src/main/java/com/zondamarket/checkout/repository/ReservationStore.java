@@ -59,6 +59,13 @@ public class ReservationStore {
         return query.query(UUID.class).optional().isPresent();
     }
 
+    public boolean hasActive(UUID order, Instant now) {
+        return sql.sql("""
+                SELECT EXISTS (SELECT 1 FROM zonda_market.stock_reservation
+                    WHERE order_id = :order AND status = 'ACTIVA' AND expires_at > :now)
+                """).param("order", order).param("now", now.atOffset(ZoneOffset.UTC)).query(Boolean.class).single();
+    }
+
     public void lockResources(UUID order) {
         sql.sql("""
                 SELECT id FROM zonda_market.checkout_sub_order WHERE order_id = :order ORDER BY id FOR UPDATE

@@ -8,7 +8,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order } from "./checkout-api";
 import { addressText, CheckoutSummary } from "./checkout-summary";
-import { TestPaymentAction } from "./test-payment-action";
+import { PaymentMethods } from "./payment-methods";
 
 export function ReservationPage() {
   const { id = "" } = useParams();
@@ -78,8 +78,7 @@ function Reservation({ order, revision }: { order: Order; revision: number }) {
         <Button asChild><Link to="/checkout">Volver a cotizar</Link></Button>
       </div>}
     </div>
-    {order.testPayment && <TestPaymentAction order={order} fixture={order.testPayment}
-      enabled={active && remaining > 0} revision={revision} />}
+    <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} />
     {address && <section aria-label="Dirección de entrega" className="space-y-1 rounded-lg border bg-card p-4">
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>

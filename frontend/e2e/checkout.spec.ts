@@ -106,6 +106,35 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(timer).not.toHaveText(firstTick);
   await page.screenshot({ path: testInfo.outputPath("checkout-reserva-movil.png"), fullPage: true });
 
+  const chooseCard = page.getByRole("button", { name: "Elegir Card Payment" });
+  const choosePro = page.getByRole("button", { name: "Elegir Checkout Pro" });
+  await expect(chooseCard).toBeEnabled();
+  await chooseCard.focus();
+  await page.keyboard.press("Tab");
+  await expect(choosePro).toBeFocused();
+  await page.keyboard.press("Enter");
+  const uncertain = page.getByText("El envío quedó sin respuesta. El intento sigue activo.");
+  await expect(uncertain).toBeVisible();
+  await expect(uncertain).toBeFocused();
+  await expect(chooseCard).toHaveCount(0);
+  await expect(choosePro).toHaveCount(0);
+  await page.reload();
+  await expect(uncertain).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: testInfo.outputPath("checkout-intento-incierto-movil.png"), fullPage: true });
+  const consult = page.getByRole("button", { name: "Consultar estado" });
+  await page.route("**/payment-options", (route) => route.abort("failed"), { times: 1 });
+  await consult.press("Enter");
+  await expect(page.getByRole("alert")).toHaveText("No pudimos consultar los medios de pago.");
+  await consult.press("Enter");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(uncertain).toBeVisible();
+  await page.getByRole("button", { name: "Marcar rechazado" }).press("Enter");
+  await expect(page.getByText("Pago rechazado.", { exact: true })).toBeVisible();
+  await expect(chooseCard).toBeEnabled();
+  await expect(choosePro).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath("checkout-intento-rechazado-movil.png"), fullPage: true });
+
   await page.goto("/checkout");
   await expect(page).toHaveURL(origin + "/checkout/reserva/" + originalId);
   await expect(page.getByText("Productos reservados", { exact: true })).toBeVisible();

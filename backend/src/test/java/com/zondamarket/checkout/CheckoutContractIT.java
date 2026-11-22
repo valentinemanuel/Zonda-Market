@@ -437,6 +437,115 @@ class CheckoutContractIT {
                         """.formatted(reference, result)));
     }
 
+    @Test
+    void serializesPaymentAttemptsAndRecoversAnUncertainSubmission() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var sku = product("Intento", "8.50", "0.00", 2);
+        add(buyer, sku, 1, 0);
+        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, quote, "reservation").andExpect(status().isOk()).andReturn());
+        var path = ORDERS + order;
+        mvc.perform(auth(get(path + "/payment-options"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.methods.length()").value(2))
+                .andExpect(jsonPath("$.methods[0]").value("CARD"))
+                .andExpect(jsonPath("$.methods[1]").value("CHECKOUT_PRO"));
+        mvc.perform(auth(get(path + "/payment-options"), outsider)).andExpect(status().isNotFound());
+        beginAttempt(outsider, order, "CARD", "outsider").andExpect(status().isNotFound());
+
+        var start = new CyclicBarrier(2);
+        MvcResult card;
+        MvcResult pro;
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return beginAttempt(buyer, order, "CARD", "card").andReturn();
+            });
+            var second = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return beginAttempt(buyer, order, "CHECKOUT_PRO", "pro").andReturn();
+            });
+            card = first.get(15, TimeUnit.SECONDS);
+            pro = second.get(15, TimeUnit.SECONDS);
+        }
+        boolean cardWon = card.getResponse().getStatus() == 200;
+        var winner = cardWon ? card : pro;
+        var loser = cardWon ? pro : card;
+        assertEquals(200, winner.getResponse().getStatus());
+        assertEquals(409, loser.getResponse().getStatus());
+        assertEquals("PAYMENT_ATTEMPT_ACTIVE", field(loser, "code"));
+        var attempt = uuid(winner);
+        var winnerMethod = cardWon ? "CARD" : "CHECKOUT_PRO";
+        var winnerKey = cardWon ? "card" : "pro";
+        var otherMethod = cardWon ? "CHECKOUT_PRO" : "CARD";
+        assertEquals("RESULTADO_DESCONOCIDO", field(winner, "status"));
+        mvc.perform(auth(get(path + "/payment-options"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.methods").isEmpty())
+                .andExpect(jsonPath("$.latestAttempt.id").value(attempt.toString()));
+        mvc.perform(auth(get(path + "/payments/" + attempt), buyer)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.nextAction").value("CONSULTAR"))
+                .andExpect(jsonPath("$.providerKey").doesNotExist());
+        mvc.perform(auth(get(path + "/payments/" + attempt), outsider)).andExpect(status().isNotFound());
+        beginAttempt(buyer, order, winnerMethod, winnerKey).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(attempt.toString()));
+        beginAttempt(buyer, order, otherMethod, winnerKey).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+        outcome(buyer, order, LocalPaymentPort.reference(order), "APPROVED").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_ATTEMPT_ACTIVE"));
+        reconcileAttempt(outsider, order, attempt, "APROBADO").andExpect(status().isNotFound());
+        reconcileAttempt(buyer, order, attempt, "PENDIENTE").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDIENTE"));
+        reconcileAttempt(buyer, order, attempt, "RECHAZADO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.nextAction").value("ELEGIR_MEDIO"));
+        assertStock(sku, 1, 1);
+        var retry = uuid(beginAttempt(buyer, order, otherMethod, "retry").andExpect(status().isOk()).andReturn());
+        reconcileAttempt(buyer, order, attempt, "APROBADO").andExpect(status().isConflict());
+        reconcileAttempt(buyer, order, retry, "APROBADO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APROBADO"));
+        reconcileAttempt(buyer, order, retry, "APROBADO").andExpect(status().isOk());
+        beginAttempt(buyer, order, winnerMethod, "after-paid").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_ORDER_INELIGIBLE"));
+        mvc.perform(auth(get(path), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGADA"));
+        assertStock(sku, 1, 0);
+        assertEquals(1, eventCount(order, "CHECKOUT_PAID"));
+        assertEquals(2, sql.sql("SELECT count(*) FROM zonda_market.payment_attempt WHERE order_id = :order")
+                .param("order", order).query(Integer.class).single());
+    }
+
+    @Test
+    void refusesNewAttemptsAtTheDeadlineAndRecordsLateApproval() throws Exception {
+        var buyer = account(true);
+        var sku = product("Intento tardío", "8.50", "0.00", 1);
+        add(buyer, sku, 1, 0);
+        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, quote, "reserved").andExpect(status().isOk()).andReturn());
+        var attempt = uuid(beginAttempt(buyer, order, "CARD", "first").andExpect(status().isOk()).andReturn());
+        clock.set(clock.instant().plusSeconds(900));
+        var fresh = login(buyer);
+        beginAttempt(fresh, order, "CHECKOUT_PRO", "too-late").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_ORDER_INELIGIBLE"));
+        reconcileAttempt(fresh, order, attempt, "APROBADO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APROBADO"));
+        mvc.perform(auth(get(ORDERS + order), fresh)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRADA"));
+        assertStock(sku, 1, 0);
+        assertEquals(1, eventCount(order, "CHECKOUT_EXPIRED"));
+        assertEquals(1, eventCount(order, "LOCAL_PAYMENT_LATE"));
+        assertEquals(0, eventCount(order, "CHECKOUT_PAID"));
+    }
+
+    private ResultActions beginAttempt(Account buyer, UUID order, String method, String key) throws Exception {
+        return mvc.perform(auth(post(ORDERS + order + "/payments"), buyer).header("Idempotency-Key", key)
+                .content("{\"method\":\"%s\"}".formatted(method)));
+    }
+
+    private ResultActions reconcileAttempt(Account buyer, UUID order, UUID attempt, String result) throws Exception {
+        return mvc.perform(auth(post("/api/v1/test-fixtures/orders/" + order + "/payments/" + attempt + "/outcome"), buyer)
+                .content("{\"outcome\":\"%s\"}".formatted(result)));
+    }
+
     private String reservationState(UUID order) {
         return sql.sql("SELECT status FROM zonda_market.stock_reservation WHERE order_id = :id")
                 .param("id", order).query(String.class).single();

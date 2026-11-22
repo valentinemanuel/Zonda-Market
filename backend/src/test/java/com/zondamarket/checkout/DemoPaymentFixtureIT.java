@@ -51,5 +51,10 @@ class DemoPaymentFixtureIT {
                                 {"outcome":"APPROVED","reference":"local-%s"}
                                 """.formatted(id)))
                 .andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/test-fixtures/orders/" + id + "/payments/" + id + "/outcome")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"outcome\":\"APROBADO\"}"))
+                .andExpect(status().isNotFound());
     }
 }
