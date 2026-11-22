@@ -15,7 +15,12 @@ interface PaymentStrategy {
     record PaymentCommand(Method method, UUID idempotencyKey, String externalReference, BigDecimal amount,
                           String currency, Instant expiresAt) {}
 
-    record VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status) {}
+    record VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status,
+                           String providerOrderId) {
+        VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status) {
+            this(externalReference, amount, currency, status, null);
+        }
+    }
 
     class SubmissionUncertain extends Exception {}
 }

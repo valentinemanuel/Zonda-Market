@@ -76,6 +76,13 @@ public class CheckoutStore {
                 .param("id", id).param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
     }
 
+    public String frozenProvince(UUID orderId) {
+        return sql.sql("""
+                SELECT address_snapshot ->> 'provinceCode' FROM zonda_market.checkout_sub_order
+                WHERE order_id = :order ORDER BY id LIMIT 1
+                """).param("order", orderId).query(String.class).single();
+    }
+
     public Optional<Order> active(UUID buyer) {
         return sql.sql(ORDER_COLUMNS + " WHERE buyer_id = :buyer AND status IN ('RESERVADA', 'PAGO_PENDIENTE')")
                 .param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();

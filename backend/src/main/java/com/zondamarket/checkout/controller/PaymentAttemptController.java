@@ -3,6 +3,8 @@ package com.zondamarket.checkout.controller;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentOptions;
 import com.zondamarket.checkout.dto.PaymentDtos.StartRequest;
+import com.zondamarket.checkout.dto.CardPaymentRequest;
+import com.zondamarket.checkout.service.CardPaymentService;
 import com.zondamarket.checkout.service.PaymentAttemptService;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.shared.web.CorrelationIdFilter;
@@ -29,14 +31,16 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class PaymentAttemptController {
     private final PaymentAttemptService payments;
+    private final CardPaymentService cards;
 
-    PaymentAttemptController(PaymentAttemptService payments) {
+    PaymentAttemptController(PaymentAttemptService payments, CardPaymentService cards) {
         this.payments = payments;
+        this.cards = cards;
     }
 
     @GetMapping("/payment-options")
     ResponseEntity<PaymentOptions> options(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id) {
-        return privateResponse(payments.options(account.id(), id));
+        return privateResponse(payments.options(account.id(), id, account.email()));
     }
 
     @GetMapping("/payments/{attemptId}")
@@ -56,6 +60,19 @@ class PaymentAttemptController {
     ResponseEntity<PaymentAttemptResponse> submit(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
         return privateResponse(payments.submit(account.id(), id, attemptId, trace(response)));
+    }
+
+    @PostMapping("/payments/card")
+    ResponseEntity<PaymentAttemptResponse> card(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
+            @Valid @RequestBody CardPaymentRequest request, HttpServletResponse response,
+            @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key) {
+        return privateResponse(cards.submit(account.id(), id, key, request, trace(response)));
+    }
+
+    @PostMapping("/payments/{attemptId}/reconcile-card")
+    ResponseEntity<PaymentAttemptResponse> reconcileCard(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
+        return privateResponse(cards.consult(account.id(), id, attemptId, trace(response)));
     }
 
     private static UUID trace(HttpServletResponse response) {

@@ -30,10 +30,19 @@ export type PaymentMethod = "CARD" | "CHECKOUT_PRO";
 export type VerifiedAttemptOutcome = "PENDIENTE" | "APROBADO" | "RECHAZADO";
 export type PaymentAttempt = {
   id: string; method: PaymentMethod; expiresAt: string;
+  provider: "LOCAL" | "MERCADO_PAGO";
   status: VerifiedAttemptOutcome | "CREADO" | "ENVIADO" | "RESULTADO_DESCONOCIDO";
-  nextAction: "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
+  nextAction: "INGRESAR_TARJETA" | "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
 };
-export type PaymentOptions = { methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null };
+export type CardConfig = { publicKey: string; amount: string; payerEmail: string };
+export type PaymentOptions = { methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null; card: CardConfig | null };
+export type CardData = {
+  token: string;
+  paymentMethodId: string;
+  paymentType: "credit_card" | "debit_card";
+  installments: number;
+  payer: { email: string; identification?: { type?: string; number?: string } };
+};
 
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
@@ -109,6 +118,16 @@ export async function startPayment(id: string, method: PaymentMethod, key: strin
 export async function submitPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
   return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
     + "/submit", { method: "POST" })).json();
+}
+
+export async function submitCardPayment(id: string, attemptId: string, card: CardData): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/card",
+    post({ attemptId, ...card }, attemptId))).json();
+}
+
+export async function reconcileCardPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/reconcile-card", { method: "POST" })).json();
 }
 
 export async function simulateAttemptOutcome(id: string, attemptId: string,

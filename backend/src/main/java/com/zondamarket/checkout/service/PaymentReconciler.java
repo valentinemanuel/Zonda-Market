@@ -1,6 +1,7 @@
 package com.zondamarket.checkout.service;
 
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
+import com.zondamarket.checkout.dto.PaymentDtos.Provider;
 import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.service.PaymentStrategy.VerifiedPayment;
 import com.zondamarket.checkout.shared.PaymentErrors;
@@ -35,17 +36,25 @@ class PaymentReconciler {
         var attempt = payments.find(order, attemptId);
         validate(attempt, verified);
         if (attempt.status() == verified.status()) return;
+        if (!attempt.status().active() && verified.providerOrderId() != null
+                && verified.status() == Status.PENDIENTE) return;
         if (!attempt.status().active() || attempt.status() == Status.CREADO
                 || (verified.status() != Status.PENDIENTE && verified.status() != Status.RECHAZADO)) {
             throw PaymentErrors.conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
         }
-        attempts.update(order, attemptId, verified.status(), trace, clock.instant());
+        var now = clock.instant();
+        if (verified.providerOrderId() != null) {
+            attempts.bindProviderOrder(order, attemptId, verified.providerOrderId(), now);
+        }
+        attempts.update(order, attemptId, verified.status(), trace, now);
     }
 
     static void validate(PaymentAttemptStore.Attempt attempt, VerifiedPayment verified) {
         if (!attempt.externalReference().equals(verified.externalReference())
                 || attempt.amount().compareTo(verified.amount()) != 0
-                || !attempt.currency().equals(verified.currency())) {
+                || !attempt.currency().equals(verified.currency())
+                || (attempt.provider() == Provider.MERCADO_PAGO) != (verified.providerOrderId() != null)
+                || (attempt.providerOrderId() != null && !attempt.providerOrderId().equals(verified.providerOrderId()))) {
             throw PaymentErrors.conflict("PAYMENT_ATTEMPT_MISMATCH", "El pago verificado no coincide con el intento.");
         }
     }
