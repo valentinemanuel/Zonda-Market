@@ -26,9 +26,19 @@ export type Order = Received<Timed & {
 export type PaymentOutcome = "APPROVED" | "REJECTED";
 type PaymentResult = PaymentOutcome | "LATE_APPROVAL" | "EXPIRED";
 
+export type PaymentMethod = "CARD" | "CHECKOUT_PRO";
+export type VerifiedAttemptOutcome = "PENDIENTE" | "APROBADO" | "RECHAZADO";
+export type PaymentAttempt = {
+  id: string; method: PaymentMethod; expiresAt: string;
+  status: VerifiedAttemptOutcome | "CREADO" | "ENVIADO" | "RESULTADO_DESCONOCIDO";
+  nextAction: "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
+};
+export type PaymentOptions = { methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null };
+
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
 export const ordersKey = (revision: number) => ["private", "orders", revision] as const;
+export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
 
 export type OrderPage = {
@@ -86,6 +96,25 @@ export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order
 export async function simulatePayment(id: string, reference: string, outcome: PaymentOutcome): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/test-fixtures/orders/" + encodeURIComponent(id) + "/payment-outcome",
     post({ reference, outcome })));
+}
+
+export async function fetchPaymentOptions(id: string, signal: AbortSignal): Promise<PaymentOptions> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payment-options", { signal })).json();
+}
+
+export async function startPayment(id: string, method: PaymentMethod, key: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments", post({ method }, key))).json();
+}
+
+export async function submitPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/submit", { method: "POST" })).json();
+}
+
+export async function simulateAttemptOutcome(id: string, attemptId: string,
+  outcome: VerifiedAttemptOutcome): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/test-fixtures/orders/" + encodeURIComponent(id) + "/payments/"
+    + encodeURIComponent(attemptId) + "/outcome", post({ outcome }))).json();
 }
 
 export function checkoutError(error: unknown) {

@@ -1,12 +1,16 @@
 package com.zondamarket.checkout.service;
 
 import com.zondamarket.cart.repository.CartStore;
+import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.repository.CheckoutStore;
+import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore.Result;
 import com.zondamarket.checkout.repository.ReservationStore;
 import com.zondamarket.checkout.service.LocalPaymentPort.Outcome;
 import com.zondamarket.checkout.service.LocalPaymentPort.VerifiedOutcome;
+import com.zondamarket.checkout.service.PaymentStrategy.VerifiedPayment;
+import com.zondamarket.checkout.shared.PaymentErrors;
 import com.zondamarket.shared.errors.ApiProblemException;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
@@ -21,19 +25,31 @@ public class PaymentConfirmationService {
     private final CheckoutStore orders;
     private final ReservationStore reservations;
     private final PaymentOutcomeStore outcomes;
+    private final PaymentAttemptStore attempts;
     private final Clock clock;
 
     PaymentConfirmationService(CartStore carts, CheckoutStore orders, ReservationStore reservations,
-                               PaymentOutcomeStore outcomes, Clock clock) {
+                               PaymentOutcomeStore outcomes, PaymentAttemptStore attempts, Clock clock) {
         this.carts = carts;
         this.orders = orders;
         this.reservations = reservations;
         this.outcomes = outcomes;
+        this.attempts = attempts;
         this.clock = clock;
     }
 
     @Transactional(timeout = 5)
     public void applyVerifiedOutcome(UUID buyer, UUID orderId, VerifiedOutcome outcome, UUID trace) {
+        apply(buyer, orderId, outcome, null, trace);
+    }
+
+    @Transactional(timeout = 5)
+    public void applyAttemptApproval(UUID buyer, UUID orderId, UUID attemptId, VerifiedPayment verified, UUID trace) {
+        apply(buyer, orderId, new VerifiedOutcome(verified.externalReference(), Outcome.APPROVED,
+                verified.amount(), verified.currency()), attemptId, trace);
+    }
+
+    private void apply(UUID buyer, UUID orderId, VerifiedOutcome outcome, UUID attemptId, UUID trace) {
         // Cart edits and checkout share the cart lock. Expiration never acquires it.
         var cart = carts.lock(buyer);
         var order = orders.lock(buyer, orderId).orElseThrow(() ->
@@ -48,6 +64,18 @@ public class PaymentConfirmationService {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "La referencia ya tiene otro resultado.");
             }
             return;
+        }
+        if (attemptId == null) {
+            if (attempts.latest(orderId).filter(a -> a.status().active()).isPresent()) {
+                throw conflict("PAYMENT_ATTEMPT_ACTIVE", "Ya hay un intento activo para esta orden.");
+            }
+        } else {
+            var attempt = attempts.find(orderId, attemptId).orElseThrow(PaymentErrors::attemptNotFound);
+            PaymentReconciler.validate(attempt, new VerifiedPayment(outcome.reference(), outcome.amount(),
+                    outcome.currency(), Status.APROBADO));
+            if (!attempt.status().active() || attempt.status() == Status.CREADO) {
+                throw conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
+            }
         }
         boolean active = "RESERVADA".equals(order.status()) || "PAGO_PENDIENTE".equals(order.status());
         if (!active && !"EXPIRADA".equals(order.status())) {
@@ -74,6 +102,7 @@ public class PaymentConfirmationService {
             result = Result.REJECTED;
         }
         outcomes.insert(orderId, outcome, result, trace, now);
+        if (attemptId != null) attempts.update(orderId, attemptId, Status.APROBADO, trace, now);
     }
 
     private static ApiProblemException conflict(String code, String detail) {
