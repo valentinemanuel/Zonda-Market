@@ -106,7 +106,25 @@ Con `MERCADO_PAGO_TEST_ENABLED=false`, el perfil local conserva el simulador de 
 2. En `.env`, configurá `MERCADO_PAGO_PRO_TEST_ENABLED=true`, `MERCADO_PAGO_PRO_ACCESS_TOKEN`, `MERCADO_PAGO_PRO_TEST_COLLECTOR_ID` y `MERCADO_PAGO_PRO_PUBLIC_ORIGIN`. El origen debe ser HTTPS, sin barra final, y estar incluido en `AUTH_ALLOWED_ORIGINS`. Debe abrir la misma tienda desde el navegador. Iniciá Compose y entrá a la tienda desde ese origen.
 3. Con una reserva vigente, elegí **Pagar con saldo de Mercado Pago**. Ingresá con el comprador de prueba, elegí dinero en cuenta y usá **Volver al sitio** si Mercado Pago no vuelve automáticamente. El resultado consulta el pago oficial y ofrece **Consultar estado** si sigue pendiente.
 
-En un entorno local aislado, `npm run test:e2e -- checkout-pro` desde `frontend/` prueba con respuestas ficticias la salida, el retorno manipulado y la consulta posterior. Desde `backend/`, `.\mvnw.cmd verify "-Dit.test=CheckoutProContractIT"` prueba concurrencia, permisos, recuperación de la preferencia y un único consumo de stock. La recepción de notificaciones corresponde a E4-04.
+En un entorno local aislado, `npm run test:e2e -- checkout-pro` desde `frontend/` prueba con respuestas ficticias la salida, el retorno manipulado y la consulta posterior. Desde `backend/`, `.\mvnw.cmd verify "-Dit.test=CheckoutProContractIT"` prueba concurrencia, permisos, recuperación de la preferencia y un único consumo de stock.
+
+### Webhooks y conciliación de Mercado Pago
+
+1. En las aplicaciones de prueba de Mercado Pago, configurá como URL de notificación `https://tu-origen/api/v1/webhooks/mercadopago` en un entorno de prueba accesible por HTTPS. Seleccioná **Order (Mercado Pago)** para Card Payment Brick vía Orders API y **Pagos** para Checkout Pro vía preferencias. [Notificaciones de Orders API](https://www.mercadopago.com.ar/developers/es/docs/checkout-api-orders/notifications) · [Notificaciones de Checkout Pro](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro-preferences/payment-notifications)
+2. En `.env` completá `MERCADO_PAGO_CARD_WEBHOOK_SECRET` y/o `MERCADO_PAGO_PRO_WEBHOOK_SECRET` con la **firma secreta de Webhooks** de cada aplicación. El adaptador correspondiente necesita también las credenciales de prueba descritas arriba. Recreá el entorno con `docker compose up --build --wait`.
+3. Hacé una compra de prueba y verificá que la orden pase a **Pagada** al abrir la reserva o **Mis órdenes**. La notificación responde 200 tras guardar su entrega. El cobro se confirma al verificar la consulta al proveedor. También podés completar un pago con las notificaciones temporalmente deshabilitadas para observar que el barrido recupera el resultado.
+
+Para reproducir con datos ficticios, ejecutá `.\mvnw.cmd verify "-Dit.test=PaymentWebhookContractIT"` desde `backend/` y `npm run test:e2e -- payment-reconciliation` desde `frontend/`. El contrato comprueba diez reenvíos, firma inválida, un estado fuera de orden, reintentos y la recuperación sin entrega.
+
+Para investigar un fallo, buscá el `traceId` en los logs del backend y consultá el inbox. Una fila con `finished_at` y `failure_code` indica un fallo terminal. Una fila sin `finished_at` puede tener un próximo reintento.
+
+```sql
+SELECT trace_id, topic, resource_id, attempts, next_attempt_at, finished_at, failure_code
+FROM zonda_market.payment_webhook_inbox
+WHERE failure_code IS NOT NULL
+ORDER BY received_at DESC
+LIMIT 50;
+```
 
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 

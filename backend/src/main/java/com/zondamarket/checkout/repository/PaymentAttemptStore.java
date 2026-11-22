@@ -52,6 +52,44 @@ public class PaymentAttemptStore {
                 """).param("order", order).query(Attempt.class).optional();
     }
 
+    public Optional<ReconciliationTarget> forExternalReference(Method method, String reference) {
+        return sql.sql("""
+                SELECT checkout.buyer_id, attempt.order_id, attempt.id AS attempt_id, attempt.method, attempt.trace_id
+                FROM zonda_market.payment_attempt attempt
+                JOIN zonda_market.checkout_order checkout ON checkout.id = attempt.order_id
+                WHERE attempt.external_reference = :reference AND attempt.method = :method
+                  AND attempt.provider = 'MERCADO_PAGO'
+                """).param("method", method.name()).param("reference", reference)
+                .query(ReconciliationTarget.class).optional();
+    }
+
+    public Optional<ReconciliationTarget> claimReconciliation(boolean card, boolean pro, Instant now) {
+        return sql.sql("""
+                WITH due AS (
+                    SELECT attempt.id, checkout.buyer_id
+                    FROM zonda_market.payment_attempt attempt
+                    JOIN zonda_market.checkout_order checkout ON checkout.id = attempt.order_id
+                    WHERE attempt.provider = 'MERCADO_PAGO'
+                      AND attempt.status IN ('ENVIADO', 'PENDIENTE', 'RESULTADO_DESCONOCIDO')
+                      AND ((:card AND attempt.method = 'CARD') OR (:pro AND attempt.method = 'CHECKOUT_PRO'))
+                      AND attempt.expires_at >= :oldest
+                      AND COALESCE(attempt.reconcile_after, attempt.updated_at + interval '15 seconds') <= :now
+                    ORDER BY COALESCE(attempt.reconcile_after, attempt.updated_at), attempt.id
+                    LIMIT 1 FOR UPDATE OF attempt SKIP LOCKED
+                )
+                UPDATE zonda_market.payment_attempt AS attempt
+                SET reconcile_after = CASE WHEN expires_at <= :now THEN :later ELSE :soon END
+                FROM due WHERE attempt.id = due.id
+                RETURNING due.buyer_id, attempt.order_id, attempt.id AS attempt_id, attempt.method, attempt.trace_id
+                """).param("card", card).param("pro", pro).param("now", now.atOffset(ZoneOffset.UTC))
+                .param("oldest", now.minusSeconds(7 * 24 * 3600L).atOffset(ZoneOffset.UTC))
+                .param("soon", now.plusSeconds(30).atOffset(ZoneOffset.UTC))
+                .param("later", now.plusSeconds(300).atOffset(ZoneOffset.UTC))
+                .query(ReconciliationTarget.class).optional();
+    }
+
+    public record ReconciliationTarget(UUID buyerId, UUID orderId, UUID attemptId, Method method, UUID traceId) {}
+
     public void insert(UUID order, Attempt attempt, String key, UUID trace, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.payment_attempt

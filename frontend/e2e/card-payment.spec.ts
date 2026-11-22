@@ -122,9 +122,12 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
 
   const consult = page.getByRole("button", { name: "Consultar estado" });
   await consult.press("Enter");
-  await expect(page.getByText("El pago está pendiente de confirmación.")).toBeVisible();
+  await expect(page.getByText("El pago está pendiente de confirmación.")).toBeFocused();
+  await expect(consult).toBeEnabled();
   await consult.press("Enter");
-  await expect(page.getByText("Pago rechazado.", { exact: true })).toBeVisible();
+  const rejected = page.getByText("Pago rechazado.", { exact: true });
+  await expect(rejected).toBeFocused();
+  await expect(chooseCard).toBeEnabled();
   await chooseCard.press("Enter");
   await document.fill("12345678");
   await send.press("Enter");

@@ -8,6 +8,9 @@ zonda:
     public-key: ${MERCADO_PAGO_PUBLIC_KEY:}
     access-token: ${MERCADO_PAGO_ACCESS_TOKEN:}
     test-collector-id: ${MERCADO_PAGO_TEST_COLLECTOR_ID:0}
+    webhooks:
+      card-secret: ${MERCADO_PAGO_CARD_WEBHOOK_SECRET:}
+      pro-secret: ${MERCADO_PAGO_PRO_WEBHOOK_SECRET:}
     pro:
       test-enabled: ${MERCADO_PAGO_PRO_TEST_ENABLED:false}
       access-token: ${MERCADO_PAGO_PRO_ACCESS_TOKEN:}

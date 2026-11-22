@@ -13,6 +13,7 @@ import com.mercadopago.net.MPDefaultHttpClient;
 import com.mercadopago.net.MPHttpClient;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.service.CheckoutProGateway;
+import com.zondamarket.checkout.service.PaymentProviderReadFailure;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
@@ -135,26 +136,42 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
             }
             var id = approvedId == null ? pendingId : approvedId;
             if (id == null) return Optional.empty();
-            var payment = exchange(PAYMENTS + "/" + id, HttpMethod.GET, null, null, Map.of());
+            return lookupPayment(id).filter(found -> checkout.reference().equals(found.reference())
+                    && checkout.currency().equals(found.currency()) && checkout.amount().compareTo(found.amount()) == 0);
+        } catch (PaymentProviderReadFailure | RuntimeException malformed) {
+            throw new Uncertain();
+        }
+    }
+
+    @Override
+    public Optional<Payment> lookupPayment(String id) throws PaymentProviderReadFailure {
+        if (id == null || !id.matches("[0-9]{1,30}")) return Optional.empty();
+        try {
+            var payment = client.exchange(PAYMENTS + "/" + id, HttpMethod.GET, null, null, options(Map.of()));
             var reference = value(payment, "external_reference");
             var currency = value(payment, "currency_id");
             var amount = payment.get("transaction_amount").getAsBigDecimal();
-            if (!id.equals(value(payment, "id")) || !checkout.reference().equals(reference)
+            if (!id.equals(value(payment, "id")) || reference.isBlank()
                     || !collector.equals(value(payment, "collector_id"))
-                    || !checkout.currency().equals(currency)
+                    || !"ARS".equals(currency)
                     || !"account_money".equals(value(payment, "payment_type_id"))
                     || !"account_money".equals(value(payment, "payment_method_id"))
-                    || checkout.amount().compareTo(amount) != 0) {
+                    || amount.signum() <= 0) {
                 return Optional.empty();
             }
             var status = value(payment, "status");
             if ("approved".equals(status) && "accredited".equals(value(payment, "status_detail"))) {
                 return Optional.of(new Payment(id, reference, amount, currency, Status.APROBADO));
             }
-            return PENDING.contains(status) ? Optional.of(new Payment(id, reference, amount, currency, Status.PENDIENTE))
-                    : Optional.empty();
-        } catch (RuntimeException malformed) {
-            throw new Uncertain();
+            if (PENDING.contains(status)) return Optional.of(new Payment(id, reference, amount, currency, Status.PENDIENTE));
+            if ("rejected".equals(status) || "cancelled".equals(status)) {
+                return Optional.of(new Payment(id, reference, amount, currency, Status.RECHAZADO));
+            }
+            return Optional.empty();
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException malformed) {
+            throw new PaymentProviderReadFailure(0);
         }
     }
 
@@ -237,12 +254,15 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
     private JsonObject exchange(String path, HttpMethod method, JsonObject payload, Map<String, Object> query,
                                 Map<String, String> headers) throws Uncertain {
         try {
-            var options = MPRequestOptions.builder().accessToken(token).customHeaders(headers)
-                    .connectionTimeout(1_500).connectionRequestTimeout(1_000).socketTimeout(3_500).maxRetries(0).build();
-            return client.exchange(path, method, payload, query, options);
+            return client.exchange(path, method, payload, query, options(headers));
         } catch (MPException | MPApiException | RuntimeException error) {
             throw new Uncertain();
         }
+    }
+
+    private MPRequestOptions options(Map<String, String> headers) {
+        return MPRequestOptions.builder().accessToken(token).customHeaders(headers)
+                .connectionTimeout(1_500).connectionRequestTimeout(1_000).socketTimeout(3_500).maxRetries(0).build();
     }
 
     private static String value(JsonObject object, String name) {

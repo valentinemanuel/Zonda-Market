@@ -85,13 +85,7 @@ public class CheckoutProService {
             var payment = gateway.lookup(checkout).filter(found -> checkout.reference().equals(found.reference())
                     && checkout.currency().equals(found.currency()) && checkout.amount().compareTo(found.amount()) == 0);
             if (payment.isPresent()) {
-                var found = payment.get();
-                if (found.status() == Status.APROBADO) {
-                    reconciler.apply(buyer, order, id, new VerifiedPayment(found.reference(), found.amount(),
-                            found.currency(), found.status(), found.id()), trace);
-                } else if (found.status() == Status.PENDIENTE) {
-                    markInProgress(buyer, order, id, trace);
-                }
+                reconciler.apply(buyer, order, id, VerifiedPayment.from(payment.get()), trace);
             }
         } catch (CheckoutProGateway.Uncertain uncertain) {
             // A failed read leaves the existing attempt and preference intact.
@@ -115,16 +109,6 @@ public class CheckoutProService {
             var attempt = requirePro(order, id);
             if (attempt.status() == Status.ENVIADO && attempt.preferenceId() == null) {
                 attempts.update(order, id, status, trace, clock.instant());
-            }
-        });
-    }
-
-    private void markInProgress(UUID buyer, UUID order, UUID id, UUID trace) {
-        transaction.executeWithoutResult(tx -> {
-            payments.lockOrder(buyer, order);
-            var attempt = requirePro(order, id);
-            if (attempt.status() == Status.PENDIENTE && attempt.preferenceId() != null) {
-                attempts.update(order, id, Status.ENVIADO, trace, clock.instant());
             }
         });
     }

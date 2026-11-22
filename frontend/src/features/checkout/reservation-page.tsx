@@ -27,10 +27,12 @@ function OrderCheckout({ returned }: { returned: boolean }) {
   });
   const { data, refetch } = order;
   useEffect(() => {
-    if (data?.status === "EXPIRADA") {
+    if (data?.status === "EXPIRADA" || data?.status === "PAGADA") {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
+      void client.invalidateQueries({ queryKey: ["catalog"] });
+      void client.invalidateQueries({ queryKey: ["listing-public"] });
     }
   }, [client, data?.status, revision]);
   useEffect(() => {

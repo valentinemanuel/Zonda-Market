@@ -15,6 +15,7 @@ import com.mercadopago.net.MPHttpClient;
 import com.zondamarket.checkout.dto.CardPaymentRequest;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.service.CardPaymentGateway;
+import com.zondamarket.checkout.service.PaymentProviderReadFailure;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -116,14 +117,27 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
                 id = orderId(row).orElse(null);
             }
             if (!validId(id)) return Optional.empty();
-            return observation(orders.exchange(ORDERS + "/" + id, HttpMethod.GET, null, null, read), id, reference);
-        } catch (MPException | MPApiException | RuntimeException error) {
+            return lookupOrder(id).filter(observed -> reference.equals(observed.externalReference()));
+        } catch (MPException | MPApiException | PaymentProviderReadFailure | RuntimeException error) {
             throw new SubmissionUncertain();
         }
     }
 
-    private Optional<Observation> observation(JsonObject order, String id, String reference) {
-        if (!id.equals(value(order, "id")) || !reference.equals(value(order, "external_reference"))
+    @Override
+    public Optional<Observation> lookupOrder(String id) throws PaymentProviderReadFailure {
+        if (!validId(id)) return Optional.empty();
+        try {
+            return observation(orders.exchange(ORDERS + "/" + id, HttpMethod.GET, null, null, options(Map.of())), id);
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    private Optional<Observation> observation(JsonObject order, String id) {
+        var reference = value(order, "external_reference");
+        if (!id.equals(value(order, "id")) || reference.isBlank()
                 || !"online".equals(value(order, "type")) || !"ARG".equals(value(order, "country_code"))
                 || !Long.toString(collector).equals(value(order, "user_id"))
                 || (order.has("currency") && !"ARS".equals(value(order, "currency")))
@@ -133,6 +147,7 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
         var payments = object(order, "transactions").getAsJsonArray("payments");
         if (payments == null || payments.size() != 1) return Optional.empty();
         var payment = payments.get(0).getAsJsonObject();
+        var paymentId = value(payment, "id");
         var amount = new BigDecimal(value(order, "total_amount"));
         if (amount.signum() <= 0 || amount.compareTo(new BigDecimal(value(payment, "amount"))) != 0
                 || !CARD_TYPES.contains(value(object(payment, "payment_method"), "type"))) {
@@ -142,12 +157,16 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
         String paymentState = value(payment, "status");
         if ("processed".equals(orderState) && "accredited".equals(value(order, "status_detail"))
                 && "processed".equals(paymentState) && "accredited".equals(value(payment, "status_detail"))) {
-            return Optional.of(new Observation(id, reference, amount, "ARS", Status.APROBADO));
+            if (!validId(paymentId)) return Optional.empty();
+            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.APROBADO));
         }
+        if (!validId(paymentId)) paymentId = null;
         if (TERMINAL_FAILURES.contains(orderState) && TERMINAL_FAILURES.contains(paymentState)) {
-            return Optional.of(new Observation(id, reference, amount, "ARS", Status.RECHAZADO));
+            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.RECHAZADO));
         }
-        if (OPEN_STATES.contains(orderState)) return Optional.of(new Observation(id, reference, amount, "ARS", Status.PENDIENTE));
+        if (OPEN_STATES.contains(orderState)) {
+            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.PENDIENTE));
+        }
         return Optional.empty();
     }
 

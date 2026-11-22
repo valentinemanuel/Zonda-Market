@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"zonda.auth.jwt-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "zonda.checkout.expiry.enabled=false"})
+        "zonda.checkout.expiry.enabled=false", "zonda.checkout.reconciliation.enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
 @ActiveProfiles("test")
@@ -184,6 +184,8 @@ class CheckoutProContractIT extends CheckoutContractFixtures {
             assertEquals(this.checkout, checkout);
             return Optional.ofNullable(payment);
         }
+
+        @Override public Optional<Payment> lookupPayment(String id) { return Optional.empty(); }
 
         private static Preference preference(Checkout checkout) {
             var id = checkout.reference().substring("zonda-".length());

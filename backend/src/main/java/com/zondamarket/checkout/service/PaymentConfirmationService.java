@@ -7,6 +7,7 @@ import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore.Result;
+import com.zondamarket.checkout.repository.PaymentTransactionStore;
 import com.zondamarket.checkout.repository.ReservationStore;
 import com.zondamarket.checkout.service.LocalPaymentPort.Outcome;
 import com.zondamarket.checkout.service.LocalPaymentPort.VerifiedOutcome;
@@ -27,15 +28,18 @@ public class PaymentConfirmationService {
     private final ReservationStore reservations;
     private final PaymentOutcomeStore outcomes;
     private final PaymentAttemptStore attempts;
+    private final PaymentTransactionStore transactions;
     private final Clock clock;
 
     PaymentConfirmationService(CartStore carts, CheckoutStore orders, ReservationStore reservations,
-                               PaymentOutcomeStore outcomes, PaymentAttemptStore attempts, Clock clock) {
+                               PaymentOutcomeStore outcomes, PaymentAttemptStore attempts,
+                               PaymentTransactionStore transactions, Clock clock) {
         this.carts = carts;
         this.orders = orders;
         this.reservations = reservations;
         this.outcomes = outcomes;
         this.attempts = attempts;
+        this.transactions = transactions;
         this.clock = clock;
     }
 
@@ -60,11 +64,18 @@ public class PaymentConfirmationService {
             throw conflict("PAYMENT_AMOUNT_MISMATCH", "El importe verificado no coincide con la orden.");
         }
         var attempt = attemptId == null ? null : attempts.find(orderId, attemptId).orElseThrow(PaymentErrors::attemptNotFound);
-        if (attempt != null) PaymentReconciler.validate(attempt, verified);
+        boolean external = verified != null && verified.providerOrderId() != null;
+        if (attempt != null) {
+            PaymentReconciler.validate(attempt, verified);
+            if (attempt.status() == Status.CREADO) {
+                throw conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
+            }
+            PaymentReconciler.recordTransaction(transactions, attempt, verified, trace, clock.instant());
+        }
         var previous = outcomes.find(orderId);
         if (previous.isPresent()) {
             var saved = previous.get();
-            if (!saved.reference().equals(outcome.reference()) || saved.outcome() != outcome.outcome()) {
+            if (!external && (!saved.reference().equals(outcome.reference()) || saved.outcome() != outcome.outcome())) {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "La referencia ya tiene otro resultado.");
             }
             return;
@@ -73,13 +84,15 @@ public class PaymentConfirmationService {
             if (attempts.latest(orderId).filter(a -> a.status().active()).isPresent()) {
                 throw conflict("PAYMENT_ATTEMPT_ACTIVE", "Ya hay un intento activo para esta orden.");
             }
-        } else {
-            if (!attempt.status().active() || attempt.status() == Status.CREADO) {
+        } else if (!attempt.status().active()) {
+            if (!external) {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
             }
+            return;
         }
         boolean active = "RESERVADA".equals(order.status()) || "PAGO_PENDIENTE".equals(order.status());
         if (!active && !"EXPIRADA".equals(order.status())) {
+            if (external) return;
             throw conflict("PAYMENT_ORDER_CLOSED", "La orden ya tiene un estado definitivo.");
         }
         if (active) reservations.lockResources(orderId);
@@ -91,7 +104,7 @@ public class PaymentConfirmationService {
             if (active) reservations.release(orderId, trace, now);
             if (approval) {
                 var event = "LOCAL_PAYMENT_LATE";
-                if (verified != null && verified.providerOrderId() != null) {
+                if (external) {
                     event = attempt.method() == Method.CHECKOUT_PRO
                             ? "CHECKOUT_PRO_PAYMENT_LATE" : "CARD_PAYMENT_LATE";
                 }
@@ -109,7 +122,8 @@ public class PaymentConfirmationService {
             reservations.settle(orderId, false, "FALLIDA", "CANCELADA", "CHECKOUT_PAYMENT_REJECTED", trace, now);
             result = Result.REJECTED;
         }
-        outcomes.insert(orderId, outcome, result, trace, now);
+        outcomes.insert(orderId, outcome, result, external ? attempt.method() : null,
+                external ? verified.providerPaymentId() : null, trace, now);
         if (attemptId != null) {
             if (verified.providerOrderId() != null) {
                 attempts.bindProviderOrder(orderId, attemptId, verified.providerOrderId(), now);
