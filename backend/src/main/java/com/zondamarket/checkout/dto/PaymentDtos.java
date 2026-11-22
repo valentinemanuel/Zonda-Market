@@ -9,6 +9,7 @@ public final class PaymentDtos {
     private PaymentDtos() {}
 
     public enum Method { CARD, CHECKOUT_PRO }
+    public enum Provider { LOCAL, MERCADO_PAGO }
 
     public enum Status {
         CREADO, ENVIADO, PENDIENTE, APROBADO, RECHAZADO, RESULTADO_DESCONOCIDO;
@@ -18,12 +19,13 @@ public final class PaymentDtos {
         }
     }
 
-    public enum NextAction { CONSULTAR, ELEGIR_MEDIO, NINGUNA }
+    public enum NextAction { INGRESAR_TARJETA, CONSULTAR, ELEGIR_MEDIO, NINGUNA }
 
     public record StartRequest(@NotNull Method method) {}
 
-    public record PaymentAttemptResponse(UUID id, Method method, Status status, NextAction nextAction,
+    public record PaymentAttemptResponse(UUID id, Method method, Provider provider, Status status, NextAction nextAction,
                                          Instant expiresAt) {}
 
-    public record PaymentOptions(List<Method> methods, PaymentAttemptResponse latestAttempt) {}
+    public record PaymentOptions(List<Method> methods, PaymentAttemptResponse latestAttempt, CardConfig card) {}
+    public record CardConfig(String publicKey, String amount, String payerEmail) {}
 }

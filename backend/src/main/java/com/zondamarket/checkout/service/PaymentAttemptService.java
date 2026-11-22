@@ -1,6 +1,8 @@
 package com.zondamarket.checkout.service;
 
 import com.zondamarket.checkout.dto.PaymentDtos.Method;
+import com.zondamarket.checkout.dto.PaymentDtos.Provider;
+import com.zondamarket.checkout.dto.PaymentDtos.CardConfig;
 import com.zondamarket.checkout.dto.PaymentDtos.NextAction;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentOptions;
@@ -16,9 +18,11 @@ import com.zondamarket.checkout.shared.PaymentErrors;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -31,13 +35,16 @@ public class PaymentAttemptService {
     private final Clock clock;
     private final TransactionTemplate transaction;
     private final Map<Method, PaymentStrategy> strategies = new EnumMap<>(Method.class);
+    private final CardPaymentGateway card;
 
     PaymentAttemptService(CheckoutStore orders, ReservationStore reservations, PaymentAttemptStore attempts,
-                          Clock clock, PlatformTransactionManager manager, List<PaymentStrategy> strategies) {
+                          Clock clock, PlatformTransactionManager manager, List<PaymentStrategy> strategies,
+                          ObjectProvider<CardPaymentGateway> card) {
         this.orders = orders;
         this.reservations = reservations;
         this.attempts = attempts;
         this.clock = clock;
+        this.card = card.getIfAvailable();
         transaction = new TransactionTemplate(manager);
         transaction.setTimeout(5);
         for (var strategy : strategies) {
@@ -49,13 +56,14 @@ public class PaymentAttemptService {
         }
     }
 
-    public PaymentOptions options(UUID buyer, UUID orderId) {
+    public PaymentOptions options(UUID buyer, UUID orderId, String payerEmail) {
         return transaction.execute(tx -> {
             var order = lockOrder(buyer, orderId);
             var latest = attempts.latest(orderId).orElse(null);
             var available = eligible(order, clock.instant()) && (latest == null || !latest.status().active());
-            var methods = available ? List.copyOf(strategies.keySet()) : List.<Method>of();
-            return new PaymentOptions(methods, latest == null ? null : response(latest, !methods.isEmpty()));
+            var methods = available ? availableMethods() : List.<Method>of();
+            var config = card == null ? null : new CardConfig(card.publicKey(), order.total().toPlainString(), payerEmail);
+            return new PaymentOptions(methods, latest == null ? null : response(latest, !methods.isEmpty()), config);
         });
     }
 
@@ -63,7 +71,7 @@ public class PaymentAttemptService {
         return transaction.execute(tx -> {
             var order = lockOrder(buyer, orderId);
             var attempt = find(orderId, attemptId);
-            boolean canRetry = attempt.status() == Status.RECHAZADO && !strategies.isEmpty()
+            boolean canRetry = attempt.status() == Status.RECHAZADO && !availableMethods().isEmpty()
                     && eligible(order, clock.instant())
                     && attempts.latest(orderId).filter(latest -> latest.status().active()).isEmpty();
             return response(attempt, canRetry);
@@ -85,12 +93,13 @@ public class PaymentAttemptService {
             if (attempts.latest(orderId).filter(a -> a.status().active()).isPresent()) {
                 throw PaymentErrors.conflict("PAYMENT_ATTEMPT_ACTIVE", "Ya hay un intento activo para esta orden.");
             }
-            if (!strategies.containsKey(method)) {
+            if (!availableMethods().contains(method)) {
                 throw PaymentErrors.conflict("PAYMENT_METHOD_UNAVAILABLE", "El medio de pago no está disponible.");
             }
             var id = UUID.randomUUID();
-            var created = new Attempt(id, method, Status.CREADO, UUID.randomUUID(), "zonda-" + id,
-                    order.total(), order.currency(), order.expiresAt());
+            var provider = method == Method.CARD && card != null ? Provider.MERCADO_PAGO : Provider.LOCAL;
+            var created = new Attempt(id, method, provider, Status.CREADO, UUID.randomUUID(), "zonda-" + id,
+                    order.total(), order.currency(), order.expiresAt(), null, null);
             attempts.insert(orderId, created, key, trace, now);
             return created;
         });
@@ -101,7 +110,7 @@ public class PaymentAttemptService {
         var claimed = transaction.execute(tx -> {
             var order = lockOrder(buyer, orderId);
             var attempt = find(orderId, attemptId);
-            if (attempt.status() != Status.CREADO) return null;
+            if (attempt.status() != Status.CREADO || attempt.provider() != Provider.LOCAL) return null;
             var now = clock.instant();
             if (!eligible(order, now) || !strategies.containsKey(attempt.method())) {
                 attempts.update(orderId, attemptId, Status.RECHAZADO, trace, now);
@@ -142,15 +151,26 @@ public class PaymentAttemptService {
         return attempts.find(orderId, attemptId).orElseThrow(PaymentErrors::attemptNotFound);
     }
 
-    private boolean eligible(Order order, Instant now) {
+    boolean eligible(Order order, Instant now) {
         return ("RESERVADA".equals(order.status()) || "PAGO_PENDIENTE".equals(order.status()))
                 && now.isBefore(order.expiresAt()) && reservations.hasActive(order.id(), now);
+    }
+
+    private List<Method> availableMethods() {
+        var methods = EnumSet.noneOf(Method.class);
+        methods.addAll(strategies.keySet());
+        if (card != null) methods.add(Method.CARD);
+        return List.copyOf(methods);
     }
 
     private PaymentAttemptResponse response(Attempt attempt, boolean canRetry) {
         var next = NextAction.NINGUNA;
         if (attempt.status().active()) next = NextAction.CONSULTAR;
+        if (attempt.status() == Status.CREADO && attempt.provider() == Provider.MERCADO_PAGO) {
+            next = NextAction.INGRESAR_TARJETA;
+        }
         if (attempt.status() == Status.RECHAZADO && canRetry) next = NextAction.ELEGIR_MEDIO;
-        return new PaymentAttemptResponse(attempt.id(), attempt.method(), attempt.status(), next, attempt.expiresAt());
+        return new PaymentAttemptResponse(attempt.id(), attempt.method(), attempt.provider(), attempt.status(),
+                next, attempt.expiresAt());
     }
 }

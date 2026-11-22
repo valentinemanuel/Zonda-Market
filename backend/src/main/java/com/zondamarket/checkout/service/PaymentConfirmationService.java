@@ -40,16 +40,17 @@ public class PaymentConfirmationService {
 
     @Transactional(timeout = 5)
     public void applyVerifiedOutcome(UUID buyer, UUID orderId, VerifiedOutcome outcome, UUID trace) {
-        apply(buyer, orderId, outcome, null, trace);
+        apply(buyer, orderId, outcome, null, null, trace);
     }
 
     @Transactional(timeout = 5)
     public void applyAttemptApproval(UUID buyer, UUID orderId, UUID attemptId, VerifiedPayment verified, UUID trace) {
         apply(buyer, orderId, new VerifiedOutcome(verified.externalReference(), Outcome.APPROVED,
-                verified.amount(), verified.currency()), attemptId, trace);
+                verified.amount(), verified.currency()), attemptId, verified, trace);
     }
 
-    private void apply(UUID buyer, UUID orderId, VerifiedOutcome outcome, UUID attemptId, UUID trace) {
+    private void apply(UUID buyer, UUID orderId, VerifiedOutcome outcome, UUID attemptId,
+                       VerifiedPayment verified, UUID trace) {
         // Cart edits and checkout share the cart lock. Expiration never acquires it.
         var cart = carts.lock(buyer);
         var order = orders.lock(buyer, orderId).orElseThrow(() ->
@@ -57,6 +58,8 @@ public class PaymentConfirmationService {
         if (order.total().compareTo(outcome.amount()) != 0 || !order.currency().equals(outcome.currency())) {
             throw conflict("PAYMENT_AMOUNT_MISMATCH", "El importe verificado no coincide con la orden.");
         }
+        var attempt = attemptId == null ? null : attempts.find(orderId, attemptId).orElseThrow(PaymentErrors::attemptNotFound);
+        if (attempt != null) PaymentReconciler.validate(attempt, verified);
         var previous = outcomes.find(orderId);
         if (previous.isPresent()) {
             var saved = previous.get();
@@ -65,14 +68,11 @@ public class PaymentConfirmationService {
             }
             return;
         }
-        if (attemptId == null) {
+        if (attempt == null) {
             if (attempts.latest(orderId).filter(a -> a.status().active()).isPresent()) {
                 throw conflict("PAYMENT_ATTEMPT_ACTIVE", "Ya hay un intento activo para esta orden.");
             }
         } else {
-            var attempt = attempts.find(orderId, attemptId).orElseThrow(PaymentErrors::attemptNotFound);
-            PaymentReconciler.validate(attempt, new VerifiedPayment(outcome.reference(), outcome.amount(),
-                    outcome.currency(), Status.APROBADO));
             if (!attempt.status().active() || attempt.status() == Status.CREADO) {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
             }
@@ -88,7 +88,11 @@ public class PaymentConfirmationService {
         Result result;
         if (!active || !now.isBefore(order.expiresAt())) {
             if (active) reservations.release(orderId, trace, now);
-            if (approval) reservations.event(orderId, "LOCAL_PAYMENT_LATE", trace, now);
+            if (approval) {
+                var event = verified != null && verified.providerPaymentId() != null
+                        ? "CARD_PAYMENT_LATE" : "LOCAL_PAYMENT_LATE";
+                reservations.event(orderId, event, trace, now);
+            }
             result = approval ? Result.LATE_APPROVAL : Result.EXPIRED;
         } else if (approval) {
             int consumed = reservations.settle(orderId, true, "PAGADA", "PREPARANDO", "CHECKOUT_PAID", trace, now);
@@ -102,7 +106,12 @@ public class PaymentConfirmationService {
             result = Result.REJECTED;
         }
         outcomes.insert(orderId, outcome, result, trace, now);
-        if (attemptId != null) attempts.update(orderId, attemptId, Status.APROBADO, trace, now);
+        if (attemptId != null) {
+            if (verified.providerPaymentId() != null) {
+                attempts.bindProviderPayment(orderId, attemptId, verified.providerPaymentId(), now);
+            }
+            attempts.update(orderId, attemptId, Status.APROBADO, trace, now);
+        }
     }
 
     private static ApiProblemException conflict(String code, String detail) {

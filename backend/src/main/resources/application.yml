@@ -3,6 +3,11 @@ server:
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
 zonda:
+  mercado-pago:
+    test-enabled: ${MERCADO_PAGO_TEST_ENABLED:false}
+    public-key: ${MERCADO_PAGO_PUBLIC_KEY:}
+    access-token: ${MERCADO_PAGO_ACCESS_TOKEN:}
+    test-collector-id: ${MERCADO_PAGO_TEST_COLLECTOR_ID:0}
   auth:
     jwt-key: ${AUTH_JWT_KEY}
     allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
@@ -69,5 +74,8 @@ management:
           include: readinessState,db
 
 logging:
+  level:
+    org.apache.http.headers: "OFF"
+    org.apache.http.wire: "OFF"
   pattern:
     level: "%5p [traceId:%X{traceId}]"
