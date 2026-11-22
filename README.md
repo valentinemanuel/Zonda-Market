@@ -204,6 +204,21 @@ Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ReviewContractIT"` para
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=SellerMetricsContractIT,PaymentWebhookContractIT"` para repetir una devolución postventa de prueba, los límites de fecha, la privacidad y la compensación de un cobro adicional. Desde `frontend/`, ejecutá `npm run test:e2e -- seller-sales.spec.ts` con un Compose de prueba en perfil `local` y Mailpit. El smoke de la etapa agrega `fulfillment.spec.ts notifications.spec.ts reviews.spec.ts`.
 
+### E6-01 · Moderación
+
+En un Compose local de prueba, registrá una cuenta ficticia dedicada a administración. Desde el repositorio, abrí `docker compose exec postgres psql -U zonda -d zonda_market` con el usuario y la base configurados para ese entorno. Confirmá el correo exacto de la cuenta de prueba antes de asignar el rol:
+
+```sql
+UPDATE zonda_market.user_account
+SET role = 'ADMIN', version = version + 1, updated_at = now()
+WHERE email = 'admin-moderacion@example.test' AND role = 'USER' AND NOT deleted AND NOT suspended
+RETURNING id, email, role;
+```
+
+Volvé a ingresar y abrí **Mi cuenta → Moderación**. En **Publicaciones** buscá un producto, ocultalo con un motivo y verificá su salida del catálogo. En **Cuentas**, suspendé al vendedor de prueba y comprobá que se cierra su sesión. Si tenía una compra pendiente, abrí **Ver detalle** para ver la auditoría y el seguimiento. El comprador conserva su orden en **Mis órdenes**.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ModerationContractIT"`. Desde `frontend/`, ejecutá `npm run test:e2e -- moderation.spec.ts` con un Compose aislado en perfil `local`, Mailpit y pagos simulados. El smoke crea su propio administrador ficticio y prueba el panel a 390 px con teclado.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

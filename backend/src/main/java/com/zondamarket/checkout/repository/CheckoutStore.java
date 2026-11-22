@@ -122,6 +122,29 @@ public class CheckoutStore {
                 """).param("cart", cart).query(UUID.class).list();
     }
 
+    public void lockOfferVisibility(UUID cart) {
+        sql.sql("""
+                SELECT listing.id FROM zonda_market.listing listing
+                WHERE listing.id IN (
+                    SELECT sku.listing_id FROM zonda_market.cart_item item
+                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    WHERE item.cart_id = :cart AND NOT item.deleted
+                )
+                ORDER BY listing.id FOR SHARE
+                """).param("cart", cart).query(UUID.class).list();
+        sql.sql("""
+                SELECT account.id FROM zonda_market.user_account account
+                WHERE account.id IN (
+                    SELECT seller.account_id FROM zonda_market.cart_item item
+                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    JOIN zonda_market.listing listing ON listing.id = sku.listing_id
+                    JOIN zonda_market.seller_profile seller ON seller.id = listing.seller_id
+                    WHERE item.cart_id = :cart AND NOT item.deleted
+                )
+                ORDER BY account.id FOR SHARE
+                """).param("cart", cart).query(UUID.class).list();
+    }
+
     public void insertOrder(Order order, UUID buyer, UUID cart, UUID quote, String key, UUID trace, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.checkout_order

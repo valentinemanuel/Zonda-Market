@@ -111,7 +111,7 @@ public class ProfileService {
         if (slug.length() > 50) {
             throw missingSeller();
         }
-        return sellers.findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountRole(slug, Role.SELLER)
+        return sellers.findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountSuspendedFalseAndAccountRole(slug, Role.SELLER)
                 .map(this::withReputation).orElseThrow(ProfileService::missingSeller);
     }
 
@@ -120,7 +120,8 @@ public class ProfileService {
     }
 
     private UserAccount lockAccount(UUID accountId) {
-        return accounts.lockByIdAndDeletedFalse(accountId).orElseThrow(AuthService::unauthorized);
+        return accounts.lockByIdAndDeletedFalse(accountId).filter(account -> !account.isSuspended())
+                .orElseThrow(AuthService::unauthorized);
     }
 
     private AccountAddress lockAddress(UUID accountId, UUID id) {

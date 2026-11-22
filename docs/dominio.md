@@ -87,3 +87,11 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 - Desde V22, cada pago aprobado avisa al comprador y a los vendedores de la orden. Un despacho avisa al comprador y una recepción confirmada avisa a su vendedor. Los hitos anteriores conservan su historial original.
 - El consumidor proyecta una notificación por evento y cuenta destinataria junto con la confirmación del outbox. La bandeja, el contador y la lectura pertenecen al destinatario. Repetir la lectura conserva la fecha de la primera confirmación.
 - La notificación en cola envía correo a la dirección electrónica verificada de la cuenta. El mensaje solo contiene el hito y un enlace privado al recurso, generado por el servidor. Los reintentos de correo conservan la clave de notificación, esperan progresivamente y registran el identificador del proveedor tras su confirmación.
+
+## Moderación
+
+- El panel y sus API son exclusivos de `ADMIN`. La UI y la API de moderación protegen el estado de todas las cuentas `ADMIN`. El rol administrador se provisiona fuera de la aplicación.
+- Ocultar una publicación cambia su estado de moderación, independiente del ciclo `BORRADOR → ACTIVA → ARCHIVADA`. Restaurar vuelve a aplicar la regla de visibilidad del catálogo. Archivar y republicar como vendedor conserva la decisión de moderación.
+- Suspender una cuenta revoca todas sus sesiones e impide ingresar con contraseña o Google. La reactivación exige iniciar una sesión nueva. Una cuenta vendedora suspendida queda fuera de los perfiles públicos y sus publicaciones se excluyen del catálogo, las preguntas y las nuevas reservas. El carrito marca sus variantes como no disponibles.
+- Las órdenes existentes conservan sus estados e históricos. Cuando una orden reservada, con pago pendiente o pagada y aún en preparación o despacho involucra una cuenta suspendida o una publicación oculta, su suborden aparece marcada para seguimiento en el detalle del panel. El flujo de disputas se entrega en E6-03.
+- Cada cambio exitoso requiere un motivo, valida la versión del registro y genera una entrada de auditoría en la misma transacción con actor, fecha, estados de moderación anterior y posterior, y `traceId`. Una versión vieja devuelve `409`.

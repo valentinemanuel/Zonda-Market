@@ -196,7 +196,7 @@ public class ListingService {
         if (slug.length() > 200) {
             throw missingListing();
         }
-        Listing listing = listings.findBySlugAndStatusAndDeletedFalse(slug, Status.ACTIVA)
+        Listing listing = listings.findVisibleBySlug(slug)
                 .orElseThrow(ListingService::missingListing);
         var seller = sellers.findByIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(listing.getSellerId(), Role.SELLER)
                 .orElseThrow(ListingService::missingListing);

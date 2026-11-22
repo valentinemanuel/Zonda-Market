@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "user_account", schema = "zonda_market")
@@ -27,6 +28,13 @@ public class UserAccount extends BaseEntity {
 
     @Column(nullable = false)
     private boolean emailVerified;
+
+    @Column(nullable = false)
+    private boolean suspended;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     protected UserAccount() {}
 
@@ -50,6 +58,7 @@ public class UserAccount extends BaseEntity {
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public boolean isEmailVerified() { return emailVerified; }
+    public boolean isSuspended() { return suspended; }
 
     public void verifyEmail() {
         emailVerified = true;

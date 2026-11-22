@@ -109,6 +109,34 @@ class GoogleAuthContractIT {
     }
 
     @Test
+    void suspendedGoogleAccountCannotExchangeUntilReactivated() throws Exception {
+        String email = email();
+        String subject = UUID.randomUUID().toString();
+        var google = redeem(googleGrant(begin(), subject, email)).andExpect(status().isOk()).andReturn();
+        var profile = mvc.perform(bearer(get("/api/v1/me"), access(google))).andExpect(status().isOk()).andReturn();
+        var adminEmail = email();
+        var admin = register(adminEmail);
+        db.sql("UPDATE zonda_market.user_account SET role = 'ADMIN' WHERE email = :email")
+                .param("email", adminEmail).update();
+        var statusPath = "/api/v1/admin/users/" + field(profile, "$.id") + "/status";
+        var beforeSuspension = googleGrant(begin(), subject, email);
+
+        mvc.perform(bearer(command(statusPath), access(admin)).content("""
+                {"action":"SUSPEND","reason":"Cuenta ficticia en revisión","expectedVersion":0}
+                """)).andExpect(status().isOk());
+        redeem(beforeSuspension).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_SESSION"));
+        redeem(googleGrant(begin(), subject, email)).andExpect(status().isUnauthorized());
+        mvc.perform(command("/api/v1/auth/refresh").cookie(cookie(google, REFRESH))).andExpect(status().isUnauthorized());
+
+        mvc.perform(bearer(command(statusPath), access(admin)).content("""
+                {"action":"REACTIVATE","reason":"Revisión completada","expectedVersion":1}
+                """)).andExpect(status().isOk());
+        mvc.perform(bearer(get("/api/v1/me"), access(google))).andExpect(status().isUnauthorized());
+        redeem(googleGrant(begin(), subject, email)).andExpect(status().isOk());
+    }
+
+    @Test
     void requiresExplicitLinkAndRejectsAccessFromAnotherAccount() throws Exception {
         String email = email();
         String subject = UUID.randomUUID().toString();

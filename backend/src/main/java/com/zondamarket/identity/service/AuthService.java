@@ -69,6 +69,9 @@ public class AuthService {
         // Serialize password-based session issuance with password changes.
         var account = accounts.lockByEmailAndDeletedFalse(request.email());
         verifyPassword(account, request.password());
+        if (account.orElseThrow().isSuspended()) {
+            throw unauthorized();
+        }
         return replaceFamily(account.orElseThrow(), previousRefresh);
     }
 
