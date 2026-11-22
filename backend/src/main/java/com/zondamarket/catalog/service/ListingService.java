@@ -24,6 +24,7 @@ import com.zondamarket.catalog.repository.ListingSkuRepository;
 import com.zondamarket.identity.domain.UserAccount.Role;
 import com.zondamarket.identity.dto.ProfileDtos.SellerResponse;
 import com.zondamarket.identity.repository.SellerProfileRepository;
+import com.zondamarket.review.service.ReviewService;
 import com.zondamarket.shared.errors.ApiProblemException;
 import java.time.Clock;
 import java.util.List;
@@ -50,10 +51,11 @@ public class ListingService {
     private final ListingImageRepository images;
     private final ListingMediaStore media;
     private final Clock clock;
+    private final ReviewService reviews;
 
     ListingService(ListingRepository listings, ListingSkuRepository skus, CategoryRepository categories,
                    SellerProfileRepository sellers, ObjectMapper json, ListingImageRepository images,
-                   ListingMediaStore media, Clock clock) {
+                   ListingMediaStore media, Clock clock, ReviewService reviews) {
         this.listings = listings;
         this.skus = skus;
         this.categories = categories;
@@ -62,6 +64,7 @@ public class ListingService {
         this.images = images;
         this.media = media;
         this.clock = clock;
+        this.reviews = reviews;
     }
 
     @Transactional(readOnly = true)
@@ -193,7 +196,7 @@ public class ListingService {
         if (slug.length() > 200) {
             throw missingListing();
         }
-        Listing listing = listings.findBySlugAndStatusAndDeletedFalse(slug, Status.ACTIVA)
+        Listing listing = listings.findVisibleBySlug(slug)
                 .orElseThrow(ListingService::missingListing);
         var seller = sellers.findByIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(listing.getSellerId(), Role.SELLER)
                 .orElseThrow(ListingService::missingListing);
@@ -205,7 +208,7 @@ public class ListingService {
         }
         return new ListingDetailResponse(listing.getId(), listing.getSlug(), listing.getTitle(),
                 listing.getDescription(), listing.getSpecs(), CategoryResponse.from(category),
-                SellerResponse.from(seller), gallery, variants);
+                SellerResponse.from(seller, reviews.reputation(seller.getId())), gallery, variants);
     }
 
     private List<ListingImage> listingImages(UUID id) {

@@ -1,7 +1,9 @@
 package com.zondamarket.checkout.controller;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
+import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.service.CheckoutService;
+import com.zondamarket.checkout.service.LocalAttemptFixture;
 import com.zondamarket.checkout.service.LocalPaymentPort;
 import com.zondamarket.checkout.service.LocalPaymentPort.Outcome;
 import com.zondamarket.checkout.service.PaymentConfirmationService;
@@ -31,14 +33,18 @@ class LocalPaymentController {
     private final LocalPaymentPort local;
     private final PaymentConfirmationService payment;
     private final CheckoutService checkout;
+    private final LocalAttemptFixture attempts;
 
-    LocalPaymentController(LocalPaymentPort local, PaymentConfirmationService payment, CheckoutService checkout) {
+    LocalPaymentController(LocalPaymentPort local, PaymentConfirmationService payment, CheckoutService checkout,
+                           LocalAttemptFixture attempts) {
         this.local = local;
         this.payment = payment;
         this.checkout = checkout;
+        this.attempts = attempts;
     }
 
     record Request(@NotNull Outcome outcome, @NotNull @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String reference) {}
+    record AttemptOutcome(@NotNull LocalAttemptFixture.Outcome outcome) {}
 
     @PostMapping("/api/v1/test-fixtures/orders/{id}/payment-outcome")
     ResponseEntity<OrderResponse> outcome(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
@@ -47,5 +53,14 @@ class LocalPaymentController {
         var trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
         payment.applyVerifiedOutcome(account.id(), id, verified, trace);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(checkout.get(account.id(), id));
+    }
+
+    @PostMapping("/api/v1/test-fixtures/orders/{id}/payments/{attemptId}/outcome")
+    ResponseEntity<PaymentAttemptResponse> attemptOutcome(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, @PathVariable UUID attemptId, @Valid @RequestBody AttemptOutcome request,
+            HttpServletResponse response) {
+        var trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(attempts.verify(account.id(), id, attemptId, request.outcome(), trace));
     }
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { CircleCheck, Clock3, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
@@ -7,7 +8,7 @@ import { currentAccount, getSessionRevision, logout, subscribeToSession } from "
 import { GoogleSecurity } from "./google-security";
 import { EmailVerificationAction } from "./email-verification-action";
 import { AccountProfile, AccountSeller } from "./account-profile";
-import { profileLink } from "./profile-fields";
+import { AccountLayout, AccountSection } from "./account-layout";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -37,38 +38,47 @@ export function AccountPage() {
   if (account.error instanceof ApiError && account.error.status === 401) {
     return <Navigate to="/ingresar" replace />;
   }
-  if (account.isError) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Mi cuenta</h1>
-        <p role="alert" className="text-destructive">No pudimos cargar tu cuenta. Volvé a intentar.</p>
-        <Button type="button" onClick={() => void account.refetch()}>Reintentar</Button>
-      </div>
-    );
-  }
-  if (account.isPending) {
-    return <p role="status" className="text-muted-foreground">Cargando tu cuenta…</p>;
-  }
-
   return (
-    <>
-      <h1 className="text-2xl font-semibold">Mi cuenta</h1>
-      <dl className="mt-6 space-y-1">
-        <dt className="text-sm font-medium text-muted-foreground">Correo electrónico</dt>
-        <dd className="break-all">{account.data.email}</dd>
-        <dt className="pt-3 text-sm font-medium text-muted-foreground">Estado del correo</dt>
-        <dd>{account.data.emailVerified ? "Verificado" : "Pendiente de verificación"}</dd>
-      </dl>
-      {!account.data.emailVerified && <EmailVerificationAction key={account.data.id} email={account.data.email} />}
-      <div className="mt-3"><Link className={profileLink} to="/mis-ordenes">Mis órdenes</Link></div>
-      {logoutError && <p role="alert" className="mt-4 text-sm text-destructive">No pudimos cerrar la sesión. Volvé a intentar.</p>}
-      <Button type="button" variant="outline" className="mt-6 min-h-11" disabled={closing}
-        onClick={() => void closeSession()}>
-        {closing ? "Cerrando sesión…" : "Cerrar sesión"}
-      </Button>
-      <AccountProfile key={`profile-${revision}`} account={account.data} revision={revision} />
-      <AccountSeller key={`seller-${revision}`} account={account.data} revision={revision} />
-      <GoogleSecurity key={revision} revision={revision} />
-    </>
+    <AccountLayout title="Mi cuenta" description="Gestioná tus datos y encontrá tus direcciones y órdenes."
+      action={account.isSuccess && <div className="flex flex-wrap gap-2">
+        {account.data.roles.includes("ADMIN") && (
+          <Button asChild className="min-h-11"><Link to="/admin">Moderación</Link></Button>
+        )}
+        <Button type="button" variant="outline"
+          className="min-h-11 border-hero-border bg-hero-panel text-white hover:bg-hero-border hover:text-white"
+          disabled={closing} onClick={() => void closeSession()}>
+          <LogOut aria-hidden="true" />
+          {closing ? "Cerrando sesión…" : "Cerrar sesión"}
+        </Button>
+      </div>}>
+      {logoutError && <p role="alert" className="mb-4 text-sm text-destructive">No pudimos cerrar la sesión. Volvé a intentar.</p>}
+      {account.isPending && <p role="status" className="rounded-2xl border bg-card p-6 text-muted-foreground">Cargando tu cuenta…</p>}
+      {account.isError && (
+        <div className="space-y-4 rounded-2xl border bg-card p-6">
+          <p role="alert" className="text-destructive">No pudimos cargar tu cuenta. Volvé a intentar.</p>
+          <Button type="button" onClick={() => void account.refetch()}>Reintentar</Button>
+        </div>
+      )}
+      {account.isSuccess && (
+        <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-5">
+          <AccountSection id="profile-title" title="Perfil" icon={UserRound}>
+            <AccountProfile key={revision} account={account.data} revision={revision} />
+          </AccountSection>
+          <AccountSection id="account-security" title="Seguridad de cuenta" icon={ShieldCheck}>
+            <p className="text-sm font-medium">Correo electrónico</p>
+            <p className="mt-1 text-sm wrap-anywhere">{account.data.email}</p>
+            <p className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              account.data.emailVerified ? "bg-emerald-50 text-success" : "bg-amber-50 text-amber-900"
+            }`}>
+              {account.data.emailVerified ? <CircleCheck aria-hidden="true" className="size-4" /> : <Clock3 aria-hidden="true" className="size-4" />}
+              {account.data.emailVerified ? "Verificado" : "Pendiente de verificación"}
+            </p>
+            {!account.data.emailVerified && <EmailVerificationAction key={account.data.id} email={account.data.email} />}
+            <GoogleSecurity key={revision} revision={revision} />
+          </AccountSection>
+          <AccountSeller key={revision} account={account.data} revision={revision} />
+        </div>
+      )}
+    </AccountLayout>
   );
 }

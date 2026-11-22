@@ -16,8 +16,12 @@ export const router = createBrowserRouter([
       { path: "carrito", lazy: async () => ({ Component: (await import("@/features/cart/cart-page")).CartPage }) },
       { path: "checkout", lazy: async () => ({ Component: (await import("@/features/checkout/checkout-page")).CheckoutPage }) },
       { path: "checkout/reserva/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).ReservationPage }) },
+      { path: "checkout/resultado/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).CheckoutResultPage }) },
       { path: "mis-ordenes", lazy: async () => ({ Component: (await import("@/features/checkout/orders-page")).OrdersPage }) },
+      { path: "notificaciones", lazy: async () => ({ Component: (await import("@/features/notifications/notifications-page")).NotificationsPage }) },
       { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
+      { path: "vendedor/pedidos", lazy: async () => ({ Component: (await import("@/features/checkout/seller-orders-page")).SellerOrdersPage }) },
+      { path: "vendedor/ventas", lazy: async () => ({ Component: (await import("@/features/sales/seller-sales-page")).SellerSalesPage }) },
       { path: "vendedor/inventario", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).InventoryPage }) },
       { path: "vendedor/preguntas", lazy: async () => ({ Component: (await import("@/features/listings/listing-questions")).SellerQuestionsPage }) },
       { path: "vendedor/publicaciones", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).ListingsPage }) },
@@ -25,12 +29,21 @@ export const router = createBrowserRouter([
       { path: "vendedor/publicaciones/:listingId", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
       { path: "publicaciones/:slug", lazy: async () => ({ Component: (await import("@/features/listings/listing-detail")).PublicListingPage }) },
       { path: "categorias/:id", element: <CategoryPage /> },
+      { path: "cuenta", element: <AccountPage /> },
+      { path: "admin", element: <Navigate to="/admin/publicaciones" replace /> },
+      { path: "admin/publicaciones", lazy: async () => {
+        const { ModerationPage } = await import("@/features/admin/moderation-page");
+        return { Component: () => <ModerationPage resource="listings" /> };
+      } },
+      { path: "admin/cuentas", lazy: async () => {
+        const { ModerationPage } = await import("@/features/admin/moderation-page");
+        return { Component: () => <ModerationPage resource="users" /> };
+      } },
+      { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,
         hydrateFallbackElement: <p role="status">Cargando…</p>,
         children: [
-          { path: "cuenta", element: <AccountPage /> },
-          { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
           { path: "vendedores/:slug", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).PublicSellerPage }) },
           { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
           { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },

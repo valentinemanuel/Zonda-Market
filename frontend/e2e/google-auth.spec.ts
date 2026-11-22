@@ -7,7 +7,7 @@ const credentialsRejected = {
   detail: "El correo o la contraseña son incorrectos.",
 };
 
-test("retorno de Google limpia el fragmento, anuncia carga y abre la cuenta en móvil", async ({ page, baseURL }, testInfo) => {
+test("retorno de Google limpia el fragmento, anuncia carga y abre el catálogo en móvil", async ({ page, baseURL }, testInfo) => {
   const email = "comprador@example.test";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/google-session-fixture", (route) => route.fulfill({
@@ -38,6 +38,9 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre la cuenta en m
   await page.route("**/api/v1/cart", (route) => route.fulfill({
     json: { version: 0, groups: [], unavailable: [], total: "0.00", currency: "ARS", itemCount: 0 },
   }));
+  await page.route(/\/api\/v1\/me\/notifications\?page=0$/, (route) => route.fulfill({
+    json: { content: [], page: 0, size: 10, hasNext: false, unreadCount: 0 },
+  }));
 
   let release!: () => void;
   const hold = new Promise<void>((resolve) => { release = resolve; });
@@ -66,6 +69,10 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre la cuenta en m
     release();
   }
 
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Notificaciones", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
   await expect(page.getByText("Google vinculado")).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
@@ -89,12 +96,14 @@ test("orienta ante correo existente y permite reintentar la vinculación con tec
   await expect(page.getByRole("alert")).toContainText("Cancelaste el acceso con Google.");
   await expect(page.getByRole("link", { name: "Volver al ingreso" })).toBeVisible();
 
-  await page.route("**/api/v1/me/identities/google", (route) => route.fulfill({ json: { linked: false } }));
+  let linked = false;
+  let providerResponse = "/oauth/retorno#error=denied";
+  await page.route("**/api/v1/me/identities/google", (route) => route.fulfill({ json: { linked } }));
   await page.route("**/api/v1/me/identities/google/start", (route) => {
     expect(route.request().headers()["authorization"]).toMatch(/^Bearer /);
     expect(route.request().headers()["x-zonda-csrf"]).toBe("1");
     if (route.request().postDataJSON().password === password) {
-      return route.fulfill({ json: { authorizationUrl: "/oauth/retorno#error=denied" } });
+      return route.fulfill({ json: { authorizationUrl: providerResponse } });
     }
     return route.fulfill({ status: 401, contentType: "application/problem+json", json: credentialsRejected });
   });
@@ -116,4 +125,20 @@ test("orienta ante correo existente y permite reintentar la vinculación con tec
   await field.fill(password);
   await field.press("Enter");
   await expect(page.getByRole("alert")).toContainText("Cancelaste el acceso con Google.");
+
+  await page.getByRole("link", { name: "Ir a mi cuenta", exact: true }).press("Enter");
+  await expect(page).toHaveURL(/\/cuenta$/);
+  providerResponse = `/oauth/retorno#code=${providerCode}&mode=link`;
+  await page.route("**/api/v1/auth/oauth/exchange", (route) => {
+    linked = true;
+    return route.fulfill({ json: { accessToken: "token-ficticio", expiresIn: 600, roles: ["USER"] } });
+  });
+  await page.route("**/api/v1/me", (route) => route.fulfill({
+    json: { id: "comprador", email, emailVerified: false, roles: ["USER"] },
+  }));
+  await disclosure.press("Enter");
+  await field.fill(password);
+  await field.press("Enter");
+  await expect(page).toHaveURL(/\/cuenta$/);
+  await expect(page.getByText("Google vinculado")).toBeVisible();
 });

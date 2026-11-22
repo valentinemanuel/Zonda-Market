@@ -366,6 +366,35 @@ paths:
           $ref: '#/components/responses/SellerActivationForbidden'
         '409':
           $ref: '#/components/responses/SellerActivationConflict'
+  /api/v1/sellers/{slug}/reviews:
+    get:
+      summary: Consultar reseñas visibles y reputación pública del vendedor
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de reseñas visibles, desde la más reciente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerReviewPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          description: Vendedor inexistente o no visible (SELLER_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
   /api/v1/sellers/{slug}:
     get:
       summary: Consultar ficha pública y reputación inicial
@@ -1400,6 +1429,231 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/me/notifications:
+    get:
+      summary: Listar las notificaciones privadas y contar las pendientes de lectura
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Avisos de la cuenta en orden cronológico inverso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/me/notifications/{id}/read:
+    patch:
+      summary: Marcar una notificación propia como leída
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Notificación leída. Repetir la solicitud conserva su fecha de lectura.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La notificación no existe o pertenece a otra cuenta (NOTIFICATION_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/seller/metrics:
+    get:
+      summary: Consultar ventas, comisiones, devoluciones y neto interno propio
+      description: El período incluye ambos días en horario de Buenos Aires, con un máximo de 90 días. Al omitir ambas fechas se muestran los últimos 30 días.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SellerReportFrom'
+        - $ref: '#/components/parameters/SellerReportTo'
+      responses:
+        '200':
+          description: Resumen en ARS y serie diaria con días sin actividad incluidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerMetricsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta no tiene un perfil vendedor habilitado (SELLER_REQUIRED).
+  /api/v1/seller/settlements:
+    get:
+      summary: Listar actividad propia por suborden en un período
+      description: Incluye subórdenes con una acreditación o ajuste confirmado dentro del período. El orden es por último movimiento, del más reciente al más antiguo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SellerReportFrom'
+        - $ref: '#/components/parameters/SellerReportTo'
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de importes de los movimientos propios del período.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerSettlementPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta no tiene un perfil vendedor habilitado (SELLER_REQUIRED).
+  /api/v1/seller/orders:
+    get:
+      summary: Listar subórdenes propias pagadas desde la más reciente
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
+        - in: query
+          name: subOrderId
+          description: Limita la bandeja a una suborden propia.
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de subórdenes del vendedor con productos y dirección congelados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerOrderPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta debe tener un perfil vendedor (SELLER_REQUIRED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/seller/sub-orders/{id}/ship:
+    post:
+      summary: Registrar el despacho de una suborden propia
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ShipmentUpdated'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          $ref: '#/components/responses/FulfillmentConflict'
+  /api/v1/me/sub-orders/{id}/review:
+    post:
+      summary: Publicar una reseña de una suborden propia entregada
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '201':
+          description: Reseña publicada con un alias público.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          description: REVIEW_DELIVERY_REQUIRED o REVIEW_ALREADY_EXISTS.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/me/sub-orders/{id}/confirm-delivery:
+    post:
+      summary: Confirmar la recepción de una suborden comprada
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryConfirmRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ShipmentUpdated'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          $ref: '#/components/responses/FulfillmentConflict'
 components:
   securitySchemes:
     bearerAuth:
@@ -1407,6 +1661,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    SellerReportFrom:
+      in: query
+      name: from
+      description: Primer día local del período. Si se indica, también se requiere to.
+      schema: { type: string, format: date }
+    SellerReportTo:
+      in: query
+      name: to
+      description: Último día local del período. Si se indica, también se requiere from.
+      schema: { type: string, format: date }
     CatalogPage:
       name: page
       in: query
@@ -1478,6 +1742,24 @@ components:
       schema:
         type: string
   responses:
+    ShipmentUpdated:
+      description: Estado logístico persistido. Repetir el comando original recupera el estado vigente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ShipmentResponse'
+    SubOrderNotFound:
+      description: La suborden no existe o pertenece a otra cuenta (SUB_ORDER_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    FulfillmentConflict:
+      description: SUB_ORDER_STATE_CONFLICT, SUB_ORDER_VERSION_CONFLICT o SUB_ORDER_ALREADY_SHIPPED.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     CheckoutOrder:
       description: Orden propia con subórdenes congeladas y un plazo de reserva de 15 minutos.
       headers:
@@ -1729,12 +2011,208 @@ components:
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
-    CheckoutSubOrder:
+    NotificationResponse:
       type: object
-      required: [id, status, address, group]
+      required: [id, type, createdAt, read, resourceId, href]
       properties:
         id: { type: string, format: uuid }
-        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO] }
+        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED] }
+        createdAt: { type: string, format: date-time }
+        read: { type: boolean }
+        resourceId:
+          description: UUID de la orden de compra o la suborden correspondiente al aviso.
+          type: string
+          format: uuid
+        href:
+          description: Ruta relativa a la tienda, generada por el servidor.
+          type: string
+          format: uri-reference
+    NotificationPage:
+      type: object
+      required: [content, page, size, hasNext, unreadCount]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+        unreadCount: { type: integer, format: int64, minimum: 0 }
+    SellerReportAmount:
+      type: string
+      pattern: '^-?[0-9]+\.[0-9]{2}$'
+    SellerActivityAmounts:
+      type: object
+      required: [gross, commission, refunds, commissionReversed, net]
+      properties:
+        gross:
+          $ref: '#/components/schemas/SellerReportAmount'
+        commission:
+          $ref: '#/components/schemas/SellerReportAmount'
+        refunds:
+          $ref: '#/components/schemas/SellerReportAmount'
+        commissionReversed:
+          $ref: '#/components/schemas/SellerReportAmount'
+        net:
+          description: Bruto menos comisión original y devoluciones, más comisión revertida.
+          $ref: '#/components/schemas/SellerReportAmount'
+    SellerMetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/SellerActivityAmounts'
+        - type: object
+          required: [from, to, currency, timeZone, ordersByState, series]
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+            currency: { type: string, const: ARS }
+            timeZone: { type: string, const: America/Argentina/Buenos_Aires }
+            ordersByState:
+              type: object
+              description: Estado actual de las subórdenes acreditadas en el período.
+              additionalProperties: { type: integer, format: int64, minimum: 0 }
+            series:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/SellerActivityAmounts'
+                  - type: object
+                    required: [date]
+                    properties:
+                      date: { type: string, format: date }
+    SellerSettlementPage:
+      type: object
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SellerActivityAmounts'
+              - type: object
+                required: [subOrderId, status, recordedAt, lastActivityAt, merchandise, shipping]
+                properties:
+                  subOrderId: { type: string, format: uuid }
+                  status: { type: string }
+                  recordedAt: { type: string, format: date-time }
+                  lastActivityAt: { type: string, format: date-time }
+                  merchandise:
+                    $ref: '#/components/schemas/SellerReportAmount'
+                  shipping:
+                    $ref: '#/components/schemas/SellerReportAmount'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    SellerOrderPage:
+      type: object
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutSubOrder'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    ShipRequest:
+      type: object
+      required: [carrier, trackingCode, expectedVersion]
+      properties:
+        carrier:
+          $ref: '#/components/schemas/ShipmentCarrier'
+        trackingCode: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,63}$' }
+        expectedVersion:
+          $ref: '#/components/schemas/FulfillmentVersion'
+    DeliveryConfirmRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          $ref: '#/components/schemas/FulfillmentVersion'
+    ShipmentCarrier:
+      type: string
+      enum: [ANDREANI, CORREO_ARGENTINO]
+    FulfillmentVersion:
+      type: integer
+      format: int32
+      minimum: 0
+      maximum: 2147483647
+    Shipment:
+      type: object
+      required: [carrier, trackingCode, trackingUrl, shippedAt, deliveredAt]
+      properties:
+        carrier:
+          $ref: '#/components/schemas/ShipmentCarrier'
+        trackingCode: { type: string }
+        trackingUrl: { type: string, format: uri }
+        shippedAt: { type: string, format: date-time }
+        deliveredAt: { type: [string, 'null'], format: date-time }
+    ShipmentResponse:
+      type: object
+      required: [id, status, version, shipment]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [DESPACHADA, ENTREGADA] }
+        version:
+          $ref: '#/components/schemas/FulfillmentVersion'
+        shipment:
+          $ref: '#/components/schemas/Shipment'
+    ReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment:
+          description: Texto plano opcional. Se recortan los espacios exteriores y un comentario vacío se guarda como nulo.
+          type: [string, 'null']
+          maxLength: 1000
+    ReviewResponse:
+      type: object
+      required: [id, rating, comment, createdAt, authorAlias]
+      properties:
+        id: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, 'null'], maxLength: 1000 }
+        createdAt: { type: string, format: date-time }
+        authorAlias: { type: string }
+    SellerReputationResponse:
+      type: object
+      required: [averageRating, reviewCount]
+      properties:
+        averageRating:
+          description: Promedio redondeado a dos decimales. Nulo si no hay reseñas visibles.
+          type: [number, 'null']
+          minimum: 1
+          maximum: 5
+        reviewCount: { type: integer, minimum: 0 }
+    SellerReviewPage:
+      type: object
+      required: [content, page, size, hasNext, reputation]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewResponse'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+        reputation:
+          $ref: '#/components/schemas/SellerReputationResponse'
+    CheckoutSubOrder:
+      type: object
+      required: [id, status, address, group, version, shipment, reviewed]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
+        version:
+          $ref: '#/components/schemas/FulfillmentVersion'
+        reviewed:
+          description: Indica al comprador si ya publicó una reseña. En la bandeja del vendedor es nulo.
+          type: [boolean, 'null']
+        shipment:
+          oneOf:
+            - $ref: '#/components/schemas/Shipment'
+            - type: 'null'
         address:
           $ref: '#/components/schemas/AddressResponse'
         group:

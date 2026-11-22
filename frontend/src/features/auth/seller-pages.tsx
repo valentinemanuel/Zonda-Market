@@ -1,10 +1,11 @@
-import { ArrowRight, ArrowUpRight, Boxes, LayoutList, MessageCircle, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Boxes, ChartNoAxesColumnIncreasing, LayoutList, MessageCircle, Package, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { inventoryPath, sellerListingsPath, sellerQuestionsPath, SellerHeading } from "@/features/listings/seller-workspace";
+import { inventoryPath, sellerListingsPath, sellerOrdersPath, sellerQuestionsPath, sellerSalesPath, SellerHeading } from "@/features/listings/seller-workspace";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
+import { SellerReviews } from "@/features/reviews/seller-reviews";
 import { ownSeller, publicSeller, type Seller } from "./profile-api";
 import { profileLink } from "./profile-fields";
 import { getSessionRevision, subscribeToSession } from "./session-api";
@@ -60,6 +61,22 @@ export function SellerPanelPage() {
             </span>
             <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
+          <Link aria-label="Pedidos recibidos" to={sellerOrdersPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
+            <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><Package size={23} aria-hidden="true" /></span>
+            <span className="min-w-40 flex-1 space-y-1">
+              <span className="block text-lg font-semibold">Pedidos recibidos</span>
+              <span className="block text-sm text-muted-foreground">Registrá despachos y consultá las entregas.</span>
+            </span>
+            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+          </Link>
+          <Link aria-label="Ventas y neto estimado" to={sellerSalesPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
+            <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><ChartNoAxesColumnIncreasing size={23} aria-hidden="true" /></span>
+            <span className="min-w-40 flex-1 space-y-1">
+              <span className="block text-lg font-semibold">Ventas y neto estimado</span>
+              <span className="block text-sm text-muted-foreground">Consultá importes y actividad de tus subórdenes.</span>
+            </span>
+            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+          </Link>
         </section>
       )}
     </div>
@@ -90,12 +107,7 @@ function SellerCard({ seller }: { seller: Seller }) {
         <p className="mt-1 text-sm text-muted-foreground">{seller.type === "COMERCIO" ? "Comercio" : "Vendedor particular"}</p>
       </div>
       {seller.bio && <p className="whitespace-pre-wrap break-words">{seller.bio}</p>}
-      <section className="border-t border-border pt-4" aria-labelledby="reputation-title">
-        <h2 id="reputation-title" className="font-semibold">Reputación</h2>
-        <p className="text-sm text-muted-foreground">
-          {seller.reviewCount === 0 ? "Todavía no tiene reseñas." : `${seller.averageRating} de 5 · ${seller.reviewCount} reseñas`}
-        </p>
-      </section>
+      <SellerReviews slug={seller.slug} reputation={seller} />
     </article>
   );
 }

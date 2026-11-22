@@ -83,19 +83,26 @@ class IdentitySecurity {
                 .csrf(AbstractHttpConfigurer::disable)
                 .addFilterAfter(cookieCsrf, CsrfFilter.class)
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/me/identities/google/start").authenticated()
                         .requestMatchers(cookieActions).permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/email-verification/request", "/api/v1/auth/email-verification/confirm",
-                                "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm").permitAll()
+                                "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm",
+                                "/api/v1/webhooks/mercadopago").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/status", "/api/v1/categories/*", "/api/v1/sellers/*",
+                                "/api/v1/sellers/*/reviews",
                                 "/api/v1/categories", "/api/v1/listings", "/api/v1/listings/*",
                                 "/api/v1/listings/*/questions", "/api/v1/media/*",
                                 "/api/v1/auth/oauth/google", "/oauth2/authorization/google", "/login/oauth2/code/google",
                                 "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
                         .anyRequest().authenticated())
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint))
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler((request, response, failure) ->
+                                errors.resolveException(request, response, null,
+                                        new ApiProblemException(HttpStatus.FORBIDDEN, "ACCESS_DENIED",
+                                                "No tenés permiso para esta operación."))))
                 .oauth2ResourceServer(oauth -> oauth.authenticationEntryPoint(entryPoint)
                         .jwt(jwt -> jwt.decoder(tokens::decodeAccess).jwtAuthenticationConverter(token -> {
                             var account = auth.currentAccount(token);

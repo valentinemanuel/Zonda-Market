@@ -11,5 +11,6 @@ public interface SellerProfileRepository extends JpaRepository<SellerProfile, UU
 
     Optional<SellerProfile> findByIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(UUID id, Role role);
 
-    Optional<SellerProfile> findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountRole(String slug, Role role);
+    Optional<SellerProfile> findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountSuspendedFalseAndAccountRole(
+            String slug, Role role);
 }

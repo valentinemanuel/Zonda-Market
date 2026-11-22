@@ -8,7 +8,7 @@ import { activeOrderKey, orderKey, ordersKey, simulatePayment, type Order, type 
 type Fixture = NonNullable<Order["testPayment"]>;
 
 const messages: Record<NonNullable<Fixture["result"]>, string> = {
-  APPROVED: "Pago de prueba aprobado. Las subórdenes están en preparación.",
+  APPROVED: "Pago de prueba aprobado.",
   REJECTED: "Pago de prueba rechazado. Se liberó el stock.",
   LATE_APPROVAL: "La aprobación de prueba llegó fuera de plazo y quedó registrada para conciliación.",
   EXPIRED: "El resultado de prueba llegó después del vencimiento.",

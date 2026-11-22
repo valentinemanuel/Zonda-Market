@@ -1,0 +1,20 @@
+{
+  "id": "ORD01J49MMW3SSBK5PSV3DFR32959",
+  "type": "online",
+  "country_code": "ARG",
+  "user_id": "800",
+  "live_mode": false,
+  "external_reference": "zonda-fixture",
+  "total_amount": "24.50",
+  "status": "processed",
+  "status_detail": "accredited",
+  "transactions": {
+    "payments": [{
+      "id": "PAY01J67CQQH5904WDBVZEM4JMEP3",
+      "amount": "24.50",
+      "status": "processed",
+      "status_detail": "accredited",
+      "payment_method": { "type": "credit_card" }
+    }]
+  }
+}

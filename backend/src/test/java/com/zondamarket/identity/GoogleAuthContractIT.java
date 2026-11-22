@@ -109,6 +109,34 @@ class GoogleAuthContractIT {
     }
 
     @Test
+    void suspendedGoogleAccountCannotExchangeUntilReactivated() throws Exception {
+        String email = email();
+        String subject = UUID.randomUUID().toString();
+        var google = redeem(googleGrant(begin(), subject, email)).andExpect(status().isOk()).andReturn();
+        var profile = mvc.perform(bearer(get("/api/v1/me"), access(google))).andExpect(status().isOk()).andReturn();
+        var adminEmail = email();
+        var admin = register(adminEmail);
+        db.sql("UPDATE zonda_market.user_account SET role = 'ADMIN' WHERE email = :email")
+                .param("email", adminEmail).update();
+        var statusPath = "/api/v1/admin/users/" + field(profile, "$.id") + "/status";
+        var beforeSuspension = googleGrant(begin(), subject, email);
+
+        mvc.perform(bearer(command(statusPath), access(admin)).content("""
+                {"action":"SUSPEND","reason":"Cuenta ficticia en revisión","expectedVersion":0}
+                """)).andExpect(status().isOk());
+        redeem(beforeSuspension).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_SESSION"));
+        redeem(googleGrant(begin(), subject, email)).andExpect(status().isUnauthorized());
+        mvc.perform(command("/api/v1/auth/refresh").cookie(cookie(google, REFRESH))).andExpect(status().isUnauthorized());
+
+        mvc.perform(bearer(command(statusPath), access(admin)).content("""
+                {"action":"REACTIVATE","reason":"Revisión completada","expectedVersion":1}
+                """)).andExpect(status().isOk());
+        mvc.perform(bearer(get("/api/v1/me"), access(google))).andExpect(status().isUnauthorized());
+        redeem(googleGrant(begin(), subject, email)).andExpect(status().isOk());
+    }
+
+    @Test
     void requiresExplicitLinkAndRejectsAccessFromAnotherAccount() throws Exception {
         String email = email();
         String subject = UUID.randomUUID().toString();
@@ -224,13 +252,13 @@ class GoogleAuthContractIT {
         assertEquals(43, params.get("code_challenge").length());
         assertNotEquals(params.get("state"), params.get("nonce"));
         assertEquals(ORIGIN + CALLBACK, params.get("redirect_uri"));
-        return new Start(authorization, cookie(result, BROWSER));
+        return new Start(authorization, cookie(result, BROWSER), false);
     }
 
     private Start beginLink(MvcResult local) throws Exception {
         var result = mvc.perform(bearer(command(STATUS + "/start"), access(local))
                 .cookie(cookie(local, REFRESH)).content(password(PASSWORD))).andExpect(status().isOk()).andReturn();
-        return new Start(URI.create(field(result, "$.authorizationUrl")), cookie(result, BROWSER));
+        return new Start(URI.create(field(result, "$.authorizationUrl")), cookie(result, BROWSER), true);
     }
 
     private ResultActions callback(String code, String state, Cookie browser) throws Exception {
@@ -243,8 +271,9 @@ class GoogleAuthContractIT {
         var callback = callback(oidcCode, start.state(), start.browser()).andReturn();
         URI location = location(callback);
         assertEquals("/oauth/retorno", location.getPath());
-        assertTrue(location.getFragment().startsWith("code="));
-        String code = location.getFragment().substring("code=".length());
+        boolean linking = start.linking();
+        assertTrue(location.getFragment().matches("code=[A-Za-z0-9_-]{43}" + (linking ? "&mode=link" : "")));
+        String code = location.getFragment().substring("code=".length(), "code=".length() + 43);
         assertNotEquals(oidcCode, code);
         return new Grant(code, cookie(callback, BROWSER));
     }
@@ -301,7 +330,7 @@ class GoogleAuthContractIT {
         return UUID.randomUUID() + "@example.test";
     }
 
-    private record Start(URI authorization, Cookie browser) {
+    private record Start(URI authorization, Cookie browser, boolean linking) {
         String state() { return query(authorization).get("state"); }
     }
     private record Grant(String code, Cookie browser) {}

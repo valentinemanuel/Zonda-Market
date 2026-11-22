@@ -5,6 +5,9 @@ import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
+import com.zondamarket.checkout.dto.FulfillmentDtos.Carrier;
+import com.zondamarket.checkout.dto.FulfillmentDtos.SellerOrderStatus;
+import com.zondamarket.checkout.dto.FulfillmentDtos.Shipment;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -76,6 +79,13 @@ public class CheckoutStore {
                 .param("id", id).param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
     }
 
+    public String frozenProvince(UUID orderId) {
+        return sql.sql("""
+                SELECT address_snapshot ->> 'provinceCode' FROM zonda_market.checkout_sub_order
+                WHERE order_id = :order ORDER BY id LIMIT 1
+                """).param("order", orderId).query(String.class).single();
+    }
+
     public Optional<Order> active(UUID buyer) {
         return sql.sql(ORDER_COLUMNS + " WHERE buyer_id = :buyer AND status IN ('RESERVADA', 'PAGO_PENDIENTE')")
                 .param("buyer", buyer).query((rs, row) -> readOrder(rs)).optional();
@@ -109,6 +119,29 @@ public class CheckoutStore {
                 JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
                 WHERE item.cart_id = :cart AND NOT item.deleted
                 ORDER BY sku.id FOR UPDATE OF sku
+                """).param("cart", cart).query(UUID.class).list();
+    }
+
+    public void lockOfferVisibility(UUID cart) {
+        sql.sql("""
+                SELECT listing.id FROM zonda_market.listing listing
+                WHERE listing.id IN (
+                    SELECT sku.listing_id FROM zonda_market.cart_item item
+                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    WHERE item.cart_id = :cart AND NOT item.deleted
+                )
+                ORDER BY listing.id FOR SHARE
+                """).param("cart", cart).query(UUID.class).list();
+        sql.sql("""
+                SELECT account.id FROM zonda_market.user_account account
+                WHERE account.id IN (
+                    SELECT seller.account_id FROM zonda_market.cart_item item
+                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    JOIN zonda_market.listing listing ON listing.id = sku.listing_id
+                    JOIN zonda_market.seller_profile seller ON seller.id = listing.seller_id
+                    WHERE item.cart_id = :cart AND NOT item.deleted
+                )
+                ORDER BY account.id FOR SHARE
                 """).param("cart", cart).query(UUID.class).list();
     }
 
@@ -173,15 +206,43 @@ public class CheckoutStore {
     }
 
     public List<SubOrder> subOrders(UUID order) {
-        var lines = sql.sql("""
+        return readSubOrders(subOrderRows("sub.order_id = :order", "sub.seller_name, sub.seller_id", true)
+                .param("order", order));
+    }
+
+    public List<SubOrder> sellerOrders(UUID seller, SellerOrderStatus status, UUID subOrderId, int page, int size) {
+        var filter = status == null ? "" : " AND own.status = :status";
+        if (subOrderId != null) filter += " AND own.id = :subOrder";
+        var query = subOrderRows("""
+                sub.id IN (SELECT own.id FROM zonda_market.checkout_sub_order own
+                    WHERE own.seller_id = :seller AND own.status IN ('PREPARANDO', 'DESPACHADA', 'ENTREGADA', 'REEMBOLSADA')
+                """ + filter + " ORDER BY own.created_at DESC, own.id DESC OFFSET :offset LIMIT :limit)",
+                "sub.created_at DESC, sub.id DESC", false)
+                .param("seller", seller).param("offset", (long) page * size).param("limit", size + 1);
+        if (status != null) query.param("status", status.name());
+        if (subOrderId != null) query.param("subOrder", subOrderId);
+        return readSubOrders(query);
+    }
+
+    private JdbcClient.StatementSpec subOrderRows(String condition, String sort, boolean includeReview) {
+        var reviewed = includeReview
+                ? "EXISTS (SELECT 1 FROM zonda_market.seller_review review WHERE review.sub_order_id = sub.id)"
+                : "NULL::boolean";
+        return sql.sql("""
                 SELECT sub.id AS sub_id, sub.status, sub.address_snapshot, sub.seller_id, sub.seller_name,
+                       sub.fulfillment_version, sub.carrier, sub.tracking_code, sub.shipped_at, sub.delivered_at,
+                       %s AS reviewed,
                        sub.merchandise, sub.shipping, sub.commission AS sub_commission, line.sku_id, line.sku_code,
                        line.title, line.attributes, line.quantity, line.unit_price, line.commission_bps, line.commission
                 FROM zonda_market.checkout_sub_order sub
                 JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
-                WHERE sub.order_id = :order
-                ORDER BY sub.seller_name, sub.seller_id, line.sku_id
-                """).param("order", order).query((rs, row) -> {
+                WHERE %s
+                ORDER BY %s, line.sku_id
+                """.formatted(reviewed, condition, sort));
+    }
+
+    private List<SubOrder> readSubOrders(JdbcClient.StatementSpec query) {
+        var lines = query.query((rs, row) -> {
                     var items = new ArrayList<Line>();
                     var merchandise = rs.getBigDecimal("merchandise");
                     var shipping = rs.getBigDecimal("shipping");
@@ -189,7 +250,8 @@ public class CheckoutStore {
                             merchandise.toPlainString(), shipping.toPlainString(), rs.getBigDecimal("sub_commission").toPlainString(),
                             merchandise.add(shipping).toPlainString());
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
-                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group);
+                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
+                            rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class));
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");
                     var line = new Line(rs.getObject("sku_id", UUID.class), rs.getString("sku_code"), rs.getString("title"),
@@ -203,6 +265,26 @@ public class CheckoutStore {
             groups.computeIfAbsent(row.sub().id(), ignored -> row.sub()).group().items().add(row.line());
         }
         return List.copyOf(groups.values());
+    }
+
+    static Shipment readShipment(ResultSet row) throws SQLException {
+        var carrier = row.getString("carrier");
+        if (carrier == null) return null;
+        var delivered = row.getObject("delivered_at", OffsetDateTime.class);
+        return Shipment.of(Carrier.valueOf(carrier), row.getString("tracking_code"),
+                row.getObject("shipped_at", OffsetDateTime.class).toInstant(), delivered == null ? null : delivered.toInstant());
+    }
+
+    public void recordSubOrderSettlements(UUID order, String currency, Instant now) {
+        int inserted = sql.sql("""
+                INSERT INTO zonda_market.checkout_sub_order_settlement
+                    (sub_order_id, merchandise, shipping, commission, currency, recorded_at)
+                SELECT id, merchandise, shipping, commission, :currency, :now
+                FROM zonda_market.checkout_sub_order WHERE order_id = :order
+                """).param("order", order).param("currency", currency).param("now", utc(now)).update();
+        if (inserted == 0) {
+            throw new IllegalStateException("La orden aprobada no tiene subórdenes.");
+        }
     }
 
     private static Order readOrder(ResultSet rs) throws SQLException {

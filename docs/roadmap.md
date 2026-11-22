@@ -59,6 +59,8 @@ Smoke de etapa: cotizar un carrito de dos vendedores, reservar ambos SKU y simul
 | E4-05 | Compensar un cobro tardío o duplicado | E4-04 |
 | E4-06 | Certificar checkout dual con dos vendedores | E4-05 |
 
+Card Payment Brick usa Orders API. La conciliación y las notificaciones de tarjetas deben consultar la orden de Mercado Pago y su transacción.
+
 ## Etapa 5 · Envíos, reputación y métricas · v0.6
 
 | ID | Entrega | Depende de |
@@ -67,6 +69,8 @@ Smoke de etapa: cotizar un carrito de dos vendedores, reservar ambos SKU y simul
 | E5-02 | Notificar hitos de compra y envío | E1-03, E4-06, E5-01 |
 | E5-03 | Calificar una entrega y mostrar reputación | E5-01 |
 | E5-04 | Visualizar ventas y neto estimado | E5-01, E4-06 |
+
+Smoke de etapa: aprobar una compra de dos vendedores con un pago de prueba. Despachar y entregar solo una suborden, comprobar avisos privados de los hitos y publicar una reseña visible en el perfil. Entrar como cada vendedor, filtrar ventas por día y reconciliar el bruto, la comisión, una devolución confirmada de prueba y el neto sin mezclar subórdenes ajenas.
 
 ## Etapa 6 · Administración y disputas · v0.7
 

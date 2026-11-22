@@ -60,5 +60,24 @@ test("registra, restaura dos pestañas y cierra la sesión con teclado en móvil
 
   await passwordInput.fill(password);
   await passwordInput.press("Enter");
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
+  let releaseAccount!: () => void;
+  const loadingAccount = new Promise<void>((resolve) => { releaseAccount = resolve; });
+  await page.route("**/api/v1/me", async (route) => {
+    await loadingAccount;
+    await route.fulfill({ status: 503 });
+  }, { times: 1 });
+  await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
+  try {
+    await expect(page.getByRole("status").filter({ hasText: "Cargando tu cuenta…" })).toBeVisible();
+  } finally {
+    releaseAccount();
+  }
+  await expect(page.getByRole("alert")).toContainText("No pudimos cargar tu cuenta.");
+  await page.screenshot({ path: testInfo.outputPath("cuenta-error-movil.png") });
+  await page.getByRole("button", { name: "Reintentar" }).press("Enter");
   await expect(page.getByText(email)).toBeVisible();
+  await page.getByRole("link", { name: "Mis órdenes" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
 });

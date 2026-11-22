@@ -10,9 +10,11 @@ import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
 import com.zondamarket.checkout.dto.CheckoutDtos.TestPayment;
+import com.zondamarket.checkout.dto.CompensationDtos.Status;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.CheckoutStore.Order;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
+import com.zondamarket.checkout.repository.PaymentCompensationStore;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
@@ -46,14 +48,16 @@ public class CheckoutService {
     private final CartStore carts;
     private final CheckoutStore store;
     private final PaymentOutcomeStore outcomes;
+    private final PaymentCompensationStore compensations;
     private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
 
-    CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes,
+    CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes, PaymentCompensationStore compensations,
                     ObjectProvider<LocalPaymentPort> localPayment, Clock clock) {
         this.carts = carts;
         this.store = store;
         this.outcomes = outcomes;
+        this.compensations = compensations;
         this.localPayment = localPayment;
         this.clock = clock;
     }
@@ -97,7 +101,8 @@ public class CheckoutService {
         requireCurrentQuote(quote.expiresAt(), now());
         var address = address(account.id(), quote.snapshot().address().id(), true);
 
-        // Read the current offers after acquiring all SKU locks in PostgreSQL UUID order.
+        // Serialize new reservations with moderation and lock listings before SKUs, as catalog writes do.
+        store.lockOfferVisibility(cart.id());
         store.lockSkus(cart.id());
         var snapshot = snapshot(account.id(), cart.id(), address);
         var now = now();
@@ -109,7 +114,7 @@ public class CheckoutService {
                 now.plus(RESERVATION_TTL), hash);
         store.insertOrder(order, account.id(), cart.id(), quoteId, key, trace, now);
         for (var group : snapshot.groups()) {
-            var sub = new SubOrder(UUID.randomUUID(), "ESPERA_PAGO", address, group);
+            var sub = new SubOrder(UUID.randomUUID(), "ESPERA_PAGO", address, group, 0, null, false);
             store.insertSubOrder(order.id(), sub, now);
             for (var line : group.items()) {
                 if (!store.reserve(order, line, now)) throw stockChanged();
@@ -142,8 +147,11 @@ public class CheckoutService {
         TestPayment fixture = localPayment.getIfAvailable() == null ? null
                 : new TestPayment(LocalPaymentPort.reference(order.id()),
                     outcomes.find(order.id()).map(saved -> saved.result().name()).orElse(null));
+        var refunds = compensations.forOrder(order.id());
+        var refunded = refunds.stream().filter(refund -> refund.status() == Status.CONFIRMADA)
+                .map(refund -> new BigDecimal(refund.amount())).reduce(ZERO, BigDecimal::add);
         return new OrderResponse(order.id(), order.expiresAt(), now(), order.status(),
-                subOrders, order.total().toPlainString(), order.currency(), fixture);
+                subOrders, order.total().toPlainString(), order.currency(), fixture, refunds, refunded.toPlainString());
     }
 
     private Snapshot snapshot(UUID buyer, UUID cart, AddressResponse address) {

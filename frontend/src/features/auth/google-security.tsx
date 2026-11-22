@@ -17,8 +17,8 @@ export function GoogleSecurity({ revision }: { revision: number }) {
     return null;
   }
   return (
-    <section className="mt-6 border-t border-border pt-5" aria-labelledby="account-security">
-      <h2 id="account-security" className="text-lg font-semibold">Seguridad de cuenta</h2>
+    <div className="mt-5 border-t pt-4">
+      <h3 className="text-sm font-semibold">Acceso con Google</h3>
       {status.isPending ? <p role="status" className="mt-2">Consultando vinculación…</p>
         : status.isError ? (
           <div className="mt-2 space-y-2">
@@ -26,7 +26,7 @@ export function GoogleSecurity({ revision }: { revision: number }) {
             <Button variant="outline" onClick={() => void status.refetch()}>Reintentar</Button>
           </div>
         ) : status.data.linked ? <p className="mt-2">Google vinculado</p> : <LinkGoogleForm />}
-    </section>
+    </div>
   );
 }
 

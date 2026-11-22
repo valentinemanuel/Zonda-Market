@@ -18,17 +18,55 @@ export type Quote = Received<Timed & {
   id: string; cartVersion: number; address: Address; groups: Group[]; total: string;
 }>;
 
+export type Refund = {
+  id: string; reason: "TARDIO" | "DUPLICADO"; status: "PENDIENTE" | "CONFIRMADA" | "EN_REVISION"; amount: string;
+};
+
 export type Order = Received<Timed & {
-  id: string; status: string; subOrders: { id: string; status: string; address: Address; group: Group }[]; total: string;
+  id: string; status: string; subOrders: SubOrder[]; total: string;
   testPayment: { reference: string; result: PaymentResult | null } | null;
+  refunds?: Refund[];
+  refundedAmount?: string;
 }>;
+
+export type Carrier = "ANDREANI" | "CORREO_ARGENTINO";
+export type ShipmentResponse = {
+  id: string; status: string; version: number;
+  shipment: { carrier: Carrier; trackingCode: string; trackingUrl: string; shippedAt: string; deliveredAt: string | null } | null;
+};
+export type SubOrder = ShipmentResponse & { address: Address; group: Group; reviewed: boolean | null };
+export type SellerOrderStatus = "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | "REEMBOLSADA";
+type SellerOrderPage = { content: SubOrder[]; page: number; size: number; hasNext: boolean };
 
 export type PaymentOutcome = "APPROVED" | "REJECTED";
 type PaymentResult = PaymentOutcome | "LATE_APPROVAL" | "EXPIRED";
 
+export type PaymentMethod = "CARD" | "CHECKOUT_PRO";
+export type VerifiedAttemptOutcome = "PENDIENTE" | "APROBADO" | "RECHAZADO";
+export type PaymentAttempt = {
+  id: string; method: PaymentMethod; expiresAt: string;
+  provider: "LOCAL" | "MERCADO_PAGO";
+  status: VerifiedAttemptOutcome | "CREADO" | "ENVIADO" | "RESULTADO_DESCONOCIDO";
+  nextAction: "INGRESAR_TARJETA" | "ABRIR_CHECKOUT_PRO" | "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
+  checkoutUrl?: string | null;
+};
+export type CardConfig = { publicKey: string; amount: string; payerEmail: string };
+export type PaymentOptions = {
+  methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null; card: CardConfig | null; checkoutPro?: boolean;
+};
+export type CardData = {
+  token: string;
+  paymentMethodId: string;
+  paymentType: "credit_card" | "debit_card";
+  installments: number;
+  payer: { email: string; identification?: { type?: string; number?: string } };
+};
+
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
 export const ordersKey = (revision: number) => ["private", "orders", revision] as const;
+export const sellerOrdersKey = (revision: number) => ["private", "seller-orders", revision] as const;
+export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
 
 export type OrderPage = {
@@ -83,9 +121,67 @@ export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
 }
 
+export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", subOrderId: string | null,
+  signal: AbortSignal): Promise<SellerOrderPage> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (status) params.set("status", status);
+  if (subOrderId) params.set("subOrderId", subOrderId);
+  return (await authenticatedRequest("/api/v1/seller/orders?" + params, { signal })).json();
+}
+
+export async function shipSubOrder(id: string, carrier: Carrier, trackingCode: string,
+  expectedVersion: number): Promise<ShipmentResponse> {
+  return (await authenticatedRequest("/api/v1/seller/sub-orders/" + encodeURIComponent(id) + "/ship",
+    post({ carrier, trackingCode, expectedVersion }))).json();
+}
+
+export async function confirmDelivery(id: string, expectedVersion: number): Promise<ShipmentResponse> {
+  return (await authenticatedRequest("/api/v1/me/sub-orders/" + encodeURIComponent(id) + "/confirm-delivery",
+    post({ expectedVersion }))).json();
+}
+
 export async function simulatePayment(id: string, reference: string, outcome: PaymentOutcome): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/test-fixtures/orders/" + encodeURIComponent(id) + "/payment-outcome",
     post({ reference, outcome })));
+}
+
+export async function fetchPaymentOptions(id: string, signal: AbortSignal): Promise<PaymentOptions> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payment-options", { signal })).json();
+}
+
+export async function startPayment(id: string, method: PaymentMethod, key: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments", post({ method }, key))).json();
+}
+
+export async function submitPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/submit", { method: "POST" })).json();
+}
+
+export async function submitCardPayment(id: string, attemptId: string, card: CardData): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/card",
+    post({ attemptId, ...card }, attemptId))).json();
+}
+
+export async function reconcileCardPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/reconcile-card", { method: "POST" })).json();
+}
+
+export async function submitCheckoutPro(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/pro",
+    post({ attemptId }, attemptId), 25_000)).json();
+}
+
+export async function reconcileCheckoutPro(id: string, attemptId: string, signal?: AbortSignal): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/reconcile-pro", { method: "POST", signal }, 25_000)).json();
+}
+
+export async function simulateAttemptOutcome(id: string, attemptId: string,
+  outcome: VerifiedAttemptOutcome): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/test-fixtures/orders/" + encodeURIComponent(id) + "/payments/"
+    + encodeURIComponent(attemptId) + "/outcome", post({ outcome }))).json();
 }
 
 export function checkoutError(error: unknown) {

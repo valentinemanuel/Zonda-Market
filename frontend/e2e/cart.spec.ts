@@ -108,7 +108,7 @@ test("anuncia carga y permite reintentar hasta mostrar el carrito vacío", async
   await page.route("**" + cart, async (route) => {
     await paused;
     await route.fulfill({ status: 503 });
-  }, { times: 1 });
+  });
   await page.goto("/carrito");
   try {
     await expect(page.getByText("Cargando carrito…")).toBeVisible();
@@ -117,6 +117,7 @@ test("anuncia carga y permite reintentar hasta mostrar el carrito vacío", async
   }
   await expect(page.getByRole("alert")).toHaveText("No pudimos cargar el carrito.");
   await page.screenshot({ path: testInfo.outputPath("carrito-error-movil.png"), fullPage: true });
+  await page.unroute("**" + cart);
   await page.getByRole("button", { name: "Reintentar" }).press("Enter");
   await expect(page.getByText("Tu carrito está vacío.")).toBeVisible();
 });
