@@ -134,6 +134,103 @@ class CheckoutContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void dispatchesAndDeliversOneSubOrderAtATimeWithPrivateTrackingAndReplay() throws Exception {
+        var buyer = account(true);
+        var seller = account(true);
+        var otherSeller = account(true);
+        var outsider = account(true);
+        var alpha = product(seller, "Alfa envío", "100.00", "0.00", 2);
+        var beta = product(otherSeller, "Beta envío", "150.00", "0.00", 2);
+        add(buyer, alpha, 1, 0);
+        add(buyer, beta, 1, 1);
+        var quote = uuid(quote(buyer, address(buyer), 2).andExpect(status().isOk()).andReturn());
+        var reserved = confirm(buyer, quote, "fulfillment").andExpect(status().isOk()).andReturn();
+        var order = uuid(reserved);
+        var first = field(reserved, "subOrders[0].id");
+        var second = field(reserved, "subOrders[1].id");
+        var queue = "/api/v1/seller/orders";
+        var ship = "/api/v1/seller/sub-orders/" + first + "/ship";
+        var deliver = "/api/v1/me/sub-orders/" + first + "/confirm-delivery";
+        var shipment = """
+                {"carrier":"ANDREANI","trackingCode":"360000000000000","expectedVersion":0}
+                """;
+
+        mvc.perform(get(queue)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(get(queue), outsider)).andExpect(status().isForbidden());
+        mvc.perform(auth(get(queue), seller)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(auth(post(ship), seller).content(shipment)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUB_ORDER_STATE_CONFLICT"));
+        outcome(buyer, order, field(reserved, "testPayment.reference"), "APPROVED").andExpect(status().isOk());
+        mvc.perform(auth(get(queue), seller).param("status", "PREPARANDO").param("size", "1"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.content.length()").value(1)).andExpect(jsonPath("$.content[0].id").value(first))
+                .andExpect(jsonPath("$.content[0].version").value(0)).andExpect(jsonPath("$.hasNext").value(false));
+        mvc.perform(auth(get(queue), otherSeller)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1)).andExpect(jsonPath("$.content[0].id").value(second));
+        mvc.perform(auth(post(ship), otherSeller).content(shipment)).andExpect(status().isNotFound());
+        mvc.perform(auth(post(ship), buyer).content(shipment)).andExpect(status().isNotFound());
+        mvc.perform(auth(get(ORDERS + order), outsider)).andExpect(status().isNotFound());
+        mvc.perform(auth(post(deliver), buyer).content("{\"expectedVersion\":0}")).andExpect(status().isConflict());
+        mvc.perform(auth(post(ship), seller).content(shipment.replace("ANDREANI", "OTRO"))).andExpect(status().isBadRequest());
+        mvc.perform(auth(post(ship), seller).content(shipment.replace("360000000000000", "../salida"))).andExpect(status().isBadRequest());
+        mvc.perform(auth(post(ship), seller).content(shipment.replace("Version\":0", "Version\":0.5"))).andExpect(status().isBadRequest());
+        mvc.perform(auth(post(ship), seller).content(shipment.replace("Version\":0", "Version\":1")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SUB_ORDER_VERSION_CONFLICT"));
+
+        sql.sql("ALTER TABLE zonda_market.checkout_outbox ADD CONSTRAINT fixture_reject_ship CHECK (event_type <> 'SUB_ORDER_SHIPPED') NOT VALID").update();
+        try {
+            mvc.perform(auth(post(ship), seller).content(shipment)).andExpect(status().isInternalServerError());
+            mvc.perform(auth(get(ORDERS + order), buyer)).andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"));
+        } finally {
+            sql.sql("ALTER TABLE zonda_market.checkout_outbox DROP CONSTRAINT fixture_reject_ship").update();
+        }
+
+        var barrier = new CyclicBarrier(2);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var a = executor.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return mvc.perform(auth(post(ship), seller).content(shipment)).andExpect(status().isOk()).andReturn();
+            });
+            var b = executor.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return mvc.perform(auth(post(ship), seller).content(shipment)).andExpect(status().isOk()).andReturn();
+            });
+            assertEquals(a.get(15, TimeUnit.SECONDS).getResponse().getContentAsString(),
+                    b.get(15, TimeUnit.SECONDS).getResponse().getContentAsString());
+        }
+        assertEquals(1, eventCount(order, "SUB_ORDER_SHIPPED"));
+        mvc.perform(auth(post(ship), seller).content(shipment.replace("360000000000000", "360000000000001")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SUB_ORDER_ALREADY_SHIPPED"));
+        mvc.perform(auth(get(ORDERS + order), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.subOrders[0].status").value("DESPACHADA"))
+                .andExpect(jsonPath("$.subOrders[0].shipment.trackingUrl").value("https://andreani.com/envio/360000000000000"))
+                .andExpect(jsonPath("$.subOrders[1].status").value("PREPARANDO"));
+        mvc.perform(auth(post(deliver), seller).content("{\"expectedVersion\":1}")).andExpect(status().isNotFound());
+        mvc.perform(auth(post(deliver), outsider).content("{\"expectedVersion\":1}")).andExpect(status().isNotFound());
+        mvc.perform(auth(post(deliver), buyer).content("{\"expectedVersion\":0}")).andExpect(status().isConflict());
+        clock.set(clock.instant().plusSeconds(45));
+        var delivered = mvc.perform(auth(post(deliver), buyer).content("{\"expectedVersion\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENTREGADA"))
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.shipment.deliveredAt").value(clock.instant().toString())).andReturn();
+        var trace = UUID.fromString(delivered.getResponse().getHeader("X-Trace-Id"));
+        mvc.perform(auth(post(deliver), buyer).content("{\"expectedVersion\":1}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.shipment.deliveredAt").value(clock.instant().toString()));
+        assertEquals(1, eventCount(order, "DELIVERY_CONFIRMED"));
+        assertEquals(List.of(buyer.id(), trace), sql.sql("""
+                SELECT actor_id, trace_id FROM zonda_market.checkout_outbox
+                WHERE sub_order_id = :sub AND event_type = 'DELIVERY_CONFIRMED'
+                """).param("sub", UUID.fromString(first))
+                .query((row, i) -> List.of(row.getObject("actor_id", UUID.class), row.getObject("trace_id", UUID.class))).single());
+        mvc.perform(auth(post("/api/v1/seller/sub-orders/" + second + "/ship"), otherSeller).content(shipment))
+                .andExpect(status().isOk());
+        assertEquals(2, eventCount(order, "SUB_ORDER_SHIPPED"));
+        assertStock(alpha, 1, 0);
+        assertStock(beta, 1, 0);
+    }
+
+    @Test
     void rejectsForeignAndStaleInputAndRollsBackIfTheOutboxCannotBeWritten() throws Exception {
         var buyer = account(true);
         var other = account(true);

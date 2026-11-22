@@ -172,6 +172,14 @@ ORDER BY verified_day DESC, method;
 
 La vista agrupa por método y día UTC de la última transición verificada de cada pago externo. La latencia terminal mide desde la creación del intento hasta la aprobación o el rechazo verificado e incluye el tiempo en el checkout y en la conciliación. Los reenvíos con el mismo estado conservan la medición.
 
+### E5-01 · Despacho y entrega
+
+1. En [la tienda local](http://localhost:3000), comprá en un solo pedido un producto de cada uno de dos vendedores con cuentas ficticias. En el perfil `local`, usá **Pago de prueba → Simular aprobación** si el simulador está habilitado.
+2. Ingresá como uno de los vendedores y abrí **Panel vendedor → Pedidos recibidos**. En una suborden **En preparación**, elegí **Registrar despacho → Andreani** y usá el código ficticio `360000000000000`. Confirmá y filtrá por **Despachada** para ver el código y la fecha.
+3. Volvé como comprador a **Mis órdenes** y abrí la orden. Confirmá la recepción de la suborden despachada. Al recargar, esa suborden debe mostrar **Entregada** con las dos fechas, y la otra debe seguir **En preparación**.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=CheckoutContractIT"` para verificar permisos, estados, reintentos simultáneos y rollback del evento. Desde `frontend/`, ejecutá `npm run test:e2e -- fulfillment` con un Compose de prueba en perfil `local`, Mailpit y pagos simulados. El smoke crea cuentas ficticias y verifica el flujo a 390 px, foco, teclado y recuperación tras perder la respuesta del despacho.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

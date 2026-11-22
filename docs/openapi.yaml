@@ -1400,6 +1400,92 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/seller/orders:
+    get:
+      summary: Listar subórdenes propias pagadas desde la más reciente
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de subórdenes del vendedor con productos y dirección congelados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerOrderPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta debe tener un perfil vendedor (SELLER_REQUIRED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/seller/sub-orders/{id}/ship:
+    post:
+      summary: Registrar el despacho de una suborden propia
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ShipmentUpdated'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          $ref: '#/components/responses/FulfillmentConflict'
+  /api/v1/me/sub-orders/{id}/confirm-delivery:
+    post:
+      summary: Confirmar la recepción de una suborden comprada
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryConfirmRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ShipmentUpdated'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          $ref: '#/components/responses/FulfillmentConflict'
 components:
   securitySchemes:
     bearerAuth:
@@ -1478,6 +1564,24 @@ components:
       schema:
         type: string
   responses:
+    ShipmentUpdated:
+      description: Estado logístico persistido. Repetir el comando original recupera el estado vigente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ShipmentResponse'
+    SubOrderNotFound:
+      description: La suborden no existe o pertenece a otra cuenta (SUB_ORDER_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+    FulfillmentConflict:
+      description: SUB_ORDER_STATE_CONFLICT, SUB_ORDER_VERSION_CONFLICT o SUB_ORDER_ALREADY_SHIPPED.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
     CheckoutOrder:
       description: Orden propia con subórdenes congeladas y un plazo de reserva de 15 minutos.
       headers:
@@ -1729,12 +1833,72 @@ components:
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
-    CheckoutSubOrder:
+    SellerOrderPage:
       type: object
-      required: [id, status, address, group]
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutSubOrder'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    ShipRequest:
+      type: object
+      required: [carrier, trackingCode, expectedVersion]
+      properties:
+        carrier:
+          $ref: '#/components/schemas/ShipmentCarrier'
+        trackingCode: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,63}$' }
+        expectedVersion:
+          $ref: '#/components/schemas/FulfillmentVersion'
+    DeliveryConfirmRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          $ref: '#/components/schemas/FulfillmentVersion'
+    ShipmentCarrier:
+      type: string
+      enum: [ANDREANI, CORREO_ARGENTINO]
+    FulfillmentVersion:
+      type: integer
+      format: int32
+      minimum: 0
+      maximum: 2147483647
+    Shipment:
+      type: object
+      required: [carrier, trackingCode, trackingUrl, shippedAt, deliveredAt]
+      properties:
+        carrier:
+          $ref: '#/components/schemas/ShipmentCarrier'
+        trackingCode: { type: string }
+        trackingUrl: { type: string, format: uri }
+        shippedAt: { type: string, format: date-time }
+        deliveredAt: { type: [string, 'null'], format: date-time }
+    ShipmentResponse:
+      type: object
+      required: [id, status, version, shipment]
       properties:
         id: { type: string, format: uuid }
-        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO] }
+        status: { type: string, enum: [DESPACHADA, ENTREGADA] }
+        version:
+          $ref: '#/components/schemas/FulfillmentVersion'
+        shipment:
+          $ref: '#/components/schemas/Shipment'
+    CheckoutSubOrder:
+      type: object
+      required: [id, status, address, group, version, shipment]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
+        version:
+          $ref: '#/components/schemas/FulfillmentVersion'
+        shipment:
+          oneOf:
+            - $ref: '#/components/schemas/Shipment'
+            - type: 'null'
         address:
           $ref: '#/components/schemas/AddressResponse'
         group:

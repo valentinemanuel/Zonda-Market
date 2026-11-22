@@ -113,7 +113,7 @@ public class CheckoutService {
                 now.plus(RESERVATION_TTL), hash);
         store.insertOrder(order, account.id(), cart.id(), quoteId, key, trace, now);
         for (var group : snapshot.groups()) {
-            var sub = new SubOrder(UUID.randomUUID(), "ESPERA_PAGO", address, group);
+            var sub = new SubOrder(UUID.randomUUID(), "ESPERA_PAGO", address, group, 0, null);
             store.insertSubOrder(order.id(), sub, now);
             for (var line : group.items()) {
                 if (!store.reserve(order, line, now)) throw stockChanged();

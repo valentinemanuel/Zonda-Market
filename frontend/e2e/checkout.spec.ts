@@ -196,10 +196,10 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByRole("alert")).toContainText("No pudimos registrar el resultado.");
   await page.screenshot({ path: testInfo.outputPath("checkout-pago-respuesta-perdida-movil.png"), fullPage: true });
   await approve.press("Enter");
-  await expect(page.getByText("Pago de prueba aprobado. Las subórdenes están en preparación.")).toBeVisible();
+  await expect(page.getByText("Pago de prueba aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Carrito", exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Pago de prueba aprobado. Las subórdenes están en preparación.")).toBeVisible();
+  await expect(page.getByText("Pago de prueba aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   await expect(approve).toHaveCount(0);
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);

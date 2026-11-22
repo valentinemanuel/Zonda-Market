@@ -84,7 +84,10 @@ abstract class CheckoutContractFixtures {
     }
 
     UUID product(String name, String price, String shipping, int stock) throws Exception {
-        var owner = account(true);
+        return product(account(true), name, price, shipping, stock);
+    }
+
+    UUID product(Account owner, String name, String price, String shipping, int stock) throws Exception {
         var seller = uuidForSeller(owner, name);
         sql.sql("UPDATE zonda_market.seller_profile SET shipping_cost = :shipping WHERE id = :id")
                 .param("shipping", new BigDecimal(shipping)).param("id", seller).update();

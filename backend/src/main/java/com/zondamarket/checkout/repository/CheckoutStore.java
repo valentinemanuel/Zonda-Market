@@ -5,6 +5,9 @@ import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
+import com.zondamarket.checkout.dto.FulfillmentDtos.Carrier;
+import com.zondamarket.checkout.dto.FulfillmentDtos.SellerOrderStatus;
+import com.zondamarket.checkout.dto.FulfillmentDtos.Shipment;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -180,15 +183,37 @@ public class CheckoutStore {
     }
 
     public List<SubOrder> subOrders(UUID order) {
-        var lines = sql.sql("""
+        return readSubOrders(subOrderRows("sub.order_id = :order", "sub.seller_name, sub.seller_id")
+                .param("order", order));
+    }
+
+    public List<SubOrder> sellerOrders(UUID seller, SellerOrderStatus status, int page, int size) {
+        var filter = status == null ? "" : " AND own.status = :status";
+        var query = subOrderRows("""
+                sub.id IN (SELECT own.id FROM zonda_market.checkout_sub_order own
+                    WHERE own.seller_id = :seller AND own.status IN ('PREPARANDO', 'DESPACHADA', 'ENTREGADA', 'REEMBOLSADA')
+                """ + filter + " ORDER BY own.created_at DESC, own.id DESC OFFSET :offset LIMIT :limit)",
+                "sub.created_at DESC, sub.id DESC")
+                .param("seller", seller).param("offset", (long) page * size).param("limit", size + 1);
+        if (status != null) query.param("status", status.name());
+        return readSubOrders(query);
+    }
+
+    private JdbcClient.StatementSpec subOrderRows(String condition, String sort) {
+        return sql.sql("""
                 SELECT sub.id AS sub_id, sub.status, sub.address_snapshot, sub.seller_id, sub.seller_name,
+                       sub.fulfillment_version, sub.carrier, sub.tracking_code, sub.shipped_at, sub.delivered_at,
                        sub.merchandise, sub.shipping, sub.commission AS sub_commission, line.sku_id, line.sku_code,
                        line.title, line.attributes, line.quantity, line.unit_price, line.commission_bps, line.commission
                 FROM zonda_market.checkout_sub_order sub
                 JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
-                WHERE sub.order_id = :order
-                ORDER BY sub.seller_name, sub.seller_id, line.sku_id
-                """).param("order", order).query((rs, row) -> {
+                WHERE %s
+                ORDER BY %s, line.sku_id
+                """.formatted(condition, sort));
+    }
+
+    private List<SubOrder> readSubOrders(JdbcClient.StatementSpec query) {
+        var lines = query.query((rs, row) -> {
                     var items = new ArrayList<Line>();
                     var merchandise = rs.getBigDecimal("merchandise");
                     var shipping = rs.getBigDecimal("shipping");
@@ -196,7 +221,8 @@ public class CheckoutStore {
                             merchandise.toPlainString(), shipping.toPlainString(), rs.getBigDecimal("sub_commission").toPlainString(),
                             merchandise.add(shipping).toPlainString());
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
-                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group);
+                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
+                            rs.getInt("fulfillment_version"), readShipment(rs));
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");
                     var line = new Line(rs.getObject("sku_id", UUID.class), rs.getString("sku_code"), rs.getString("title"),
@@ -210,6 +236,14 @@ public class CheckoutStore {
             groups.computeIfAbsent(row.sub().id(), ignored -> row.sub()).group().items().add(row.line());
         }
         return List.copyOf(groups.values());
+    }
+
+    static Shipment readShipment(ResultSet row) throws SQLException {
+        var carrier = row.getString("carrier");
+        if (carrier == null) return null;
+        var delivered = row.getObject("delivered_at", OffsetDateTime.class);
+        return Shipment.of(Carrier.valueOf(carrier), row.getString("tracking_code"),
+                row.getObject("shipped_at", OffsetDateTime.class).toInstant(), delivered == null ? null : delivered.toInstant());
     }
 
     public void recordSubOrderSettlements(UUID order, String currency, Instant now) {
