@@ -32,10 +32,13 @@ export type PaymentAttempt = {
   id: string; method: PaymentMethod; expiresAt: string;
   provider: "LOCAL" | "MERCADO_PAGO";
   status: VerifiedAttemptOutcome | "CREADO" | "ENVIADO" | "RESULTADO_DESCONOCIDO";
-  nextAction: "INGRESAR_TARJETA" | "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
+  nextAction: "INGRESAR_TARJETA" | "ABRIR_CHECKOUT_PRO" | "CONSULTAR" | "ELEGIR_MEDIO" | "NINGUNA";
+  checkoutUrl?: string | null;
 };
 export type CardConfig = { publicKey: string; amount: string; payerEmail: string };
-export type PaymentOptions = { methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null; card: CardConfig | null };
+export type PaymentOptions = {
+  methods: PaymentMethod[]; latestAttempt: PaymentAttempt | null; card: CardConfig | null; checkoutPro?: boolean;
+};
 export type CardData = {
   token: string;
   paymentMethodId: string;
@@ -128,6 +131,16 @@ export async function submitCardPayment(id: string, attemptId: string, card: Car
 export async function reconcileCardPayment(id: string, attemptId: string): Promise<PaymentAttempt> {
   return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
     + "/reconcile-card", { method: "POST" })).json();
+}
+
+export async function submitCheckoutPro(id: string, attemptId: string): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/pro",
+    post({ attemptId }, attemptId), 25_000)).json();
+}
+
+export async function reconcileCheckoutPro(id: string, attemptId: string, signal?: AbortSignal): Promise<PaymentAttempt> {
+  return (await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/payments/" + encodeURIComponent(attemptId)
+    + "/reconcile-pro", { method: "POST", signal }, 25_000)).json();
 }
 
 export async function simulateAttemptOutcome(id: string, attemptId: string,

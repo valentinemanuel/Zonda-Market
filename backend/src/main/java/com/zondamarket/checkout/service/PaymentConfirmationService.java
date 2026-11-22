@@ -1,6 +1,7 @@
 package com.zondamarket.checkout.service;
 
 import com.zondamarket.cart.repository.CartStore;
+import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.PaymentAttemptStore;
@@ -89,8 +90,11 @@ public class PaymentConfirmationService {
         if (!active || !now.isBefore(order.expiresAt())) {
             if (active) reservations.release(orderId, trace, now);
             if (approval) {
-                var event = verified != null && verified.providerOrderId() != null
-                        ? "CARD_PAYMENT_LATE" : "LOCAL_PAYMENT_LATE";
+                var event = "LOCAL_PAYMENT_LATE";
+                if (verified != null && verified.providerOrderId() != null) {
+                    event = attempt.method() == Method.CHECKOUT_PRO
+                            ? "CHECKOUT_PRO_PAYMENT_LATE" : "CARD_PAYMENT_LATE";
+                }
                 reservations.event(orderId, event, trace, now);
             }
             result = approval ? Result.LATE_APPROVAL : Result.EXPIRED;

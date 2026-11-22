@@ -11,6 +11,14 @@ import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 
 export function ReservationPage() {
+  return <OrderCheckout returned={false} />;
+}
+
+export function CheckoutResultPage() {
+  return <OrderCheckout returned />;
+}
+
+function OrderCheckout({ returned }: { returned: boolean }) {
   const { id = "" } = useParams();
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const client = useQueryClient();
@@ -37,22 +45,25 @@ export function ReservationPage() {
         <Link to="/carrito" className={profileLink + " text-sm"}>Volver al carrito</Link>
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
-      <h1 className="text-3xl font-semibold">Tu reserva</h1>
+      <h1 className="text-3xl font-semibold">{returned ? "Resultado del pago" : "Tu reserva"}</h1>
+      {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
+        Ver la reserva
+      </Link>}
     </div>
     {order.isPending ? <p role="status">Cargando reserva…</p>
       : signInRequired(order.error) ? <Button asChild>
-          <Link to="/ingresar" state={{ returnToOrder: id }}>Iniciar sesión para ver la reserva</Link>
+          <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned }}>Iniciar sesión para ver la reserva</Link>
         </Button>
       : order.isError ? <div className="space-y-2">
           <p role="alert" className="text-destructive">{order.error instanceof ApiError && order.error.status === 404
             ? "No encontramos esa reserva." : "No pudimos cargar la reserva."}</p>
           <Button variant="outline" onClick={() => void order.refetch()}>Reintentar</Button>
         </div>
-      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} />}
+      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} returned={returned} />}
   </div>;
 }
 
-function Reservation({ order, revision }: { order: Order; revision: number }) {
+function Reservation({ order, revision, returned }: { order: Order; revision: number; returned: boolean }) {
   const [seconds, setSeconds] = useState(() => secondsLeft(order));
   useEffect(() => {
     if (!running(order.status)) return;
@@ -78,7 +89,7 @@ function Reservation({ order, revision }: { order: Order; revision: number }) {
         <Button asChild><Link to="/checkout">Volver a cotizar</Link></Button>
       </div>}
     </div>
-    <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} />
+    <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />
     {address && <section aria-label="Dirección de entrega" className="space-y-1 rounded-lg border bg-card p-4">
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>

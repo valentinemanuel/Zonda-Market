@@ -100,6 +100,14 @@ Para E4-01, confirmá una reserva con datos ficticios y elegí **Card Payment** 
 
 Con `MERCADO_PAGO_TEST_ENABLED=false`, el perfil local conserva el simulador de E4-01. En un entorno aislado, ejecutá `npm run test:e2e -- card-payment` desde `frontend/` para probar carga, teclado, doble envío, recarga, consulta y rechazo con respuestas ficticias. Desde `backend/`, `.\mvnw.cmd verify "-Dit.test=CheckoutContractIT,CardPaymentContractIT,DemoPaymentFixtureIT"` prueba el contrato, el consumo de stock y la reconciliación, junto con el transporte ficticio del SDK Java.
 
+### Checkout Pro con saldo de prueba
+
+1. En una aplicación argentina de **Checkout Pro → Preferences API**, obtené el Access Token y el ID de su colector de prueba. Creá un comprador argentino de prueba con saldo ficticio suficiente. [Cuentas de prueba](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro-preferences/test-accounts).
+2. En `.env`, configurá `MERCADO_PAGO_PRO_TEST_ENABLED=true`, `MERCADO_PAGO_PRO_ACCESS_TOKEN`, `MERCADO_PAGO_PRO_TEST_COLLECTOR_ID` y `MERCADO_PAGO_PRO_PUBLIC_ORIGIN`. El origen debe ser HTTPS, sin barra final, y estar incluido en `AUTH_ALLOWED_ORIGINS`. Debe abrir la misma tienda desde el navegador. Iniciá Compose y entrá a la tienda desde ese origen.
+3. Con una reserva vigente, elegí **Pagar con saldo de Mercado Pago**. Ingresá con el comprador de prueba, elegí dinero en cuenta y usá **Volver al sitio** si Mercado Pago no vuelve automáticamente. El resultado consulta el pago oficial y ofrece **Consultar estado** si sigue pendiente.
+
+En un entorno local aislado, `npm run test:e2e -- checkout-pro` desde `frontend/` prueba con respuestas ficticias la salida, el retorno manipulado y la consulta posterior. Desde `backend/`, `.\mvnw.cmd verify "-Dit.test=CheckoutProContractIT"` prueba concurrencia, permisos, recuperación de la preferencia y un único consumo de stock. La recepción de notificaciones corresponde a E4-04.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
