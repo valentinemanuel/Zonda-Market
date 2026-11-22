@@ -46,6 +46,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         : typeof state?.returnToSellerSubOrder === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToSellerSubOrder)
           ? "/vendedor/pedidos?suborden=" + state.returnToSellerSubOrder
         : state?.returnToNotifications === true ? "/notificaciones"
+        : state?.returnToSellerSales === true ? "/vendedor/ventas"
         : state?.returnToOrders === true ? "/mis-ordenes"
         : state?.returnToCheckout === true ? "/checkout"
         : state?.returnToCart === true ? "/carrito"

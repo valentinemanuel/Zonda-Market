@@ -381,6 +381,18 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
         assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
         assertEquals(List.of("19.25"), settlementAmounts(purchase.order()));
         assertStock(purchase.sku(), 1, 0);
+        var seller = login(sql.sql("""
+                SELECT account.id, account.email FROM zonda_market.listing_sku sku
+                JOIN zonda_market.listing listing ON listing.id = sku.listing_id
+                JOIN zonda_market.seller_profile profile ON profile.id = listing.seller_id
+                JOIN zonda_market.user_account account ON account.id = profile.account_id
+                WHERE sku.id = :sku
+                """).param("sku", purchase.sku()).query((row, i) ->
+                    new Account(row.getObject("id", UUID.class), null, row.getString("email"))).single());
+        mvc.perform(auth(get("/api/v1/seller/metrics"), seller)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.gross").value("19.25"))
+                .andExpect(jsonPath("$.refunds").value("0.00"))
+                .andExpect(jsonPath("$.net").value("19.25"));
         mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGADA"))
                 .andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"))

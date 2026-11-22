@@ -1,4 +1,4 @@
-import { Boxes, LayoutList, MessageCircle, Package, Store } from "lucide-react";
+import { Boxes, ChartNoAxesColumnIncreasing, LayoutList, MessageCircle, Package, Store } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { listingStatusLabel, type ListingStatus } from "./listing-api";
@@ -7,6 +7,7 @@ export const sellerListingsPath = "/vendedor/publicaciones";
 export const sellerInventoryPath = "/vendedor/inventario";
 export const sellerQuestionsPath = "/vendedor/preguntas";
 export const sellerOrdersPath = "/vendedor/pedidos";
+export const sellerSalesPath = "/vendedor/ventas";
 export const listingCollectionKey = (revision: number) => ["private", "listings", revision] as const;
 export const listingDetailKey = (revision: number, id: string) => [...listingCollectionKey(revision), id] as const;
 export const unitFormat = new Intl.NumberFormat("es-AR");
@@ -24,6 +25,7 @@ const navigation = [
   { to: sellerInventoryPath, label: "Inventario", short: "Inventario", icon: Boxes, end: false },
   { to: sellerQuestionsPath, label: "Preguntas", short: "Preguntas", icon: MessageCircle, end: false },
   { to: sellerOrdersPath, label: "Pedidos recibidos", short: "Pedidos", icon: Package, end: false },
+  { to: sellerSalesPath, label: "Ventas y neto estimado", short: "Ventas", icon: ChartNoAxesColumnIncreasing, end: false },
 ];
 
 export function SellerNavigation() {

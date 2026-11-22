@@ -196,6 +196,14 @@ Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=NotificationContractIT"
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ReviewContractIT"` para probar permisos, duplicados simultáneos, paginación, promedio y exclusión de reseñas ocultas. Desde `frontend/`, ejecutá `npm run test:e2e -- reviews.spec.ts` contra un Compose local de prueba con Mailpit. El smoke cubre teclado a 390 px, pérdida de respuesta, reintento y texto plano en el perfil público.
 
+### E5-04 · Ventas y neto estimado
+
+1. Como vendedor, abrí **Panel vendedor → Ventas y neto estimado**. El período inicial incluye los últimos 30 días en horario de Buenos Aires. Elegí **Desde** y **Hasta** para consultar hasta 90 días inclusivos.
+2. Compará las tarjetas con **Actividad diaria → Ver importes por día** y abrí una suborden en **Detalle por suborden**. El bruto incluye mercadería y envío. El neto resta comisiones y devoluciones confirmadas y suma la comisión revertida.
+3. Elegí un día anterior a tus ventas para comprobar el estado vacío. Probá un rango invertido para ver la validación.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=SellerMetricsContractIT,PaymentWebhookContractIT"` para repetir una devolución postventa de prueba, los límites de fecha, la privacidad y la compensación de un cobro adicional. Desde `frontend/`, ejecutá `npm run test:e2e -- seller-sales.spec.ts` con un Compose de prueba en perfil `local` y Mailpit. El smoke de la etapa agrega `fulfillment.spec.ts notifications.spec.ts reviews.spec.ts`.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
