@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { inventoryPath, sellerListingsPath, sellerOrdersPath, sellerQuestionsPath, SellerHeading } from "@/features/listings/seller-workspace";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
+import { SellerReviews } from "@/features/reviews/seller-reviews";
 import { ownSeller, publicSeller, type Seller } from "./profile-api";
 import { profileLink } from "./profile-fields";
 import { getSessionRevision, subscribeToSession } from "./session-api";
@@ -98,12 +99,7 @@ function SellerCard({ seller }: { seller: Seller }) {
         <p className="mt-1 text-sm text-muted-foreground">{seller.type === "COMERCIO" ? "Comercio" : "Vendedor particular"}</p>
       </div>
       {seller.bio && <p className="whitespace-pre-wrap break-words">{seller.bio}</p>}
-      <section className="border-t border-border pt-4" aria-labelledby="reputation-title">
-        <h2 id="reputation-title" className="font-semibold">Reputación</h2>
-        <p className="text-sm text-muted-foreground">
-          {seller.reviewCount === 0 ? "Todavía no tiene reseñas." : `${seller.averageRating} de 5 · ${seller.reviewCount} reseñas`}
-        </p>
-      </section>
+      <SellerReviews slug={seller.slug} reputation={seller} />
     </article>
   );
 }

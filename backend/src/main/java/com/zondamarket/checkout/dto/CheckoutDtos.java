@@ -31,7 +31,7 @@ public final class CheckoutDtos {
                                 AddressResponse address, List<Group> groups, String total, String currency) {}
 
     public record SubOrder(UUID id, String status, AddressResponse address, Group group,
-                           int version, FulfillmentDtos.Shipment shipment) {}
+                           int version, FulfillmentDtos.Shipment shipment, Boolean reviewed) {}
 
     public record TestPayment(String reference, String result) {}
 

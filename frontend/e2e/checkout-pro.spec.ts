@@ -23,6 +23,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
     status: "ESPERA_PAGO",
     version: 0,
     shipment: null,
+    reviewed: false,
     address: { id: randomUUID(), street: "Calle Ficticia 123", city: "La Plata", provinceCode: "AR-B",
       postalCode: "1900", country: "AR" },
     group: { sellerId: randomUUID(), sellerName: "Tienda " + seller, merchandise: "9.50", shipping: "0.00",

@@ -51,3 +51,21 @@
     @apply outline-2 outline-offset-4 outline-ring;
   }
 }
+
+@supports not (accent-color: auto) {
+  .review-rating input {
+    @apply sr-only;
+  }
+
+  .review-rating input + span::before {
+    @apply size-3 shrink-0 rounded-full border border-muted-foreground content-[''];
+  }
+
+  .review-rating input:checked + span::before {
+    @apply border-primary bg-primary;
+  }
+
+  .review-rating input:focus-visible + span {
+    @apply rounded-sm outline-2 outline-offset-2 outline-ring;
+  }
+}

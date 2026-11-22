@@ -11,6 +11,7 @@ import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remaining
 import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 import { DeliveryAction } from "./delivery-action";
+import { ReviewAction } from "@/features/reviews/review-action";
 
 export function ReservationPage() {
   return <OrderCheckout returned={false} />;
@@ -123,7 +124,10 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
       <p className="break-words">{addressText(address)}</p>
     </section>}
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
-      actions={(sub) => <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}>
+      actions={(sub) => <>
+        <DeliveryAction sub={sub} orderId={order.id} revision={revision} />
+        <ReviewAction sub={sub} orderId={order.id} revision={revision} />
+      </>}>
       {order.status === "PAGADA" && <Button asChild className="w-full">
         <Link to="/mis-ordenes">Seguir mi compra</Link>
       </Button>}

@@ -183,7 +183,7 @@ public class CheckoutStore {
     }
 
     public List<SubOrder> subOrders(UUID order) {
-        return readSubOrders(subOrderRows("sub.order_id = :order", "sub.seller_name, sub.seller_id")
+        return readSubOrders(subOrderRows("sub.order_id = :order", "sub.seller_name, sub.seller_id", true)
                 .param("order", order));
     }
 
@@ -194,24 +194,28 @@ public class CheckoutStore {
                 sub.id IN (SELECT own.id FROM zonda_market.checkout_sub_order own
                     WHERE own.seller_id = :seller AND own.status IN ('PREPARANDO', 'DESPACHADA', 'ENTREGADA', 'REEMBOLSADA')
                 """ + filter + " ORDER BY own.created_at DESC, own.id DESC OFFSET :offset LIMIT :limit)",
-                "sub.created_at DESC, sub.id DESC")
+                "sub.created_at DESC, sub.id DESC", false)
                 .param("seller", seller).param("offset", (long) page * size).param("limit", size + 1);
         if (status != null) query.param("status", status.name());
         if (subOrderId != null) query.param("subOrder", subOrderId);
         return readSubOrders(query);
     }
 
-    private JdbcClient.StatementSpec subOrderRows(String condition, String sort) {
+    private JdbcClient.StatementSpec subOrderRows(String condition, String sort, boolean includeReview) {
+        var reviewed = includeReview
+                ? "EXISTS (SELECT 1 FROM zonda_market.seller_review review WHERE review.sub_order_id = sub.id)"
+                : "NULL::boolean";
         return sql.sql("""
                 SELECT sub.id AS sub_id, sub.status, sub.address_snapshot, sub.seller_id, sub.seller_name,
                        sub.fulfillment_version, sub.carrier, sub.tracking_code, sub.shipped_at, sub.delivered_at,
+                       %s AS reviewed,
                        sub.merchandise, sub.shipping, sub.commission AS sub_commission, line.sku_id, line.sku_code,
                        line.title, line.attributes, line.quantity, line.unit_price, line.commission_bps, line.commission
                 FROM zonda_market.checkout_sub_order sub
                 JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
                 WHERE %s
                 ORDER BY %s, line.sku_id
-                """.formatted(condition, sort));
+                """.formatted(reviewed, condition, sort));
     }
 
     private List<SubOrder> readSubOrders(JdbcClient.StatementSpec query) {
@@ -224,7 +228,7 @@ public class CheckoutStore {
                             merchandise.add(shipping).toPlainString());
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
                             json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
-                            rs.getInt("fulfillment_version"), readShipment(rs));
+                            rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class));
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");
                     var line = new Line(rs.getObject("sku_id", UUID.class), rs.getString("sku_code"), rs.getString("title"),

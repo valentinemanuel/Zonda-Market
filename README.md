@@ -188,6 +188,14 @@ Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=CheckoutContractIT"` pa
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=NotificationContractIT"` para probar permisos, rollback, reenvío y recuperación del correo. Desde `frontend/`, ejecutá `npm run test:e2e -- notifications.spec.ts` contra un Compose de prueba con Mailpit. El smoke cubre notificaciones por destinatario, foco, contador y reintento en móvil.
 
+### E5-03 · Reseñas y reputación
+
+1. Como comprador, abrí **Mis órdenes** y entrá a una suborden **Entregada**. Elegí las estrellas con flechas o pulsando la opción, agregá un comentario si querés y elegí **Publicar reseña**.
+2. Recargá la orden y comprobá que la suborden muestra **Reseña publicada**. Las subórdenes que todavía están en preparación o despachadas siguen mostrando su estado.
+3. Abrí la publicación comprada y consultá el bloque **Vendedor**. El enlace del vendedor lleva al perfil público con el mismo promedio y cantidad, y la reseña muestra un alias.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ReviewContractIT"` para probar permisos, duplicados simultáneos, paginación, promedio y exclusión de reseñas ocultas. Desde `frontend/`, ejecutá `npm run test:e2e -- reviews.spec.ts` contra un Compose local de prueba con Mailpit. El smoke cubre teclado a 390 px, pérdida de respuesta, reintento y texto plano en el perfil público.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
