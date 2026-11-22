@@ -16,7 +16,7 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
     @Query("""
             select s from RefreshSession s
             where s.id = :id and s.account.id = :accountId and not s.deleted
-                and exists (select 1 from UserAccount a where a.id = :accountId and not a.deleted)
+                and exists (select 1 from UserAccount a where a.id = :accountId and not a.deleted and not a.suspended)
             """)
     Optional<RefreshSession> lockFamily(UUID id, UUID accountId);
 
@@ -30,7 +30,8 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
     @Query("""
             select s.account from RefreshSession s
             where s.id = :id and s.account.id = :accountId and s.sessionVersion = :version
-                and s.expiresAt > :now and s.revokedAt is null and not s.deleted and not s.account.deleted
+                and s.expiresAt > :now and s.revokedAt is null and not s.deleted
+                and not s.account.deleted and not s.account.suspended
             """)
     Optional<UserAccount> findActiveAccount(
             UUID id, UUID accountId, long version, Instant now);

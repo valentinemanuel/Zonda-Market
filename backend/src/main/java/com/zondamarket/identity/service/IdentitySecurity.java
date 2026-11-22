@@ -83,6 +83,7 @@ class IdentitySecurity {
                 .csrf(AbstractHttpConfigurer::disable)
                 .addFilterAfter(cookieCsrf, CsrfFilter.class)
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/me/identities/google/start").authenticated()
                         .requestMatchers(cookieActions).permitAll()
                         .requestMatchers(HttpMethod.POST,
@@ -97,7 +98,11 @@ class IdentitySecurity {
                                 "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
                         .anyRequest().authenticated())
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint))
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler((request, response, failure) ->
+                                errors.resolveException(request, response, null,
+                                        new ApiProblemException(HttpStatus.FORBIDDEN, "ACCESS_DENIED",
+                                                "No tenés permiso para esta operación."))))
                 .oauth2ResourceServer(oauth -> oauth.authenticationEntryPoint(entryPoint)
                         .jwt(jwt -> jwt.decoder(tokens::decodeAccess).jwtAuthenticationConverter(token -> {
                             var account = auth.currentAccount(token);

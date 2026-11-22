@@ -30,6 +30,15 @@ export const router = createBrowserRouter([
       { path: "publicaciones/:slug", lazy: async () => ({ Component: (await import("@/features/listings/listing-detail")).PublicListingPage }) },
       { path: "categorias/:id", element: <CategoryPage /> },
       { path: "cuenta", element: <AccountPage /> },
+      { path: "admin", element: <Navigate to="/admin/publicaciones" replace /> },
+      { path: "admin/publicaciones", lazy: async () => {
+        const { ModerationPage } = await import("@/features/admin/moderation-page");
+        return { Component: () => <ModerationPage resource="listings" /> };
+      } },
+      { path: "admin/cuentas", lazy: async () => {
+        const { ModerationPage } = await import("@/features/admin/moderation-page");
+        return { Component: () => <ModerationPage resource="users" /> };
+      } },
       { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,

@@ -101,7 +101,8 @@ public class CheckoutService {
         requireCurrentQuote(quote.expiresAt(), now());
         var address = address(account.id(), quote.snapshot().address().id(), true);
 
-        // Read the current offers after acquiring all SKU locks in PostgreSQL UUID order.
+        // Serialize new reservations with moderation and lock listings before SKUs, as catalog writes do.
+        store.lockOfferVisibility(cart.id());
         store.lockSkus(cart.id());
         var snapshot = snapshot(account.id(), cart.id(), address);
         var now = now();

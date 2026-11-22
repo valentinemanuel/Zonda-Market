@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheck, Clock3, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
@@ -40,14 +40,17 @@ export function AccountPage() {
   }
   return (
     <AccountLayout title="Mi cuenta" description="Gestioná tus datos y encontrá tus direcciones y órdenes."
-      action={account.isSuccess && (
+      action={account.isSuccess && <div className="flex flex-wrap gap-2">
+        {account.data.roles.includes("ADMIN") && (
+          <Button asChild className="min-h-11"><Link to="/admin">Moderación</Link></Button>
+        )}
         <Button type="button" variant="outline"
           className="min-h-11 border-hero-border bg-hero-panel text-white hover:bg-hero-border hover:text-white"
           disabled={closing} onClick={() => void closeSession()}>
           <LogOut aria-hidden="true" />
           {closing ? "Cerrando sesión…" : "Cerrar sesión"}
         </Button>
-      )}>
+      </div>}>
       {logoutError && <p role="alert" className="mb-4 text-sm text-destructive">No pudimos cerrar la sesión. Volvé a intentar.</p>}
       {account.isPending && <p role="status" className="rounded-2xl border bg-card p-6 text-muted-foreground">Cargando tu cuenta…</p>}
       {account.isError && (

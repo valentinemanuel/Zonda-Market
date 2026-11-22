@@ -1,5 +1,6 @@
 package com.zondamarket.identity.service;
 
+import com.zondamarket.identity.domain.UserAccount;
 import com.zondamarket.identity.repository.GoogleIdentityStore;
 import com.zondamarket.identity.repository.GoogleIdentityStore.Grant;
 import com.zondamarket.identity.repository.GoogleIdentityStore.Target;
@@ -28,7 +29,7 @@ public class GoogleAccounts {
 
     @Transactional
     public Target authorizeLink(UUID accountId, String password, String refresh) {
-        var account = accounts.findByIdAndDeletedFalse(accountId).orElseThrow(AuthService::unauthorized);
+        var account = activeAccount(accountId);
         auth.verifyPassword(Optional.of(account), password);
         var family = auth.requireBrowserFamily(accountId, refresh);
         return new Target(accountId, family.getId());
@@ -41,9 +42,17 @@ public class GoogleAccounts {
 
     @Transactional
     public AuthService.IssuedSession exchange(Grant grant, String refresh) {
-        var accountId = grant.target().account() == null ? signIn(grant.identity()) : link(grant, refresh);
-        var account = accounts.findByIdAndDeletedFalse(accountId).orElseThrow(AuthService::unauthorized);
+        var accountId = grant.target().account();
+        var account = activeAccount(accountId == null ? signIn(grant.identity()) : accountId);
+        if (accountId != null) {
+            link(grant, refresh);
+        }
         return auth.replaceFamily(account, refresh);
+    }
+
+    private UserAccount activeAccount(UUID accountId) {
+        return accounts.lockByIdAndDeletedFalse(accountId).filter(account -> !account.isSuspended())
+                .orElseThrow(AuthService::unauthorized);
     }
 
     private UUID signIn(GoogleOidcClient.Identity identity) {
@@ -65,7 +74,7 @@ public class GoogleAccounts {
         return account;
     }
 
-    private UUID link(Grant grant, String refresh) {
+    private void link(Grant grant, String refresh) {
         UUID accountId = grant.target().account();
         var family = auth.requireBrowserFamily(accountId, refresh);
         if (!family.getId().equals(grant.target().session())) {
@@ -79,7 +88,6 @@ public class GoogleAccounts {
                 && identities.findAccount(grant.identity()).filter(accountId::equals).isEmpty()) {
             throw conflict();
         }
-        return accountId;
     }
 
     private static ApiProblemException conflict() {

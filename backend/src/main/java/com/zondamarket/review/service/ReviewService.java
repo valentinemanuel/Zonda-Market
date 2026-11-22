@@ -50,7 +50,7 @@ public class ReviewService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ReviewPage forSeller(String slug, int page, int size) {
-        var seller = sellers.findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountRole(slug, Role.SELLER)
+        var seller = sellers.findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountSuspendedFalseAndAccountRole(slug, Role.SELLER)
                 .orElseThrow(() -> new ApiProblemException(HttpStatus.NOT_FOUND, "SELLER_NOT_FOUND", "No encontramos ese vendedor."));
         var content = reviews.list(seller.getId(), page, size);
         boolean hasNext = content.size() > size;
