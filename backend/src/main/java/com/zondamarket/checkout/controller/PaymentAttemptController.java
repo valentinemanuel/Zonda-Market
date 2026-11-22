@@ -4,7 +4,9 @@ import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentOptions;
 import com.zondamarket.checkout.dto.PaymentDtos.StartRequest;
 import com.zondamarket.checkout.dto.CardPaymentRequest;
+import com.zondamarket.checkout.dto.ProPaymentRequest;
 import com.zondamarket.checkout.service.CardPaymentService;
+import com.zondamarket.checkout.service.CheckoutProService;
 import com.zondamarket.checkout.service.PaymentAttemptService;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.shared.web.CorrelationIdFilter;
@@ -32,10 +34,12 @@ import org.springframework.web.bind.annotation.RestController;
 class PaymentAttemptController {
     private final PaymentAttemptService payments;
     private final CardPaymentService cards;
+    private final CheckoutProService pro;
 
-    PaymentAttemptController(PaymentAttemptService payments, CardPaymentService cards) {
+    PaymentAttemptController(PaymentAttemptService payments, CardPaymentService cards, CheckoutProService pro) {
         this.payments = payments;
         this.cards = cards;
+        this.pro = pro;
     }
 
     @GetMapping("/payment-options")
@@ -73,6 +77,19 @@ class PaymentAttemptController {
     ResponseEntity<PaymentAttemptResponse> reconcileCard(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
         return privateResponse(cards.consult(account.id(), id, attemptId, trace(response)));
+    }
+
+    @PostMapping("/payments/pro")
+    ResponseEntity<PaymentAttemptResponse> checkoutPro(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, @Valid @RequestBody ProPaymentRequest request, HttpServletResponse response,
+            @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key) {
+        return privateResponse(pro.submit(account.id(), id, request.attemptId(), key, trace(response)));
+    }
+
+    @PostMapping("/payments/{attemptId}/reconcile-pro")
+    ResponseEntity<PaymentAttemptResponse> reconcilePro(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
+        return privateResponse(pro.consult(account.id(), id, attemptId, trace(response)));
     }
 
     private static UUID trace(HttpServletResponse response) {

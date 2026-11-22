@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 public class PaymentAttemptStore {
     private static final String SELECT = """
             SELECT id, method, provider, status, provider_key, external_reference, amount, currency,
-                   expires_at, card_request_key, provider_order_id
+                   expires_at, card_request_key, provider_order_id, pro_request_key, preference_id, checkout_url
             FROM zonda_market.payment_attempt WHERE order_id = :order
             """;
     private final JdbcClient sql;
@@ -26,7 +26,8 @@ public class PaymentAttemptStore {
 
     public record Attempt(UUID id, Method method, Provider provider, Status status, UUID providerKey,
                           String externalReference, BigDecimal amount, String currency, Instant expiresAt,
-                          String cardRequestKey, String providerOrderId) {}
+                          String cardRequestKey, String providerOrderId, String proRequestKey, String preferenceId,
+                          String checkoutUrl) {}
 
     public Optional<Attempt> find(UUID order, UUID id) {
         return sql.sql(SELECT + " AND id = :id").param("order", order).param("id", id)
@@ -80,6 +81,32 @@ public class PaymentAttemptStore {
                 WHERE order_id = :order AND id = :id AND provider_order_id IS NULL
                 """).param("order", order).param("id", id).param("payment", providerId)
                 .param("now", now.atOffset(ZoneOffset.UTC)).update();
+    }
+
+    public boolean proKeyInUse(UUID order, String key) {
+        return sql.sql("""
+                SELECT EXISTS (SELECT 1 FROM zonda_market.payment_attempt
+                    WHERE order_id = :order AND pro_request_key = :key)
+                """).param("order", order).param("key", key).query(Boolean.class).single();
+    }
+
+    public void claimPro(UUID order, UUID id, String key, UUID trace, Instant now) {
+        sql.sql("""
+                UPDATE zonda_market.payment_attempt
+                SET status = 'ENVIADO', pro_request_key = :key, trace_id = :trace, updated_at = :now
+                WHERE order_id = :order AND id = :id
+                """).param("order", order).param("id", id).param("key", key).param("trace", trace)
+                .param("now", now.atOffset(ZoneOffset.UTC)).update();
+    }
+
+    public void bindPreference(UUID order, UUID id, String preference, String url, UUID trace, Instant now) {
+        sql.sql("""
+                UPDATE zonda_market.payment_attempt
+                SET preference_id = :preference, checkout_url = :url, status = 'PENDIENTE',
+                    trace_id = :trace, updated_at = :now
+                WHERE order_id = :order AND id = :id
+                """).param("order", order).param("id", id).param("preference", preference).param("url", url)
+                .param("trace", trace).param("now", now.atOffset(ZoneOffset.UTC)).update();
     }
 
     public void update(UUID order, UUID id, Status status, UUID trace, Instant now) {

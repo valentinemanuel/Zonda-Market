@@ -19,13 +19,14 @@ public final class PaymentDtos {
         }
     }
 
-    public enum NextAction { INGRESAR_TARJETA, CONSULTAR, ELEGIR_MEDIO, NINGUNA }
+    public enum NextAction { INGRESAR_TARJETA, ABRIR_CHECKOUT_PRO, CONSULTAR, ELEGIR_MEDIO, NINGUNA }
 
     public record StartRequest(@NotNull Method method) {}
 
     public record PaymentAttemptResponse(UUID id, Method method, Provider provider, Status status, NextAction nextAction,
-                                         Instant expiresAt) {}
+                                         Instant expiresAt, String checkoutUrl) {}
 
-    public record PaymentOptions(List<Method> methods, PaymentAttemptResponse latestAttempt, CardConfig card) {}
+    public record PaymentOptions(List<Method> methods, PaymentAttemptResponse latestAttempt, CardConfig card,
+                                 boolean checkoutPro) {}
     public record CardConfig(String publicKey, String amount, String payerEmail) {}
 }

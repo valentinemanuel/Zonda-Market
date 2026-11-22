@@ -36,15 +36,17 @@ public class PaymentAttemptService {
     private final TransactionTemplate transaction;
     private final Map<Method, PaymentStrategy> strategies = new EnumMap<>(Method.class);
     private final CardPaymentGateway card;
+    private final CheckoutProGateway pro;
 
     PaymentAttemptService(CheckoutStore orders, ReservationStore reservations, PaymentAttemptStore attempts,
                           Clock clock, PlatformTransactionManager manager, List<PaymentStrategy> strategies,
-                          ObjectProvider<CardPaymentGateway> card) {
+                          ObjectProvider<CardPaymentGateway> card, ObjectProvider<CheckoutProGateway> pro) {
         this.orders = orders;
         this.reservations = reservations;
         this.attempts = attempts;
         this.clock = clock;
         this.card = card.getIfAvailable();
+        this.pro = pro.getIfAvailable();
         transaction = new TransactionTemplate(manager);
         transaction.setTimeout(5);
         for (var strategy : strategies) {
@@ -63,7 +65,7 @@ public class PaymentAttemptService {
             var available = eligible(order, clock.instant()) && (latest == null || !latest.status().active());
             var methods = available ? availableMethods() : List.<Method>of();
             var config = card == null ? null : new CardConfig(card.publicKey(), order.total().toPlainString(), payerEmail);
-            return new PaymentOptions(methods, latest == null ? null : response(latest, !methods.isEmpty()), config);
+            return new PaymentOptions(methods, latest == null ? null : response(latest, !methods.isEmpty()), config, pro != null);
         });
     }
 
@@ -97,9 +99,13 @@ public class PaymentAttemptService {
                 throw PaymentErrors.conflict("PAYMENT_METHOD_UNAVAILABLE", "El medio de pago no está disponible.");
             }
             var id = UUID.randomUUID();
-            var provider = method == Method.CARD && card != null ? Provider.MERCADO_PAGO : Provider.LOCAL;
+            var remote = switch (method) {
+                case CARD -> card != null;
+                case CHECKOUT_PRO -> pro != null;
+            };
+            var provider = remote ? Provider.MERCADO_PAGO : Provider.LOCAL;
             var created = new Attempt(id, method, provider, Status.CREADO, UUID.randomUUID(), "zonda-" + id,
-                    order.total(), order.currency(), order.expiresAt(), null, null);
+                    order.total(), order.currency(), order.expiresAt(), null, null, null, null, null);
             attempts.insert(orderId, created, key, trace, now);
             return created;
         });
@@ -160,17 +166,25 @@ public class PaymentAttemptService {
         var methods = EnumSet.noneOf(Method.class);
         methods.addAll(strategies.keySet());
         if (card != null) methods.add(Method.CARD);
+        if (pro != null) methods.add(Method.CHECKOUT_PRO);
         return List.copyOf(methods);
     }
 
     private PaymentAttemptResponse response(Attempt attempt, boolean canRetry) {
         var next = NextAction.NINGUNA;
         if (attempt.status().active()) next = NextAction.CONSULTAR;
-        if (attempt.status() == Status.CREADO && attempt.provider() == Provider.MERCADO_PAGO) {
-            next = NextAction.INGRESAR_TARJETA;
+        if (attempt.provider() == Provider.MERCADO_PAGO) {
+            if (attempt.method() == Method.CARD && attempt.status() == Status.CREADO) {
+                next = NextAction.INGRESAR_TARJETA;
+            }
+            if (attempt.method() == Method.CHECKOUT_PRO && (attempt.status() == Status.CREADO
+                    || (attempt.status() == Status.PENDIENTE && attempt.checkoutUrl() != null))
+                    && clock.instant().isBefore(attempt.expiresAt())) {
+                next = NextAction.ABRIR_CHECKOUT_PRO;
+            }
         }
         if (attempt.status() == Status.RECHAZADO && canRetry) next = NextAction.ELEGIR_MEDIO;
         return new PaymentAttemptResponse(attempt.id(), attempt.method(), attempt.provider(), attempt.status(),
-                next, attempt.expiresAt());
+                next, attempt.expiresAt(), next == NextAction.ABRIR_CHECKOUT_PRO ? attempt.checkoutUrl() : null);
     }
 }
