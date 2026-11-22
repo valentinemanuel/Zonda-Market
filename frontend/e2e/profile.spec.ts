@@ -25,6 +25,10 @@ test("edita perfil y direcciones y activa un vendedor verificado con teclado en 
   await expect(page.getByRole("button", { name: "Guardar nombre" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("status")).toHaveText("Nombre guardado.");
+  await expect(page.getByRole("link", { name: "Perfil y seguridad" })).toHaveAttribute("aria-current", "page");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("cuenta-escritorio.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
 
   let release!: () => void;
   const waiting = new Promise<void>((resolve) => { release = resolve; });
@@ -42,8 +46,11 @@ test("edita perfil y direcciones y activa un vendedor verificado con teclado en 
   await page.screenshot({ path: testInfo.outputPath("direcciones-error-movil.png") });
   await page.getByRole("button", { name: "Reintentar" }).press("Enter");
   await expect(page.getByText("Todavía no guardaste direcciones.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mis direcciones" })).toHaveAttribute("aria-current", "page");
 
   const street = page.getByLabel("Calle y número");
+  await page.getByRole("button", { name: "Agregar dirección" }).press("Enter");
+  await expect(street).toBeFocused();
   await street.fill("San Martín 200");
   await street.press("Tab");
   await expect(page.getByLabel("Localidad")).toBeFocused();
@@ -54,17 +61,20 @@ test("edita perfil y direcciones y activa un vendedor verificado con teclado en 
   await expect(page.getByRole("status")).toHaveText("Dirección agregada.");
 
   await page.getByRole("button", { name: "Editar San Martín 200" }).press("Enter");
+  await expect(street).toBeFocused();
   await expect(street).toHaveValue("San Martín 200");
   await street.fill("San Martín 202");
   await page.getByRole("button", { name: "Guardar dirección" }).press("Enter");
   await expect(page.getByRole("status")).toHaveText("Dirección actualizada.");
   await expect(page.getByRole("button", { name: "Eliminar San Martín 202" })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("direccion-guardada-movil.png") });
+  await page.setViewportSize({ width: 320, height: 820 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.screenshot({ path: testInfo.outputPath("direccion-guardada-movil.png"), fullPage: true });
   await page.getByRole("button", { name: "Eliminar San Martín 202" }).press("Enter");
   await page.getByRole("button", { name: "Confirmar eliminación" }).press("Enter");
   await expect(page.getByText("Todavía no guardaste direcciones.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Volver a Mi cuenta" }).press("Enter");
+  await page.getByRole("link", { name: "Perfil y seguridad" }).press("Enter");
   await expect(name).toHaveValue("Lucía Ficticia");
   await page.getByRole("button", { name: "Enviar enlace de verificación" }).press("Enter");
   await page.goto((await linkFromMail(request, email, "/verificar-correo")).href);

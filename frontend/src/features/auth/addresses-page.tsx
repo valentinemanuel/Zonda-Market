@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState, useSyncExternalStore } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Navigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { type Address, getAddresses, removeAddress, saveAddress } from "./profile-api";
-import { ProfileInput, profileControl, profileLink } from "./profile-fields";
+import { AccountLayout, AccountSection } from "./account-layout";
+import { ProfileInput, profileControl } from "./profile-fields";
 import { getSessionRevision, subscribeToSession } from "./session-api";
 
 const provinces = {
@@ -23,10 +25,13 @@ export function AddressesPage() {
 }
 
 function Addresses({ revision }: { revision: number }) {
-  const [editing, setEditing] = useState<Address>();
+  const [editor, setEditor] = useState<Address | "new">();
+  const editing = editor === "new" ? undefined : editor;
   const [confirmId, setConfirmId] = useState<string>();
   const [notice, setNotice] = useState("");
   const form = useRef<HTMLFormElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const editorTrigger = useRef<HTMLButtonElement>(null);
   const client = useQueryClient();
   const queryKey = ["private", "addresses", revision];
   const addresses = useQuery({ queryKey, queryFn: ({ signal }) => getAddresses(signal), retry: false });
@@ -37,21 +42,43 @@ function Addresses({ revision }: { revision: number }) {
     }, editing?.id),
     onSuccess: async () => {
       setNotice(editing ? "Dirección actualizada." : "Dirección agregada.");
-      form.current?.reset();
-      setEditing(undefined);
+      closeEditor();
       await client.invalidateQueries({ queryKey });
     },
   });
   const remove = useMutation({
     mutationFn: removeAddress,
     onSuccess: async (_, id) => {
-      if (editing?.id === id) setEditing(undefined);
+      if (editing?.id === id) closeEditor();
       setConfirmId(undefined);
       setNotice("Dirección eliminada.");
       await client.invalidateQueries({ queryKey });
+      addButton.current?.focus();
     },
   });
   const busy = save.isPending || remove.isPending;
+
+  useEffect(() => {
+    if (editor) form.current?.querySelector("input")?.focus();
+  }, [editor]);
+
+  useEffect(() => {
+    if (editor || busy || !editorTrigger.current) return;
+    const trigger = editorTrigger.current;
+    editorTrigger.current = null;
+    (trigger.isConnected ? trigger : addButton.current)?.focus();
+  }, [editor, busy]);
+
+  function openEditor(next: Address | "new", trigger: HTMLButtonElement) {
+    editorTrigger.current = trigger;
+    save.reset();
+    setConfirmId(undefined);
+    setEditor(next);
+  }
+
+  function closeEditor() {
+    setEditor(undefined);
+  }
 
   if (addresses.error instanceof ApiError && addresses.error.status === 401) {
     return <Navigate to="/ingresar" replace />;
@@ -64,31 +91,41 @@ function Addresses({ revision }: { revision: number }) {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Mis direcciones</h1>
-      <Link to="/cuenta" className={profileLink}>Volver a Mi cuenta</Link>
-      {addresses.isPending && <p role="status" className="text-muted-foreground">Cargando direcciones…</p>}
-      {addresses.isError && (
-        <>
-          <p role="alert" className="text-destructive">No pudimos cargar tus direcciones.</p>
-          <Button type="button" onClick={() => void addresses.refetch()}>Reintentar</Button>
-        </>
-      )}
-      {notice && <p role="status">{notice}</p>}
-      {addresses.data && (
-        <>
-          {addresses.data.length === 0 ? <p className="text-muted-foreground">Todavía no guardaste direcciones.</p> : (
-            <ul className="space-y-3">
+    <AccountLayout title="Mis direcciones" description="Guardá y actualizá tus domicilios."
+      action={addresses.isSuccess && (
+        <Button ref={addButton} type="button" className="min-h-11 bg-brand text-brand-ink hover:bg-orange-300"
+          disabled={busy} onClick={(event) => openEditor("new", event.currentTarget)}>
+          <Plus aria-hidden="true" />
+          Agregar dirección
+        </Button>
+      )}>
+      <div className="space-y-4">
+        {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-success">{notice}</p>}
+        <AccountSection id="saved-addresses" title="Direcciones guardadas" icon={MapPin}>
+          {addresses.isPending && <p role="status" className="text-muted-foreground">Cargando direcciones…</p>}
+          {addresses.isError && (
+            <div className="space-y-3">
+              <p role="alert" className="text-destructive">No pudimos cargar tus direcciones.</p>
+              <Button type="button" onClick={() => void addresses.refetch()}>Reintentar</Button>
+            </div>
+          )}
+          {addresses.data?.length === 0 && (
+            <div className="rounded-xl border border-dashed bg-background px-5 py-8 text-center">
+              <p className="font-medium">Todavía no guardaste direcciones.</p>
+            </div>
+          )}
+          {addresses.data && addresses.data.length > 0 && (
+            <ul className="grid gap-3 lg:grid-cols-2">
               {addresses.data.map((address) => (
-                <li key={address.id} className="rounded-lg border border-border p-3">
-                  <p className="font-medium break-words">{address.street}</p>
-                  <p className="text-sm text-muted-foreground">{address.city}, {provinces[address.provinceCode as keyof typeof provinces]} · {address.postalCode}</p>
+                <li key={address.id} className="min-w-0 rounded-xl border bg-background p-4">
+                  <p className="font-semibold wrap-anywhere">{address.street}</p>
+                  <p className="mt-1 text-sm text-muted-foreground wrap-anywhere">{address.city}, {provinces[address.provinceCode as keyof typeof provinces]} · {address.postalCode}</p>
                   {confirmId === address.id ? (
                     <div className="mt-2 space-y-2">
                       <p className="text-sm">¿Eliminar esta dirección?</p>
                       {remove.isError && <p role="alert" className="text-sm text-destructive">No pudimos eliminar la dirección. Volvé a intentar.</p>}
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" className="min-h-11" disabled={busy}
+                        <Button type="button" variant="destructive" className="min-h-11" disabled={busy}
                           onClick={() => { setNotice(""); remove.mutate(address.id); }}>
                           {remove.isPending ? "Eliminando…" : "Confirmar eliminación"}
                         </Button>
@@ -99,11 +136,13 @@ function Addresses({ revision }: { revision: number }) {
                   ) : (
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button type="button" variant="outline" className="min-h-11" disabled={busy}
-                        aria-label={`Editar ${address.street}`} onClick={() => { save.reset(); setEditing(address); }}>
+                        aria-label={`Editar ${address.street}`} onClick={(event) => openEditor(address, event.currentTarget)}>
+                        <Pencil aria-hidden="true" />
                         Editar
                       </Button>
-                      <Button type="button" variant="outline" className="min-h-11" disabled={busy}
+                      <Button type="button" variant="ghost" className="min-h-11 text-destructive hover:text-destructive" disabled={busy}
                         aria-label={`Eliminar ${address.street}`} onClick={() => { remove.reset(); setConfirmId(address.id); }}>
+                        <Trash2 aria-hidden="true" />
                         Eliminar
                       </Button>
                     </div>
@@ -112,38 +151,41 @@ function Addresses({ revision }: { revision: number }) {
               ))}
             </ul>
           )}
-          <form ref={form} key={editing?.id ?? "new"} className="space-y-3 border-t border-border pt-4"
-            aria-busy={save.isPending} onSubmit={submit}>
-            <h2 className="text-lg font-semibold">{editing ? "Editar dirección" : "Agregar dirección"}</h2>
-            <p className="text-sm text-muted-foreground">País: Argentina</p>
-            <ProfileInput id="street" name="street" label="Calle y número" autoComplete="street-address"
-              maxLength={140} defaultValue={editing?.street} required />
-            <ProfileInput id="city" name="city" label="Localidad" autoComplete="address-level2"
-              maxLength={80} defaultValue={editing?.city} required />
-            <div>
-              <label htmlFor="province" className="mb-1.5 block text-sm font-medium">Provincia</label>
-              <select id="province" name="provinceCode" className={profileControl} autoComplete="address-level1"
-                defaultValue={editing?.provinceCode ?? ""} required>
-                <option value="" disabled>Elegí una provincia</option>
-                {Object.entries(provinces).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-              </select>
-            </div>
-            <ProfileInput id="postal-code" name="postalCode" label="Código postal" autoComplete="postal-code"
-              pattern="[0-9]{4}|[A-Za-z][0-9]{4}[A-Za-z]{3}" maxLength={8}
-              defaultValue={editing?.postalCode} required />
-            {save.isError && <p role="alert" className="text-sm text-destructive">
-              No pudimos guardar la dirección. Revisá los datos y volvé a intentar.
-            </p>}
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" className="min-h-11" disabled={busy}>
-                {save.isPending ? "Guardando…" : "Guardar dirección"}
-              </Button>
-              {editing && <Button type="button" variant="outline" disabled={busy} className="min-h-11"
-                onClick={() => { save.reset(); setEditing(undefined); }}>Cancelar edición</Button>}
-            </div>
-          </form>
-        </>
-      )}
-    </div>
+        </AccountSection>
+        {editor && (
+          <AccountSection id="edit-address" title={editing ? "Editar dirección" : "Nueva dirección"} icon={editing ? Pencil : Plus}>
+            <form ref={form} key={editing?.id ?? "new"} className="grid gap-4 sm:grid-cols-2"
+              aria-busy={save.isPending} onSubmit={submit}>
+              <p className="text-sm text-muted-foreground sm:col-span-2">País: Argentina</p>
+              <ProfileInput id="street" name="street" label="Calle y número" autoComplete="street-address"
+                maxLength={140} defaultValue={editing?.street} required />
+              <ProfileInput id="city" name="city" label="Localidad" autoComplete="address-level2"
+                maxLength={80} defaultValue={editing?.city} required />
+              <div>
+                <label htmlFor="province" className="mb-1.5 block text-sm font-medium">Provincia</label>
+                <select id="province" name="provinceCode" className={profileControl} autoComplete="address-level1"
+                  defaultValue={editing?.provinceCode ?? ""} required>
+                  <option value="" disabled>Elegí una provincia</option>
+                  {Object.entries(provinces).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                </select>
+              </div>
+              <ProfileInput id="postal-code" name="postalCode" label="Código postal" autoComplete="postal-code"
+                pattern="[0-9]{4}|[A-Za-z][0-9]{4}[A-Za-z]{3}" maxLength={8}
+                defaultValue={editing?.postalCode} required />
+              {save.isError && <p role="alert" className="text-sm text-destructive sm:col-span-2">
+                No pudimos guardar la dirección. Revisá los datos y volvé a intentar.
+              </p>}
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                <Button type="submit" className="min-h-11" disabled={busy}>
+                  {save.isPending ? "Guardando…" : "Guardar dirección"}
+                </Button>
+                <Button type="button" variant="outline" disabled={busy} className="min-h-11"
+                  onClick={closeEditor}>{editing ? "Cancelar edición" : "Cancelar"}</Button>
+              </div>
+            </form>
+          </AccountSection>
+        )}
+      </div>
+    </AccountLayout>
   );
 }

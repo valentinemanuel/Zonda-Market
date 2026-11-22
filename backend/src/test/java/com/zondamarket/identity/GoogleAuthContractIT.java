@@ -224,13 +224,13 @@ class GoogleAuthContractIT {
         assertEquals(43, params.get("code_challenge").length());
         assertNotEquals(params.get("state"), params.get("nonce"));
         assertEquals(ORIGIN + CALLBACK, params.get("redirect_uri"));
-        return new Start(authorization, cookie(result, BROWSER));
+        return new Start(authorization, cookie(result, BROWSER), false);
     }
 
     private Start beginLink(MvcResult local) throws Exception {
         var result = mvc.perform(bearer(command(STATUS + "/start"), access(local))
                 .cookie(cookie(local, REFRESH)).content(password(PASSWORD))).andExpect(status().isOk()).andReturn();
-        return new Start(URI.create(field(result, "$.authorizationUrl")), cookie(result, BROWSER));
+        return new Start(URI.create(field(result, "$.authorizationUrl")), cookie(result, BROWSER), true);
     }
 
     private ResultActions callback(String code, String state, Cookie browser) throws Exception {
@@ -243,8 +243,9 @@ class GoogleAuthContractIT {
         var callback = callback(oidcCode, start.state(), start.browser()).andReturn();
         URI location = location(callback);
         assertEquals("/oauth/retorno", location.getPath());
-        assertTrue(location.getFragment().startsWith("code="));
-        String code = location.getFragment().substring("code=".length());
+        boolean linking = start.linking();
+        assertTrue(location.getFragment().matches("code=[A-Za-z0-9_-]{43}" + (linking ? "&mode=link" : "")));
+        String code = location.getFragment().substring("code=".length(), "code=".length() + 43);
         assertNotEquals(oidcCode, code);
         return new Grant(code, cookie(callback, BROWSER));
     }
@@ -301,7 +302,7 @@ class GoogleAuthContractIT {
         return UUID.randomUUID() + "@example.test";
     }
 
-    private record Start(URI authorization, Cookie browser) {
+    private record Start(URI authorization, Cookie browser, boolean linking) {
         String state() { return query(authorization).get("state"); }
     }
     private record Grant(String code, Cookie browser) {}

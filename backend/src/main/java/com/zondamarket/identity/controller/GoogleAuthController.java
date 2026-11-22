@@ -70,7 +70,8 @@ class GoogleAuthController {
         if (result.code() == null) {
             return redirect(URI.create(RETURN + "#error=" + result.error()));
         }
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(RETURN + "#code=" + result.code()))
+        String fragment = "#code=" + result.code() + (result.linking() ? "&mode=link" : "");
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(RETURN + fragment))
                 .header(HttpHeaders.SET_COOKIE, browserCookie(browser, GoogleAuthFlow.EXCHANGE_AGE))
                 .header("Referrer-Policy", "no-referrer").build();
     }
