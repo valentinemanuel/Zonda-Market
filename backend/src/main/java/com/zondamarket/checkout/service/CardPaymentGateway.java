@@ -10,12 +10,12 @@ import java.util.UUID;
 public interface CardPaymentGateway {
     String publicKey();
 
-    long create(Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge;
+    String create(Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge;
 
-    Optional<Observation> lookup(Long paymentId, String externalReference) throws SubmissionUncertain;
+    Optional<Observation> lookup(String providerOrderId, String externalReference, Instant expiresAt) throws SubmissionUncertain;
 
-    record Charge(UUID idempotencyKey, String externalReference, BigDecimal amount, Instant expiresAt) {}
-    record Observation(long paymentId, String externalReference, BigDecimal amount, String currency, Status status) {}
+    record Charge(UUID idempotencyKey, String externalReference, BigDecimal amount, Instant expiresAt, String provinceCode) {}
+    record Observation(String providerOrderId, String externalReference, BigDecimal amount, String currency, Status status) {}
 
     class SubmissionUncertain extends Exception {}
     class NoCharge extends Exception {}

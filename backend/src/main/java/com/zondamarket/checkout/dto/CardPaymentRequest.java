@@ -14,7 +14,7 @@ public record CardPaymentRequest(
         @NotNull UUID attemptId,
         @NotNull @Pattern(regexp = "[A-Za-z0-9._-]{16,256}") String token,
         @NotNull @Pattern(regexp = "[a-z0-9_]{1,40}") String paymentMethodId,
-        @Pattern(regexp = "[0-9]{1,16}") String issuerId,
+        @NotNull @Pattern(regexp = "credit_card|debit_card") String paymentType,
         @NotNull @Min(1) @Max(48) Integer installments,
         @NotNull @Valid Payer payer) {
 

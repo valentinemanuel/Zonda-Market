@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 public class PaymentAttemptStore {
     private static final String SELECT = """
             SELECT id, method, provider, status, provider_key, external_reference, amount, currency,
-                   expires_at, card_request_key, provider_payment_id
+                   expires_at, card_request_key, provider_order_id
             FROM zonda_market.payment_attempt WHERE order_id = :order
             """;
     private final JdbcClient sql;
@@ -26,7 +26,7 @@ public class PaymentAttemptStore {
 
     public record Attempt(UUID id, Method method, Provider provider, Status status, UUID providerKey,
                           String externalReference, BigDecimal amount, String currency, Instant expiresAt,
-                          String cardRequestKey, Long providerPaymentId) {}
+                          String cardRequestKey, String providerOrderId) {}
 
     public Optional<Attempt> find(UUID order, UUID id) {
         return sql.sql(SELECT + " AND id = :id").param("order", order).param("id", id)
@@ -74,10 +74,10 @@ public class PaymentAttemptStore {
                 .param("now", now.atOffset(ZoneOffset.UTC)).update();
     }
 
-    public void bindProviderPayment(UUID order, UUID id, long providerId, Instant now) {
+    public void bindProviderOrder(UUID order, UUID id, String providerId, Instant now) {
         sql.sql("""
-                UPDATE zonda_market.payment_attempt SET provider_payment_id = :payment, updated_at = :now
-                WHERE order_id = :order AND id = :id AND provider_payment_id IS NULL
+                UPDATE zonda_market.payment_attempt SET provider_order_id = :payment, updated_at = :now
+                WHERE order_id = :order AND id = :id AND provider_order_id IS NULL
                 """).param("order", order).param("id", id).param("payment", providerId)
                 .param("now", now.atOffset(ZoneOffset.UTC)).update();
     }

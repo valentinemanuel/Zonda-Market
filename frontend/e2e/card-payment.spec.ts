@@ -36,7 +36,8 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
                 token: 'token_ficticio_tarjeta', payment_method_id: 'debvisa', issuer_id: '33',
                 transaction_amount: 1, installments: 1, payer: { identification: { type: 'DNI', number: field.value } },
               };
-              void Promise.all([settings.callbacks.onSubmit(data), settings.callbacks.onSubmit(data)]);
+              const additional = { paymentTypeId: 'debit_card' };
+              void Promise.all([settings.callbacks.onSubmit(data, additional), settings.callbacks.onSubmit(data, additional)]);
             });
             container.append(field, pay);
             settings.callbacks.onReady();
@@ -70,7 +71,7 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
     submissions++;
     expect(await route.request().headerValue("Idempotency-Key")).toBe(attempt?.id);
     expect(route.request().postDataJSON()).toEqual({
-      attemptId: attempt?.id, token: "token_ficticio_tarjeta", paymentMethodId: "debvisa", issuerId: "33",
+      attemptId: attempt?.id, token: "token_ficticio_tarjeta", paymentMethodId: "debvisa", paymentType: "debit_card",
       installments: 1, payer: { email, identification: { type: "DNI", number: "12345678" } },
     });
     if (submissions === 1) {

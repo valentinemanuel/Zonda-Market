@@ -91,6 +91,7 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
         card(purchase.buyer(), purchase.order(), attempt, "master", "submit").andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APROBADO"));
         assertEquals(new BigDecimal("19.25"), gateway.lastCharge.amount());
+        assertEquals("AR-B", gateway.lastCharge.provinceCode());
         var persistedKey = sql.sql("SELECT provider_key FROM zonda_market.payment_attempt WHERE id = :id")
                 .param("id", attempt).query(UUID.class).single();
         assertEquals(persistedKey, gateway.lastCharge.idempotencyKey());
@@ -200,10 +201,10 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
     private ResultActions card(Account buyer, UUID order, UUID attempt, String method, String key) throws Exception {
         return mvc.perform(auth(post(ORDERS + order + "/payments/card"), buyer).header("Idempotency-Key", key)
                 .content("""
-                        {"attemptId":"%s","token":"token_ficticio_tarjeta","paymentMethodId":"%s","issuerId":"33",
+                        {"attemptId":"%s","token":"token_ficticio_tarjeta","paymentMethodId":"%s","paymentType":"%s",
                          "installments":1,"payer":{"email":"comprador@example.test","identification":{"type":"DNI","number":"12345678"}},
                          "transactionAmount":1.00}
-                        """.formatted(attempt, method)));
+                        """.formatted(attempt, method, "debvisa".equals(method) ? "debit_card" : "credit_card")));
     }
 
     private ResultActions consult(Purchase purchase, UUID attempt) throws Exception {
@@ -224,7 +225,7 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
         private volatile CountDownLatch entered;
         private volatile CountDownLatch release;
         private volatile Charge lastCharge;
-        private volatile Long lastId;
+        private volatile String lastId;
         private volatile Status answer;
         private volatile BigDecimal amountAdjustment;
         private volatile boolean timeout;
@@ -233,10 +234,10 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
         @Override public String publicKey() { return "publica-ficticia"; }
 
         @Override
-        public long create(Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge {
+        public String create(Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge {
             lastCharge = charge;
             creates.incrementAndGet();
-            lastId = ids.incrementAndGet();
+            lastId = "ORD-ficticia-" + ids.incrementAndGet();
             entered.countDown();
             try {
                 assertTrue(release.await(5, TimeUnit.SECONDS));
@@ -250,7 +251,7 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
         }
 
         @Override
-        public Optional<Observation> lookup(Long paymentId, String reference) {
+        public Optional<Observation> lookup(String paymentId, String reference, Instant expiresAt) {
             lookups.incrementAndGet();
             assertEquals(lastCharge.externalReference(), reference);
             if (paymentId != null) assertEquals(lastId, paymentId);

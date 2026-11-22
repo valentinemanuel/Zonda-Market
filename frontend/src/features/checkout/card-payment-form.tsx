@@ -30,8 +30,13 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
     if (error.type === "critical") setState("failed");
     else setFormError(true);
   }, []);
-  const submit = useCallback<NonNullable<ComponentProps<typeof CardPayment>["onSubmit"]>>(async (data) => {
+  const submit = useCallback<NonNullable<ComponentProps<typeof CardPayment>["onSubmit"]>>(async (data, additional) => {
     if (sending.current) return;
+    const paymentType = additional?.paymentTypeId;
+    if (paymentType !== "credit_card" && paymentType !== "debit_card") {
+      setFormError(true);
+      return;
+    }
     sending.current = true;
     setFormError(false);
     setSubmitting(true);
@@ -40,7 +45,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
       await onSubmit({
         token: data.token,
         paymentMethodId: data.payment_method_id,
-        issuerId: data.issuer_id ? String(data.issuer_id) : undefined,
+        paymentType,
         installments: data.installments,
         payer: {
           email: data.payer.email || payerEmail,

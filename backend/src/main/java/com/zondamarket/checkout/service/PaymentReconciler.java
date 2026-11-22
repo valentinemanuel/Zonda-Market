@@ -36,15 +36,15 @@ class PaymentReconciler {
         var attempt = payments.find(order, attemptId);
         validate(attempt, verified);
         if (attempt.status() == verified.status()) return;
-        if (!attempt.status().active() && verified.providerPaymentId() != null
+        if (!attempt.status().active() && verified.providerOrderId() != null
                 && verified.status() == Status.PENDIENTE) return;
         if (!attempt.status().active() || attempt.status() == Status.CREADO
                 || (verified.status() != Status.PENDIENTE && verified.status() != Status.RECHAZADO)) {
             throw PaymentErrors.conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
         }
         var now = clock.instant();
-        if (verified.providerPaymentId() != null) {
-            attempts.bindProviderPayment(order, attemptId, verified.providerPaymentId(), now);
+        if (verified.providerOrderId() != null) {
+            attempts.bindProviderOrder(order, attemptId, verified.providerOrderId(), now);
         }
         attempts.update(order, attemptId, verified.status(), trace, now);
     }
@@ -53,8 +53,8 @@ class PaymentReconciler {
         if (!attempt.externalReference().equals(verified.externalReference())
                 || attempt.amount().compareTo(verified.amount()) != 0
                 || !attempt.currency().equals(verified.currency())
-                || (attempt.provider() == Provider.MERCADO_PAGO) != (verified.providerPaymentId() != null)
-                || (attempt.providerPaymentId() != null && !attempt.providerPaymentId().equals(verified.providerPaymentId()))) {
+                || (attempt.provider() == Provider.MERCADO_PAGO) != (verified.providerOrderId() != null)
+                || (attempt.providerOrderId() != null && !attempt.providerOrderId().equals(verified.providerOrderId()))) {
             throw PaymentErrors.conflict("PAYMENT_ATTEMPT_MISMATCH", "El pago verificado no coincide con el intento.");
         }
     }

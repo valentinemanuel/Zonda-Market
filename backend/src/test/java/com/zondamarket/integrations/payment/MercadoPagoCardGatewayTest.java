@@ -1,6 +1,8 @@
 package com.zondamarket.integrations.payment;
 
+import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
+import com.mercadopago.net.HttpMethod;
 import com.mercadopago.net.MPHttpClient;
 import com.mercadopago.net.MPRequest;
 import com.mercadopago.net.MPResponse;
@@ -29,81 +31,99 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MercadoPagoCardGatewayTest {
     private static final Instant NOW = Instant.parse("2026-11-21T18:00:00Z");
+    private static final String ID = "ORD01J49MMW3SSBK5PSV3DFR32959";
     private static final String TEST_ACCOUNT = """
             {"id":800,"site_id":"MLA","tags":["test_user"]}
             """;
-    private final Charge charge = new Charge(UUID.randomUUID(), "zonda-fixture", new BigDecimal("24.50"), NOW.plusSeconds(900));
+    private final Charge charge = new Charge(UUID.randomUUID(), "zonda-fixture", new BigDecimal("24.50"),
+            NOW.plusSeconds(900), "AR-B");
 
     @ParameterizedTest
-    @CsvSource({"credit_card,master,approved,APROBADO", "debit_card,debvisa,rejected,RECHAZADO"})
-    void sendsOneCreateAndUsesGetToVerifyTheResult(String type, String method, String providerStatus, Status expected) throws Exception {
+    @CsvSource({"credit_card,master,processed,accredited,APROBADO", "debit_card,debvisa,failed,failed,RECHAZADO"})
+    void createsAnOrderWithOneStableKeyAndVerifiesItViaGet(String type, String method, String state,
+                                                            String detail, Status expected) throws Exception {
         List<MPRequest> requests = new ArrayList<>();
         var gateway = gateway(request -> {
             requests.add(request);
             return switch (path(request)) {
                 case "/users/me" -> response(TEST_ACCOUNT);
-                case "/v1/payments" -> response("{\"id\":721,\"status\":\"approved\"}");
-                case "/v1/payments/721" -> response(payment(type, providerStatus, 800, false));
+                case "/v1/orders" -> {
+                    if (expected == Status.RECHAZADO) {
+                        throw new MPApiException("rechazo ficticio",
+                                new MPResponse(402, Map.of(), "{\"data\":{\"id\":\"" + ID + "\"}}"));
+                    }
+                    yield response("{\"id\":\"" + ID + "\"}");
+                }
+                case "/v1/orders/" + ID -> response(order(type, state, detail, 800, false));
                 default -> throw new AssertionError(request.getUri());
             };
         });
-        var card = new CardPaymentRequest(UUID.randomUUID(), "token_ficticio_tarjeta", method, "33", 1,
-                new CardPaymentRequest.Payer("pagador@example.test", new CardPaymentRequest.Identification("DNI", "12345678")));
-        long id = gateway.create(charge, card);
-        var verified = gateway.lookup(id, charge.externalReference()).orElseThrow();
-        assertEquals(expected, verified.status());
-        assertEquals(List.of("/users/me", "/v1/payments", "/v1/payments/721"),
+        var card = card(method, type);
+        assertEquals(ID, gateway.create(charge, card));
+        assertEquals(expected, gateway.lookup(ID, charge.externalReference(), charge.expiresAt()).orElseThrow().status());
+        assertEquals(List.of("/users/me", "/v1/orders", "/v1/orders/" + ID),
                 requests.stream().map(MercadoPagoCardGatewayTest::path).toList());
         var create = requests.get(1);
         assertEquals(List.of(charge.idempotencyKey().toString()), create.getHeaders().entrySet().stream()
                 .filter(header -> header.getKey().equalsIgnoreCase("X-Idempotency-Key")).map(Map.Entry::getValue).toList());
         assertEquals("Bearer privada-ficticia", create.getHeaders().get("Authorization"));
-        assertEquals(charge.amount(), create.getPayload().get("transaction_amount").getAsBigDecimal());
-        assertEquals(charge.externalReference(), create.getPayload().get("external_reference").getAsString());
-        assertEquals(method, create.getPayload().get("payment_method_id").getAsString());
-        assertEquals("token_ficticio_tarjeta", create.getPayload().get("token").getAsString());
+        var body = create.getPayload();
+        assertEquals("24.50", body.get("total_amount").getAsString());
+        assertTrue(body.get("total_amount").getAsJsonPrimitive().isString());
+        assertEquals(charge.externalReference(), body.get("external_reference").getAsString());
+        assertEquals("AR-B", body.getAsJsonObject("config").getAsJsonObject("location").get("state_id").getAsString());
+        var payment = body.getAsJsonObject("transactions").getAsJsonArray("payments").get(0).getAsJsonObject();
+        assertEquals("24.50", payment.get("amount").getAsString());
+        var sent = payment.getAsJsonObject("payment_method");
+        assertEquals(method, sent.get("id").getAsString());
+        assertEquals(type, sent.get("type").getAsString());
+        assertEquals("token_ficticio_tarjeta", sent.get("token").getAsString());
         assertFalse(card.toString().contains(card.token()));
     }
 
     @Test
-    void searchesBeforeRecoveringFromATimeoutAndRejectsUnverifiedPayments() throws Exception {
+    void searchesByReferenceWithoutRepeatingTheChargeAfterTimeout() throws Exception {
         List<String> paths = new ArrayList<>();
         var gateway = gateway(request -> {
             paths.add(path(request));
             return switch (path(request)) {
                 case "/users/me" -> response(TEST_ACCOUNT);
-                case "/v1/payments" -> throw new MPException("timeout ficticio");
-                case "/v1/payments/search" -> {
-                    assertTrue(URI.create(request.getUri()).getQuery().contains("external_reference=" + charge.externalReference()));
+                case "/v1/orders" -> {
+                    if (request.getMethod() == HttpMethod.POST) throw new MPException("timeout ficticio");
+                    var query = URI.create(request.getUri()).getQuery();
+                    assertTrue(query.contains("external_reference=" + charge.externalReference()));
+                    assertTrue(query.contains("begin_date=") && query.contains("end_date="));
                     yield response("""
-                            {"paging":{"total":1,"limit":2,"offset":0},"results":[{"id":721,"external_reference":"zonda-fixture"}]}
-                            """);
+                            {"data":[{"id":"%s","external_reference":"zonda-fixture"}]}
+                            """.formatted(ID));
                 }
-                case "/v1/payments/721" -> response(payment("credit_card", "approved", 999, false));
+                case "/v1/orders/" + ID -> response(order("credit_card", "processed", "accredited", 800, false));
                 default -> throw new AssertionError(request.getUri());
             };
         });
-        assertThrows(SubmissionUncertain.class, () -> gateway.create(charge, card()));
-        assertTrue(gateway.lookup(null, charge.externalReference()).isEmpty());
-        assertEquals(List.of("/users/me", "/v1/payments", "/v1/payments/search", "/v1/payments/721"), paths);
-        var live = gateway(request -> response(payment("credit_card", "approved", 800, true)));
-        assertTrue(live.lookup(721L, charge.externalReference()).isEmpty());
+        assertThrows(SubmissionUncertain.class, () -> gateway.create(charge, card("visa", "credit_card")));
+        assertEquals(Status.APROBADO, gateway.lookup(null, charge.externalReference(), charge.expiresAt()).orElseThrow().status());
+        assertEquals(List.of("/users/me", "/v1/orders", "/v1/orders", "/v1/orders/" + ID), paths);
     }
 
     @Test
-    void refusesToCallThePaymentEndpointForANonTestCollector() {
+    void refusesNonTestOrMismatchedCollector() throws Exception {
         List<String> paths = new ArrayList<>();
         var gateway = gateway(request -> {
             paths.add(path(request));
             return response("{\"id\":800,\"site_id\":\"MLA\",\"tags\":[\"normal\"]}");
         });
-        assertThrows(NoCharge.class, () -> gateway.create(charge, card()));
+        assertThrows(NoCharge.class, () -> gateway.create(charge, card("visa", "credit_card")));
         assertEquals(List.of("/users/me"), paths);
+        var other = gateway(request -> response(order("debit_card", "processed", "accredited", 801, false)));
+        assertTrue(other.lookup(ID, charge.externalReference(), charge.expiresAt()).isEmpty());
+        var live = gateway(request -> response(order("debit_card", "processed", "accredited", 800, true)));
+        assertTrue(live.lookup(ID, charge.externalReference(), charge.expiresAt()).isEmpty());
     }
 
-    private static CardPaymentRequest card() {
-        return new CardPaymentRequest(UUID.randomUUID(), "token_ficticio_tarjeta", "visa", null, 1,
-                new CardPaymentRequest.Payer("pagador@example.test", null));
+    private static CardPaymentRequest card(String method, String type) {
+        return new CardPaymentRequest(UUID.randomUUID(), "token_ficticio_tarjeta", method, type, 1,
+                new CardPaymentRequest.Payer("pagador@example.test", new CardPaymentRequest.Identification("DNI", "12345678")));
     }
 
     private static MercadoPagoCardGateway gateway(MPHttpClient http) {
@@ -121,10 +141,12 @@ class MercadoPagoCardGatewayTest {
         return uri.getPath();
     }
 
-    private static String payment(String type, String status, long collector, boolean live) {
+    private static String order(String type, String state, String detail, long collector, boolean live) {
         return """
-                {"id":721,"payment_type_id":"%s","status":"%s","collector_id":%d,"live_mode":%b,
-                  "external_reference":"zonda-fixture","transaction_amount":24.50,"currency_id":"ARS"}
-                """.formatted(type, status, collector, live);
+                {"id":"%s","type":"online","country_code":"ARG","user_id":"%d","live_mode":%b,
+                 "external_reference":"zonda-fixture","total_amount":"24.50","status":"%s","status_detail":"%s",
+                 "transactions":{"payments":[{"id":"PAY01J67CQQH5904WDBVZEM4JMEP3","amount":"24.50",
+                   "status":"%s","status_detail":"%s","payment_method":{"type":"%s"}}]}}
+                """.formatted(ID, collector, live, state, detail, state, detail, type);
     }
 }

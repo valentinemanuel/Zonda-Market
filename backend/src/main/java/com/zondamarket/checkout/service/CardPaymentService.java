@@ -5,6 +5,7 @@ import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.Provider;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
+import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentAttemptStore.Attempt;
 import com.zondamarket.checkout.service.CardPaymentGateway.Charge;
@@ -23,15 +24,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class CardPaymentService {
     private final PaymentAttemptService payments;
     private final PaymentAttemptStore attempts;
+    private final CheckoutStore orders;
     private final CardPaymentGateway card;
     private final PaymentReconciler reconciler;
     private final TransactionTemplate transaction;
     private final Clock clock;
 
-    CardPaymentService(PaymentAttemptService payments, PaymentAttemptStore attempts, ObjectProvider<CardPaymentGateway> card,
+    CardPaymentService(PaymentAttemptService payments, PaymentAttemptStore attempts, CheckoutStore orders,
+                       ObjectProvider<CardPaymentGateway> card,
                        PaymentReconciler reconciler, PlatformTransactionManager manager, Clock clock) {
         this.payments = payments;
         this.attempts = attempts;
+        this.orders = orders;
         this.card = card.getIfAvailable();
         this.reconciler = reconciler;
         this.clock = clock;
@@ -41,10 +45,12 @@ public class CardPaymentService {
 
     public PaymentAttemptResponse submit(UUID buyer, UUID order, String key, CardPaymentRequest request, UUID trace) {
         var id = request.attemptId();
-        var claimed = claim(buyer, order, id, key, trace);
-        if (claimed == null) return payments.get(buyer, order, id);
+        var claim = claim(buyer, order, id, key, trace);
+        if (claim == null) return payments.get(buyer, order, id);
 
-        var charge = new Charge(claimed.providerKey(), claimed.externalReference(), claimed.amount(), claimed.expiresAt());
+        var claimed = claim.attempt();
+        var charge = new Charge(claimed.providerKey(), claimed.externalReference(), claimed.amount(), claimed.expiresAt(),
+                claim.provinceCode());
         try {
             var providerId = card.create(charge, request);
             rememberId(buyer, order, id, providerId);
@@ -63,12 +69,12 @@ public class CardPaymentService {
             return requireCard(order, id);
         });
         if (card != null && attempt.status().active() && attempt.status() != Status.CREADO) {
-            reconcile(buyer, order, attempt, attempt.providerPaymentId(), trace);
+            reconcile(buyer, order, attempt, attempt.providerOrderId(), trace);
         }
         return payments.get(buyer, order, id);
     }
 
-    private Attempt claim(UUID buyer, UUID order, UUID id, String key, UUID trace) {
+    private ClaimedCard claim(UUID buyer, UUID order, UUID id, String key, UUID trace) {
         return transaction.execute(tx -> {
             var savedOrder = payments.lockOrder(buyer, order);
             var attempt = requireCard(order, id);
@@ -83,7 +89,7 @@ public class CardPaymentService {
             if (!payments.eligible(savedOrder, now)) throw PaymentErrors.ineligible();
             if (attempts.cardKeyInUse(order, key)) throw reusedKey();
             attempts.claimCard(order, id, key, trace, now);
-            return attempt;
+            return new ClaimedCard(attempt, orders.frozenProvince(order));
         });
     }
 
@@ -95,25 +101,25 @@ public class CardPaymentService {
         return attempt;
     }
 
-    private void rememberId(UUID buyer, UUID order, UUID id, long providerId) {
+    private void rememberId(UUID buyer, UUID order, UUID id, String providerId) {
         transaction.executeWithoutResult(tx -> {
             payments.lockOrder(buyer, order);
             var current = requireCard(order, id);
-            if (current.providerPaymentId() != null && current.providerPaymentId() != providerId) {
+            if (current.providerOrderId() != null && !current.providerOrderId().equals(providerId)) {
                 throw PaymentErrors.conflict("PAYMENT_ATTEMPT_MISMATCH", "La referencia de pago no coincide.");
             }
-            attempts.bindProviderPayment(order, id, providerId, clock.instant());
+            attempts.bindProviderOrder(order, id, providerId, clock.instant());
         });
     }
 
-    private void reconcile(UUID buyer, UUID order, Attempt attempt, Long providerId, UUID trace) {
+    private void reconcile(UUID buyer, UUID order, Attempt attempt, String providerId, UUID trace) {
         try {
-            var result = card.lookup(providerId, attempt.externalReference());
+            var result = card.lookup(providerId, attempt.externalReference(), attempt.expiresAt());
             if (result.isPresent()) {
                 var verified = result.get();
                 if (attempt.amount().compareTo(verified.amount()) == 0) {
                     reconciler.apply(buyer, order, attempt.id(), new VerifiedPayment(verified.externalReference(),
-                            verified.amount(), verified.currency(), verified.status(), verified.paymentId()), trace);
+                            verified.amount(), verified.currency(), verified.status(), verified.providerOrderId()), trace);
                     return;
                 }
             }
@@ -128,7 +134,7 @@ public class CardPaymentService {
             payments.lockOrder(buyer, order);
             var attempt = requireCard(order, id);
             boolean rejectedBeforeCharge = status == Status.RECHAZADO
-                    && attempt.status() == Status.RESULTADO_DESCONOCIDO && attempt.providerPaymentId() == null;
+                    && attempt.status() == Status.RESULTADO_DESCONOCIDO && attempt.providerOrderId() == null;
             if (attempt.status() == Status.ENVIADO || rejectedBeforeCharge) {
                 attempts.update(order, id, status, trace, clock.instant());
             }
@@ -138,4 +144,6 @@ public class CardPaymentService {
     private static RuntimeException reusedKey() {
         return PaymentErrors.conflict("IDEMPOTENCY_KEY_REUSED", "La clave no corresponde al envío de este intento.");
     }
+
+    private record ClaimedCard(Attempt attempt, String provinceCode) {}
 }

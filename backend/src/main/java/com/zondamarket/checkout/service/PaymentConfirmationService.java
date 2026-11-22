@@ -89,7 +89,7 @@ public class PaymentConfirmationService {
         if (!active || !now.isBefore(order.expiresAt())) {
             if (active) reservations.release(orderId, trace, now);
             if (approval) {
-                var event = verified != null && verified.providerPaymentId() != null
+                var event = verified != null && verified.providerOrderId() != null
                         ? "CARD_PAYMENT_LATE" : "LOCAL_PAYMENT_LATE";
                 reservations.event(orderId, event, trace, now);
             }
@@ -107,8 +107,8 @@ public class PaymentConfirmationService {
         }
         outcomes.insert(orderId, outcome, result, trace, now);
         if (attemptId != null) {
-            if (verified.providerPaymentId() != null) {
-                attempts.bindProviderPayment(orderId, attemptId, verified.providerPaymentId(), now);
+            if (verified.providerOrderId() != null) {
+                attempts.bindProviderOrder(orderId, attemptId, verified.providerOrderId(), now);
             }
             attempts.update(orderId, attemptId, Status.APROBADO, trace, now);
         }

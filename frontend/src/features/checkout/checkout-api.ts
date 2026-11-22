@@ -39,7 +39,7 @@ export type PaymentOptions = { methods: PaymentMethod[]; latestAttempt: PaymentA
 export type CardData = {
   token: string;
   paymentMethodId: string;
-  issuerId?: string;
+  paymentType: "credit_card" | "debit_card";
   installments: number;
   payer: { email: string; identification?: { type?: string; number?: string } };
 };

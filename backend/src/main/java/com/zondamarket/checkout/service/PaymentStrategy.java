@@ -16,7 +16,7 @@ interface PaymentStrategy {
                           String currency, Instant expiresAt) {}
 
     record VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status,
-                           Long providerPaymentId) {
+                           String providerOrderId) {
         VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status) {
             this(externalReference, amount, currency, status, null);
         }
