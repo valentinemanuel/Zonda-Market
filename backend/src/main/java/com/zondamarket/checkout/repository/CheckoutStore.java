@@ -212,6 +212,18 @@ public class CheckoutStore {
         return List.copyOf(groups.values());
     }
 
+    public void recordSubOrderSettlements(UUID order, String currency, Instant now) {
+        int inserted = sql.sql("""
+                INSERT INTO zonda_market.checkout_sub_order_settlement
+                    (sub_order_id, merchandise, shipping, commission, currency, recorded_at)
+                SELECT id, merchandise, shipping, commission, :currency, :now
+                FROM zonda_market.checkout_sub_order WHERE order_id = :order
+                """).param("order", order).param("currency", currency).param("now", utc(now)).update();
+        if (inserted == 0) {
+            throw new IllegalStateException("La orden aprobada no tiene subórdenes.");
+        }
+    }
+
     private static Order readOrder(ResultSet rs) throws SQLException {
         return new Order(rs.getObject("id", UUID.class), rs.getString("status"), rs.getBigDecimal("total"), rs.getString("currency"),
                 rs.getObject("expires_at", OffsetDateTime.class).toInstant(), rs.getString("request_hash"));

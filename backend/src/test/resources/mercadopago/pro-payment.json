@@ -1,0 +1,11 @@
+{
+  "id": 123,
+  "external_reference": "zonda-fixture",
+  "status": "approved",
+  "status_detail": "accredited",
+  "payment_type_id": "account_money",
+  "payment_method_id": "account_money",
+  "transaction_amount": 24.50,
+  "currency_id": "ARS",
+  "collector_id": 800
+}

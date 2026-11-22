@@ -112,10 +112,15 @@ class MercadoPagoCheckoutProGatewayTest {
                             {"paging":{"total":1},"results":[{"id":123,"external_reference":"zonda-fixture","status":"approved"}]}
                             """);
                 }
-                case "/v1/payments/123" -> response("""
-                        {"id":123,"external_reference":"zonda-fixture","status":"approved","status_detail":"accredited",
-                         "payment_type_id":"%s","payment_method_id":"%s","transaction_amount":%s,"currency_id":"%s","collector_id":%d}
-                        """.formatted(method, method, amount, currency, collector));
+                case "/v1/payments/123" -> {
+                    var payment = MercadoPagoFixtures.read("pro-payment.json");
+                    payment.addProperty("payment_type_id", method);
+                    payment.addProperty("payment_method_id", method);
+                    payment.addProperty("transaction_amount", new BigDecimal(amount));
+                    payment.addProperty("currency_id", currency);
+                    payment.addProperty("collector_id", collector);
+                    yield response(payment.toString());
+                }
                 default -> throw new AssertionError(uri.getPath());
             };
         });

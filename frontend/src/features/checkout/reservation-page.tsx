@@ -112,7 +112,11 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>
     </section>}
-    <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} />
+    <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}>
+      {order.status === "PAGADA" && <Button asChild className="w-full">
+        <Link to="/mis-ordenes">Seguir mi compra</Link>
+      </Button>}
+    </CheckoutSummary>
   </div>;
 }
 

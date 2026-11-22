@@ -142,11 +142,15 @@ class MercadoPagoCardGatewayTest {
     }
 
     private static String order(String type, String state, String detail, long collector, boolean live) {
-        return """
-                {"id":"%s","type":"online","country_code":"ARG","user_id":"%d","live_mode":%b,
-                 "external_reference":"zonda-fixture","total_amount":"24.50","status":"%s","status_detail":"%s",
-                 "transactions":{"payments":[{"id":"PAY01J67CQQH5904WDBVZEM4JMEP3","amount":"24.50",
-                   "status":"%s","status_detail":"%s","payment_method":{"type":"%s"}}]}}
-                """.formatted(ID, collector, live, state, detail, state, detail, type);
+        var order = MercadoPagoFixtures.read("card-order.json");
+        order.addProperty("user_id", Long.toString(collector));
+        order.addProperty("live_mode", live);
+        order.addProperty("status", state);
+        order.addProperty("status_detail", detail);
+        var payment = order.getAsJsonObject("transactions").getAsJsonArray("payments").get(0).getAsJsonObject();
+        payment.addProperty("status", state);
+        payment.addProperty("status_detail", detail);
+        payment.getAsJsonObject("payment_method").addProperty("type", type);
+        return order.toString();
     }
 }

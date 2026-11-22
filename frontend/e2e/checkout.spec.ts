@@ -164,6 +164,7 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await page.goto("/checkout/reserva/" + originalId);
   await expect(page.getByText("La reserva venció.")).toBeVisible();
   await expect(page.getByText("Tus productos siguen en el carrito.")).toBeVisible();
+  await expect(page.getByText("Cancelada", { exact: true })).toHaveCount(2);
   await expect(page.getByRole("timer")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("checkout-reserva-vencida-movil.png"), fullPage: true });
   await page.getByRole("link", { name: "Mis órdenes" }).press("Enter");
@@ -201,6 +202,13 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByText("Pago de prueba aprobado. Las subórdenes están en preparación.")).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   await expect(approve).toHaveCount(0);
+  await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
+  const references = await page.getByText(/^Suborden /).allTextContents();
+  expect(new Set(references).size).toBe(2);
+  await expect(page.getByText("$ 371,15", { exact: true })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("checkout-pago-aprobado-movil.png"), fullPage: true });
+  await page.getByRole("link", { name: "Seguir mi compra" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
+  await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
 });
