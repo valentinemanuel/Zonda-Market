@@ -23,11 +23,20 @@ export type Refund = {
 };
 
 export type Order = Received<Timed & {
-  id: string; status: string; subOrders: { id: string; status: string; address: Address; group: Group }[]; total: string;
+  id: string; status: string; subOrders: SubOrder[]; total: string;
   testPayment: { reference: string; result: PaymentResult | null } | null;
   refunds?: Refund[];
   refundedAmount?: string;
 }>;
+
+export type Carrier = "ANDREANI" | "CORREO_ARGENTINO";
+export type ShipmentResponse = {
+  id: string; status: string; version: number;
+  shipment: { carrier: Carrier; trackingCode: string; trackingUrl: string; shippedAt: string; deliveredAt: string | null } | null;
+};
+export type SubOrder = ShipmentResponse & { address: Address; group: Group };
+export type SellerOrderStatus = "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | "REEMBOLSADA";
+type SellerOrderPage = { content: SubOrder[]; page: number; size: number; hasNext: boolean };
 
 export type PaymentOutcome = "APPROVED" | "REJECTED";
 type PaymentResult = PaymentOutcome | "LATE_APPROVAL" | "EXPIRED";
@@ -56,6 +65,7 @@ export type CardData = {
 export const activeOrderKey = (revision: number) => ["private", "active-order", revision] as const;
 export const orderKey = (revision: number, id: string) => ["private", "order", revision, id] as const;
 export const ordersKey = (revision: number) => ["private", "orders", revision] as const;
+export const sellerOrdersKey = (revision: number) => ["private", "seller-orders", revision] as const;
 export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
 
@@ -109,6 +119,23 @@ export async function activeOrder(signal: AbortSignal): Promise<Order | null> {
 
 export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
+}
+
+export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", signal: AbortSignal): Promise<SellerOrderPage> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (status) params.set("status", status);
+  return (await authenticatedRequest("/api/v1/seller/orders?" + params, { signal })).json();
+}
+
+export async function shipSubOrder(id: string, carrier: Carrier, trackingCode: string,
+  expectedVersion: number): Promise<ShipmentResponse> {
+  return (await authenticatedRequest("/api/v1/seller/sub-orders/" + encodeURIComponent(id) + "/ship",
+    post({ carrier, trackingCode, expectedVersion }))).json();
+}
+
+export async function confirmDelivery(id: string, expectedVersion: number): Promise<ShipmentResponse> {
+  return (await authenticatedRequest("/api/v1/me/sub-orders/" + encodeURIComponent(id) + "/confirm-delivery",
+    post({ expectedVersion }))).json();
 }
 
 export async function simulatePayment(id: string, reference: string, outcome: PaymentOutcome): Promise<Order> {

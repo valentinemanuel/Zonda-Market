@@ -46,7 +46,7 @@ export async function publish(request: APIRequestContext, origin: string, photo:
   })).status()).toBe(201);
   const published = await request.post(privatePath + "/publish", { headers });
   expect(published.status()).toBe(200);
-  return { title, seller, skuId, slug: (await published.json()).slug, privatePath, headers };
+  return { title, seller, email, skuId, slug: (await published.json()).slug, privatePath, headers };
 }
 
 export async function credentials(page: Page, email: string) {

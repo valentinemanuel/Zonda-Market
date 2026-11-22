@@ -10,6 +10,7 @@ import { Button } from "@/shared/ui/button";
 import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
 import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
+import { DeliveryAction } from "./delivery-action";
 
 export function ReservationPage() {
   return <OrderCheckout returned={false} />;
@@ -50,7 +51,9 @@ function OrderCheckout({ returned }: { returned: boolean }) {
         <Link to="/carrito" className={profileLink + " text-sm"}>Volver al carrito</Link>
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
-      <h1 className="text-3xl font-semibold">{returned ? "Resultado del pago" : "Tu reserva"}</h1>
+      <h1 className="text-3xl font-semibold">
+        {returned ? "Resultado del pago" : data?.status === "PAGADA" ? "Detalle de la orden" : "Tu reserva"}
+      </h1>
       {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
       </Link>}
@@ -112,7 +115,8 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>
     </section>}
-    <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}>
+    <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
+      actions={(sub) => <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}>
       {order.status === "PAGADA" && <Button asChild className="w-full">
         <Link to="/mis-ordenes">Seguir mi compra</Link>
       </Button>}

@@ -6,6 +6,7 @@ import { listingStatusLabel, type ListingStatus } from "./listing-api";
 export const sellerListingsPath = "/vendedor/publicaciones";
 export const sellerInventoryPath = "/vendedor/inventario";
 export const sellerQuestionsPath = "/vendedor/preguntas";
+export const sellerOrdersPath = "/vendedor/pedidos";
 export const listingCollectionKey = (revision: number) => ["private", "listings", revision] as const;
 export const listingDetailKey = (revision: number, id: string) => [...listingCollectionKey(revision), id] as const;
 export const unitFormat = new Intl.NumberFormat("es-AR");
@@ -22,6 +23,7 @@ const navigation = [
   { to: sellerListingsPath, label: "Mis publicaciones", short: "Publicaciones", icon: LayoutList, end: false },
   { to: sellerInventoryPath, label: "Inventario", short: "Inventario", icon: Boxes, end: false },
   { to: sellerQuestionsPath, label: "Preguntas", short: "Preguntas", icon: MessageCircle, end: false },
+  { to: sellerOrdersPath, label: "Pedidos recibidos", short: "Pedidos", icon: Package, end: false },
 ];
 
 export function SellerNavigation() {
