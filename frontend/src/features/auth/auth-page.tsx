@@ -43,7 +43,8 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
           ? "/checkout/reserva/" + state.returnToOrder
         : state?.returnToOrders === true ? "/mis-ordenes"
         : state?.returnToCheckout === true ? "/checkout"
-        : state?.returnToCart === true ? "/carrito" : "/cuenta";
+        : state?.returnToCart === true ? "/carrito"
+        : createAccount ? "/cuenta" : "/catalogo";
       navigate(returnPath, {
         replace: true,
         state: listingSlug || cartListingSlug ? { catalogSearch: state?.catalogSearch } : undefined,

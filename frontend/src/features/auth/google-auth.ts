@@ -44,7 +44,7 @@ export async function googleReturnLoader() {
 
   try {
     await exchangeGoogleCode(code);
-    return replace("/cuenta");
+    return replace(params.get("mode") === "link" ? "/cuenta" : "/catalogo");
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.code === "GOOGLE_LINK_REQUIRED") {

@@ -87,5 +87,7 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await expect(page.getByRole("alert")).toContainText("El correo o la contraseña son incorrectos.");
   await page.getByLabel("Contraseña").fill(newPassword);
   await page.getByLabel("Contraseña").press("Enter");
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByText("Verificado", { exact: true })).toBeVisible();
 });

@@ -23,7 +23,7 @@ public class GoogleAuthFlow {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     public record Start(URI url, String browser) {}
-    public record Callback(String code, String error) {}
+    public record Callback(String code, String error, boolean linking) {}
 
     private final GoogleOidcClient provider;
     private final GoogleIdentityStore store;
@@ -53,24 +53,24 @@ public class GoogleAuthFlow {
 
     public Callback callback(String host, String state, String browser, String code, String error) {
         if (!enabled(host) || !opaque(state) || !opaque(browser)) {
-            return new Callback(null, "invalid");
+            return new Callback(null, "invalid", false);
         }
         var pending = store.takeAttempt(hash(state), hash(browser), clock.instant());
         if (pending.isEmpty()) {
-            return new Callback(null, "invalid");
+            return new Callback(null, "invalid", false);
         }
         if (error != null || code == null || code.isBlank() || code.length() > 4096) {
-            return new Callback(null, "access_denied".equals(error) ? "denied" : "invalid");
+            return new Callback(null, "access_denied".equals(error) ? "denied" : "invalid", false);
         }
         var attempt = pending.orElseThrow();
         var identity = provider.authenticate(code, state, attempt.nonce(), attempt.verifier());
         if (identity.isEmpty()) {
-            return new Callback(null, "invalid");
+            return new Callback(null, "invalid", false);
         }
         String exchange = random();
         store.addGrant(hash(exchange), hash(browser), new Grant(identity.orElseThrow(), attempt.target()),
                 clock.instant().plus(EXCHANGE_AGE));
-        return new Callback(exchange, null);
+        return new Callback(exchange, null, attempt.target().account() != null);
     }
 
     public AuthService.IssuedSession exchange(String host, String code, String browser, String refresh) {
