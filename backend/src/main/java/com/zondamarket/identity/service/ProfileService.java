@@ -14,6 +14,7 @@ import com.zondamarket.identity.dto.ProfileDtos.SellerResponse;
 import com.zondamarket.identity.repository.AccountAddressRepository;
 import com.zondamarket.identity.repository.SellerProfileRepository;
 import com.zondamarket.identity.repository.UserAccountRepository;
+import com.zondamarket.review.service.ReviewService;
 import com.zondamarket.shared.errors.ApiProblemException;
 import java.util.List;
 import java.util.UUID;
@@ -28,11 +29,14 @@ public class ProfileService {
     private final UserAccountRepository accounts;
     private final AccountAddressRepository addresses;
     private final SellerProfileRepository sellers;
+    private final ReviewService reviews;
 
-    ProfileService(UserAccountRepository accounts, AccountAddressRepository addresses, SellerProfileRepository sellers) {
+    ProfileService(UserAccountRepository accounts, AccountAddressRepository addresses, SellerProfileRepository sellers,
+                   ReviewService reviews) {
         this.accounts = accounts;
         this.addresses = addresses;
         this.sellers = sellers;
+        this.reviews = reviews;
     }
 
     @Transactional
@@ -97,7 +101,8 @@ public class ProfileService {
 
     @Transactional(readOnly = true)
     public SellerResponse ownSeller(UUID accountId) {
-        return sellers.findByAccountIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(accountId, Role.SELLER).map(SellerResponse::from)
+        return sellers.findByAccountIdAndDeletedFalseAndAccountDeletedFalseAndAccountRole(accountId, Role.SELLER)
+                .map(this::withReputation)
                 .orElseThrow(ProfileService::missingSeller);
     }
 
@@ -107,7 +112,11 @@ public class ProfileService {
             throw missingSeller();
         }
         return sellers.findBySlugAndDeletedFalseAndAccountDeletedFalseAndAccountRole(slug, Role.SELLER)
-                .map(SellerResponse::from).orElseThrow(ProfileService::missingSeller);
+                .map(this::withReputation).orElseThrow(ProfileService::missingSeller);
+    }
+
+    private SellerResponse withReputation(SellerProfile seller) {
+        return SellerResponse.from(seller, reviews.reputation(seller.getId()));
     }
 
     private UserAccount lockAccount(UUID accountId) {

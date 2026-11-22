@@ -67,6 +67,8 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 ## Despacho, disputas y devoluciones
 
 - Un pago verificado habilita las subórdenes en espera. Cada vendedor despacha su propia suborden. El comprador confirma la entrega y puede dejar una reseña por suborden entregada.
+- Solo el comprador titular puede publicar una reseña por suborden en estado `ENTREGADA`. Se admiten 1 a 5 estrellas y un comentario opcional de hasta 1.000 caracteres de texto plano. Una solicitud duplicada se rechaza aun si la primera reseña quedó oculta.
+- La publicación conserva comprador, fecha y correlación para auditoría privada. El perfil público expone un alias por reseña. El perfil y la ficha del producto usan la misma cantidad de reseñas visibles y el promedio redondeado a dos decimales. Una reseña oculta queda fuera del promedio, del contador y del listado.
 - La bandeja de un vendedor habilitado lista sus subórdenes pagadas, con los datos congelados de productos y destino. Los comandos logísticos y el seguimiento son privados. Un actor sin relación con la operación recibe 404.
 - En una orden `PAGADA`, el despacho cambia `PREPARANDO` a `DESPACHADA` y guarda transportista, código y fecha UTC. El comprador titular cambia `DESPACHADA` a `ENTREGADA` y guarda la fecha de recepción. Los dos comandos bloquean primero la orden y después la suborden. Cada transición incrementa la versión logística de la suborden. Una suborden preparada antes de la migración empieza en versión cero.
 - Se admiten Andreani y Correo Argentino. El código tiene entre 1 y 64 caracteres ASCII y empieza con letra o número. El resto admite también guiones. Los enlaces salen de destinos HTTPS definidos en el servidor.

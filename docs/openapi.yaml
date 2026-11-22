@@ -366,6 +366,35 @@ paths:
           $ref: '#/components/responses/SellerActivationForbidden'
         '409':
           $ref: '#/components/responses/SellerActivationConflict'
+  /api/v1/sellers/{slug}/reviews:
+    get:
+      summary: Consultar reseñas visibles y reputación pública del vendedor
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de reseñas visibles, desde la más reciente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerReviewPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          description: Vendedor inexistente o no visible (SELLER_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
   /api/v1/sellers/{slug}:
     get:
       summary: Consultar ficha pública y reputación inicial
@@ -1513,6 +1542,41 @@ paths:
           $ref: '#/components/responses/SubOrderNotFound'
         '409':
           $ref: '#/components/responses/FulfillmentConflict'
+  /api/v1/me/sub-orders/{id}/review:
+    post:
+      summary: Publicar una reseña de una suborden propia entregada
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '201':
+          description: Reseña publicada con un alias público.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          $ref: '#/components/responses/SubOrderNotFound'
+        '409':
+          description: REVIEW_DELIVERY_REQUIRED o REVIEW_ALREADY_EXISTS.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
   /api/v1/me/sub-orders/{id}/confirm-delivery:
     post:
       summary: Confirmar la recepción de una suborden comprada
@@ -1969,14 +2033,58 @@ components:
           $ref: '#/components/schemas/FulfillmentVersion'
         shipment:
           $ref: '#/components/schemas/Shipment'
+    ReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment:
+          description: Texto plano opcional. Se recortan los espacios exteriores y un comentario vacío se guarda como nulo.
+          type: [string, 'null']
+          maxLength: 1000
+    ReviewResponse:
+      type: object
+      required: [id, rating, comment, createdAt, authorAlias]
+      properties:
+        id: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, 'null'], maxLength: 1000 }
+        createdAt: { type: string, format: date-time }
+        authorAlias: { type: string }
+    SellerReputationResponse:
+      type: object
+      required: [averageRating, reviewCount]
+      properties:
+        averageRating:
+          description: Promedio redondeado a dos decimales. Nulo si no hay reseñas visibles.
+          type: [number, 'null']
+          minimum: 1
+          maximum: 5
+        reviewCount: { type: integer, minimum: 0 }
+    SellerReviewPage:
+      type: object
+      required: [content, page, size, hasNext, reputation]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewResponse'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+        reputation:
+          $ref: '#/components/schemas/SellerReputationResponse'
     CheckoutSubOrder:
       type: object
-      required: [id, status, address, group, version, shipment]
+      required: [id, status, address, group, version, shipment, reviewed]
       properties:
         id: { type: string, format: uuid }
         status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
         version:
           $ref: '#/components/schemas/FulfillmentVersion'
+        reviewed:
+          description: Indica al comprador si ya publicó una reseña. En la bandeja del vendedor es nulo.
+          type: [boolean, 'null']
         shipment:
           oneOf:
             - $ref: '#/components/schemas/Shipment'

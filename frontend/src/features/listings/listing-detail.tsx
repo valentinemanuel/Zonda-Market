@@ -11,6 +11,7 @@ import { fetchPublicListing, type ListingImage, type PublicSku, type ListingDeta
 import { formattedPrice } from "./public-listing-format";
 import { ListingQuestions } from "./listing-questions";
 import { AddToCart } from "@/features/cart/add-to-cart";
+import { ReputationSummary } from "@/features/reviews/reputation";
 
 export function PublicListingPage() {
   const { slug = "" } = useParams();
@@ -137,6 +138,7 @@ export function ListingDetailView({ detail, preview = false, purchase }: { detai
                 <Link className={profileLink + " break-words"} to={"/vendedores/" + detail.seller.slug}>
                   {detail.seller.displayName}
                 </Link>
+                <ReputationSummary {...detail.seller} />
               </CardContent>
             </Card>
           )}

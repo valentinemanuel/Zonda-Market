@@ -3,6 +3,7 @@ package com.zondamarket.identity.dto;
 import com.zondamarket.identity.domain.AccountAddress;
 import com.zondamarket.identity.domain.SellerProfile;
 import com.zondamarket.identity.domain.SellerProfile.Type;
+import com.zondamarket.review.dto.ReviewDtos.SellerReputationResponse;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -83,7 +84,12 @@ public final class ProfileDtos {
     public record SellerResponse(Type type, String displayName, String slug, String bio,
                                  int reviewCount, BigDecimal averageRating) {
         public static SellerResponse from(SellerProfile seller) {
-            return new SellerResponse(seller.getType(), seller.getDisplayName(), seller.getSlug(), seller.getBio(), 0, null);
+            return from(seller, SellerReputationResponse.EMPTY);
+        }
+
+        public static SellerResponse from(SellerProfile seller, SellerReputationResponse reputation) {
+            return new SellerResponse(seller.getType(), seller.getDisplayName(), seller.getSlug(), seller.getBio(),
+                    reputation.reviewCount(), reputation.averageRating());
         }
     }
 
