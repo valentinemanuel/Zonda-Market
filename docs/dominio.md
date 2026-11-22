@@ -79,3 +79,6 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 
 - Las entidades persistidas usan UUID, timestamps UTC y baja lógica. Las bajas conservan snapshots y registros financieros. Las transiciones relevantes guardan actor, instante y correlación.
 - Registrar el evento de outbox en la transacción del cambio de negocio. Los consumidores reintentan con espera progresiva y registran la confirmación. El estado visible en la UI se apoya en datos de negocio ya persistidos.
+- Desde V22, cada pago aprobado avisa al comprador y a los vendedores de la orden. Un despacho avisa al comprador y una recepción confirmada avisa a su vendedor. Los hitos anteriores conservan su historial original.
+- El consumidor proyecta una notificación por evento y cuenta destinataria junto con la confirmación del outbox. La bandeja, el contador y la lectura pertenecen al destinatario. Repetir la lectura conserva la fecha de la primera confirmación.
+- La notificación en cola envía correo a la dirección electrónica verificada de la cuenta. El mensaje solo contiene el hito y un enlace privado al recurso, generado por el servidor. Los reintentos de correo conservan la clave de notificación, esperan progresivamente y registran el identificador del proveedor tras su confirmación.

@@ -180,6 +180,14 @@ La vista agrupa por método y día UTC de la última transición verificada de c
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=CheckoutContractIT"` para verificar permisos, estados, reintentos simultáneos y rollback del evento. Desde `frontend/`, ejecutá `npm run test:e2e -- fulfillment` con un Compose de prueba en perfil `local`, Mailpit y pagos simulados. El smoke crea cuentas ficticias y verifica el flujo a 390 px, foco, teclado y recuperación tras perder la respuesta del despacho.
 
+### E5-02 · Notificaciones de compra y envío
+
+1. Aprobá el pago de una compra ficticia nueva con dos vendedores siguiendo el flujo anterior. En la campana de cada cuenta aparece el aviso **Pago aprobado**.
+2. Despachá una suborden. Como comprador, abrí la campana, marcá **Pedido despachado** como leída y usá **Ver compra** para ir a esa suborden. Confirmá la recepción.
+3. Como vendedor de esa suborden, abrí **Entrega confirmada**. En [Mailpit](http://localhost:8025) buscá los avisos por el correo ficticio de cada cuenta. La bandeja puede demorar hasta diez segundos en refrescar el contador con la pestaña abierta.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=NotificationContractIT"` para probar permisos, rollback, reenvío y recuperación del correo. Desde `frontend/`, ejecutá `npm run test:e2e -- notifications.spec.ts` contra un Compose de prueba con Mailpit. El smoke cubre notificaciones por destinatario, foco, contador y reintento en móvil.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

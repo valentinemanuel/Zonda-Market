@@ -18,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "checkout/reserva/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).ReservationPage }) },
       { path: "checkout/resultado/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).CheckoutResultPage }) },
       { path: "mis-ordenes", lazy: async () => ({ Component: (await import("@/features/checkout/orders-page")).OrdersPage }) },
+      { path: "notificaciones", lazy: async () => ({ Component: (await import("@/features/notifications/notifications-page")).NotificationsPage }) },
       { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
       { path: "vendedor/pedidos", lazy: async () => ({ Component: (await import("@/features/checkout/seller-orders-page")).SellerOrdersPage }) },
       { path: "vendedor/inventario", lazy: async () => ({ Component: (await import("@/features/listings/seller-catalog-page")).InventoryPage }) },

@@ -38,7 +38,8 @@ export function CheckoutSummary({ groups, total, children, subOrders, actions }:
 export function CheckoutGroupCard({ group, subOrder, children, title = group.sellerName }: {
   group: Group; subOrder?: SubOrder; children?: ReactNode; title?: string;
 }) {
-  return <Card className="gap-0 py-4">
+  return <Card id={subOrder ? "suborden-" + subOrder.id : undefined} tabIndex={subOrder ? -1 : undefined}
+    className="scroll-mt-4 gap-0 py-4">
     <CardContent className="space-y-3 px-4 sm:px-6">
       <h2 className="break-words text-lg font-semibold">{title}</h2>
       {subOrder && <div className="space-y-1">

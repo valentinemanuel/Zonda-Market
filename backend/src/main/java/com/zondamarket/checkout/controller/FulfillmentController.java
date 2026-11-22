@@ -32,9 +32,10 @@ class FulfillmentController {
     @Operation(summary = "Listar subórdenes pagadas del vendedor autenticado")
     ResponseEntity<SellerOrderPage> sellerOrders(@AuthenticationPrincipal AccountResponse account,
             @RequestParam(required = false) SellerOrderStatus status,
+            @RequestParam(required = false) UUID subOrderId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size) {
-        return privateResponse(fulfillment.sellerOrders(account, status, page, size));
+        return privateResponse(fulfillment.sellerOrders(account, status, subOrderId, page, size));
     }
 
     @PostMapping("/seller/sub-orders/{id}/ship")

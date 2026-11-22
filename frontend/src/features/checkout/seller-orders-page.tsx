@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
 import { signInRequired } from "@/features/cart/cart-api";
 import { SellerHeading, SellerNavigation } from "@/features/listings/seller-workspace";
@@ -15,21 +15,25 @@ const fieldClass = "min-h-12 w-full rounded-lg border border-input bg-background
 
 export function SellerOrdersPage() {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
-  return <SellerOrders key={revision} revision={revision} />;
+  const [params] = useSearchParams();
+  const subOrderId = params.get("suborden");
+  return <SellerOrders key={revision + ":" + subOrderId} revision={revision} subOrderId={subOrderId} />;
 }
 
-function SellerOrders({ revision }: { revision: number }) {
+function SellerOrders({ revision, subOrderId }: { revision: number; subOrderId: string | null }) {
   const [status, setStatus] = useState<SellerOrderStatus | "">("");
   const [page, setPage] = useState(0);
   const [notice, setNotice] = useState("");
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const client = useQueryClient();
   const orders = useQuery({
-    queryKey: [...sellerOrdersKey(revision), status, page],
-    queryFn: ({ signal }) => fetchSellerOrders(page, status, signal),
+    queryKey: [...sellerOrdersKey(revision), status, page, subOrderId],
+    queryFn: ({ signal }) => fetchSellerOrders(page, status, subOrderId, signal),
     retry: false,
   });
-  if (signInRequired(orders.error)) return <Navigate to="/ingresar" replace />;
+  if (signInRequired(orders.error)) {
+    return <Navigate to="/ingresar" replace state={{ returnToSellerSubOrder: subOrderId }} />;
+  }
   const forbidden = orders.error instanceof ApiError && orders.error.status === 403;
   const changePage = (value: number) => {
     setNotice("");
@@ -39,7 +43,8 @@ function SellerOrders({ revision }: { revision: number }) {
   return <div className="mx-auto max-w-5xl space-y-5">
     <SellerNavigation />
     <SellerHeading title="Pedidos recibidos" />
-    {!forbidden && <div className="max-w-xs space-y-1">
+    {subOrderId && <Button asChild variant="outline"><Link to="/vendedor/pedidos">Ver todos los pedidos</Link></Button>}
+    {!forbidden && !subOrderId && <div className="max-w-xs space-y-1">
       <label htmlFor="seller-order-status" className="block font-medium">Estado de la suborden</label>
       <select id="seller-order-status" className={fieldClass} value={status} onChange={(event) => {
         setStatus(event.target.value as SellerOrderStatus | "");
@@ -58,8 +63,8 @@ function SellerOrders({ revision }: { revision: number }) {
         {!forbidden && <Button variant="outline" onClick={() => void orders.refetch()}>Reintentar</Button>}
       </div>
       : <>
-        {orders.data.content.length === 0 ? <p>{status || page ? "No hay subórdenes en esta página."
-          : "Todavía no recibiste pedidos pagados."}</p>
+        {orders.data.content.length === 0 ? <p>{subOrderId ? "No encontramos ese pedido."
+          : status || page ? "No hay subórdenes en esta página." : "Todavía no recibiste pedidos pagados."}</p>
           : <ul className="space-y-4">
             {orders.data.content.map((sub) => <li key={sub.id}>
               <CheckoutGroupCard group={sub.group} subOrder={sub} title={sub.group.items[0]?.title ?? sub.group.sellerName}>

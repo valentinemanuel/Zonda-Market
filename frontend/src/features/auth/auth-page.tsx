@@ -37,10 +37,15 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
   const submit = handleSubmit(async (data) => {
     try {
       await authenticate(mode, data);
+      const orderHash = typeof state?.orderHash === "string" && /^#suborden-[0-9a-f-]{36}$/i.test(state.orderHash)
+        ? state.orderHash : "";
       const returnPath = cartListingSlug ? listingPublicPath(cartListingSlug)
         : listingSlug ? listingPublicPath(listingSlug) + "#preguntas"
         : typeof state?.returnToOrder === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToOrder)
-          ? (state.checkoutResult === true ? "/checkout/resultado/" : "/checkout/reserva/") + state.returnToOrder
+          ? (state.checkoutResult === true ? "/checkout/resultado/" : "/checkout/reserva/") + state.returnToOrder + orderHash
+        : typeof state?.returnToSellerSubOrder === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToSellerSubOrder)
+          ? "/vendedor/pedidos?suborden=" + state.returnToSellerSubOrder
+        : state?.returnToNotifications === true ? "/notificaciones"
         : state?.returnToOrders === true ? "/mis-ordenes"
         : state?.returnToCheckout === true ? "/checkout"
         : state?.returnToCart === true ? "/carrito"

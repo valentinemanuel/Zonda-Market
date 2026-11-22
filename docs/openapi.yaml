@@ -1400,6 +1400,56 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/me/notifications:
+    get:
+      summary: Listar las notificaciones privadas y contar las pendientes de lectura
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Avisos de la cuenta en orden cronológico inverso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+  /api/v1/me/notifications/{id}/read:
+    patch:
+      summary: Marcar una notificación propia como leída
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Notificación leída. Repetir la solicitud conserva su fecha de lectura.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '404':
+          description: La notificación no existe o pertenece a otra cuenta (NOTIFICATION_NOT_FOUND).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemResponse'
   /api/v1/seller/orders:
     get:
       summary: Listar subórdenes propias pagadas desde la más reciente
@@ -1409,6 +1459,10 @@ paths:
         - in: query
           name: status
           schema: { type: string, enum: [PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
+        - in: query
+          name: subOrderId
+          description: Limita la bandeja a una suborden propia.
+          schema: { type: string, format: uuid }
         - in: query
           name: page
           schema: { type: integer, minimum: 0, default: 0 }
@@ -1833,6 +1887,34 @@ components:
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
+    NotificationResponse:
+      type: object
+      required: [id, type, createdAt, read, resourceId, href]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED] }
+        createdAt: { type: string, format: date-time }
+        read: { type: boolean }
+        resourceId:
+          description: UUID de la orden de compra o la suborden correspondiente al aviso.
+          type: string
+          format: uuid
+        href:
+          description: Ruta relativa a la tienda, generada por el servidor.
+          type: string
+          format: uri-reference
+    NotificationPage:
+      type: object
+      required: [content, page, size, hasNext, unreadCount]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+        unreadCount: { type: integer, format: int64, minimum: 0 }
     SellerOrderPage:
       type: object
       required: [content, page, size, hasNext]
