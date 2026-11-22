@@ -1,8 +1,8 @@
-import { ArrowRight, ArrowUpRight, Boxes, LayoutList, MessageCircle, Package, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Boxes, ChartNoAxesColumnIncreasing, LayoutList, MessageCircle, Package, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { inventoryPath, sellerListingsPath, sellerOrdersPath, sellerQuestionsPath, SellerHeading } from "@/features/listings/seller-workspace";
+import { inventoryPath, sellerListingsPath, sellerOrdersPath, sellerQuestionsPath, sellerSalesPath, SellerHeading } from "@/features/listings/seller-workspace";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { SellerReviews } from "@/features/reviews/seller-reviews";
@@ -66,6 +66,14 @@ export function SellerPanelPage() {
             <span className="min-w-40 flex-1 space-y-1">
               <span className="block text-lg font-semibold">Pedidos recibidos</span>
               <span className="block text-sm text-muted-foreground">Registrá despachos y consultá las entregas.</span>
+            </span>
+            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+          </Link>
+          <Link aria-label="Ventas y neto estimado" to={sellerSalesPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
+            <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><ChartNoAxesColumnIncreasing size={23} aria-hidden="true" /></span>
+            <span className="min-w-40 flex-1 space-y-1">
+              <span className="block text-lg font-semibold">Ventas y neto estimado</span>
+              <span className="block text-sm text-muted-foreground">Consultá importes y actividad de tus subórdenes.</span>
             </span>
             <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>

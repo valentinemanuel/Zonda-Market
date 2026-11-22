@@ -1479,6 +1479,56 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemResponse'
+  /api/v1/seller/metrics:
+    get:
+      summary: Consultar ventas, comisiones, devoluciones y neto interno propio
+      description: El período incluye ambos días en horario de Buenos Aires, con un máximo de 90 días. Al omitir ambas fechas se muestran los últimos 30 días.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SellerReportFrom'
+        - $ref: '#/components/parameters/SellerReportTo'
+      responses:
+        '200':
+          description: Resumen en ARS y serie diaria con días sin actividad incluidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerMetricsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta no tiene un perfil vendedor habilitado (SELLER_REQUIRED).
+  /api/v1/seller/settlements:
+    get:
+      summary: Listar actividad propia por suborden en un período
+      description: Incluye subórdenes con una acreditación o ajuste confirmado dentro del período. El orden es por último movimiento, del más reciente al más antiguo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SellerReportFrom'
+        - $ref: '#/components/parameters/SellerReportTo'
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Página de importes de los movimientos propios del período.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellerSettlementPage'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          description: La cuenta no tiene un perfil vendedor habilitado (SELLER_REQUIRED).
   /api/v1/seller/orders:
     get:
       summary: Listar subórdenes propias pagadas desde la más reciente
@@ -1611,6 +1661,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    SellerReportFrom:
+      in: query
+      name: from
+      description: Primer día local del período. Si se indica, también se requiere to.
+      schema: { type: string, format: date }
+    SellerReportTo:
+      in: query
+      name: to
+      description: Último día local del período. Si se indica, también se requiere from.
+      schema: { type: string, format: date }
     CatalogPage:
       name: page
       in: query
@@ -1979,6 +2039,70 @@ components:
         size: { type: integer, minimum: 1, maximum: 50 }
         hasNext: { type: boolean }
         unreadCount: { type: integer, format: int64, minimum: 0 }
+    SellerReportAmount:
+      type: string
+      pattern: '^-?[0-9]+\.[0-9]{2}$'
+    SellerActivityAmounts:
+      type: object
+      required: [gross, commission, refunds, commissionReversed, net]
+      properties:
+        gross:
+          $ref: '#/components/schemas/SellerReportAmount'
+        commission:
+          $ref: '#/components/schemas/SellerReportAmount'
+        refunds:
+          $ref: '#/components/schemas/SellerReportAmount'
+        commissionReversed:
+          $ref: '#/components/schemas/SellerReportAmount'
+        net:
+          description: Bruto menos comisión original y devoluciones, más comisión revertida.
+          $ref: '#/components/schemas/SellerReportAmount'
+    SellerMetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/SellerActivityAmounts'
+        - type: object
+          required: [from, to, currency, timeZone, ordersByState, series]
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+            currency: { type: string, const: ARS }
+            timeZone: { type: string, const: America/Argentina/Buenos_Aires }
+            ordersByState:
+              type: object
+              description: Estado actual de las subórdenes acreditadas en el período.
+              additionalProperties: { type: integer, format: int64, minimum: 0 }
+            series:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/SellerActivityAmounts'
+                  - type: object
+                    required: [date]
+                    properties:
+                      date: { type: string, format: date }
+    SellerSettlementPage:
+      type: object
+      required: [content, page, size, hasNext]
+      properties:
+        content:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SellerActivityAmounts'
+              - type: object
+                required: [subOrderId, status, recordedAt, lastActivityAt, merchandise, shipping]
+                properties:
+                  subOrderId: { type: string, format: uuid }
+                  status: { type: string }
+                  recordedAt: { type: string, format: date-time }
+                  lastActivityAt: { type: string, format: date-time }
+                  merchandise:
+                    $ref: '#/components/schemas/SellerReportAmount'
+                  shipping:
+                    $ref: '#/components/schemas/SellerReportAmount'
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
     SellerOrderPage:
       type: object
       required: [content, page, size, hasNext]
