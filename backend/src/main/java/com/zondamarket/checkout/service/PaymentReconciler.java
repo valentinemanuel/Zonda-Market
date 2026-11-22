@@ -74,7 +74,7 @@ class PaymentReconciler {
                 || (attempt.provider() == Provider.MERCADO_PAGO) != (verified.providerOrderId() != null)
                 || (attempt.provider() == Provider.MERCADO_PAGO && verified.status() == Status.APROBADO
                     && verified.providerPaymentId() == null)
-                || (attempt.method() == Method.CARD && attempt.providerOrderId() != null
+                || (verified.status() != Status.APROBADO && attempt.method() == Method.CARD && attempt.providerOrderId() != null
                     && !attempt.providerOrderId().equals(verified.providerOrderId()))) {
             throw PaymentErrors.conflict("PAYMENT_ATTEMPT_MISMATCH", "El pago verificado no coincide con el intento.");
         }

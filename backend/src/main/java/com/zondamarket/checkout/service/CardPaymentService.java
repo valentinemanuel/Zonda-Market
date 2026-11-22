@@ -105,10 +105,9 @@ public class CardPaymentService {
         transaction.executeWithoutResult(tx -> {
             payments.lockOrder(buyer, order);
             var current = requireCard(order, id);
-            if (current.providerOrderId() != null && !current.providerOrderId().equals(providerId)) {
-                throw PaymentErrors.conflict("PAYMENT_ATTEMPT_MISMATCH", "La referencia de pago no coincide.");
+            if (current.providerOrderId() == null) {
+                attempts.bindProviderOrder(order, id, providerId, clock.instant());
             }
-            attempts.bindProviderOrder(order, id, providerId, clock.instant());
         });
     }
 

@@ -107,6 +107,9 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
   await page.keyboard.press("Enter");
   try {
     await expect(page.getByText("Enviando el pago con tarjeta…", { exact: true })).toBeVisible();
+    await expect(send).toBeDisabled();
+    await send.evaluate((button: HTMLButtonElement) => button.click());
+    expect(submissions).toBe(1);
   } finally {
     release();
   }

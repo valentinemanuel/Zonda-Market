@@ -18,9 +18,15 @@ export type Quote = Received<Timed & {
   id: string; cartVersion: number; address: Address; groups: Group[]; total: string;
 }>;
 
+export type Refund = {
+  id: string; reason: "TARDIO" | "DUPLICADO"; status: "PENDIENTE" | "CONFIRMADA" | "EN_REVISION"; amount: string;
+};
+
 export type Order = Received<Timed & {
   id: string; status: string; subOrders: { id: string; status: string; address: Address; group: Group }[]; total: string;
   testPayment: { reference: string; result: PaymentResult | null } | null;
+  refunds?: Refund[];
+  refundedAmount?: string;
 }>;
 
 export type PaymentOutcome = "APPROVED" | "REJECTED";

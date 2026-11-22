@@ -13,9 +13,11 @@ import com.mercadopago.net.HttpMethod;
 import com.mercadopago.net.MPDefaultHttpClient;
 import com.mercadopago.net.MPHttpClient;
 import com.zondamarket.checkout.dto.CardPaymentRequest;
+import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.service.CardPaymentGateway;
 import com.zondamarket.checkout.service.PaymentProviderReadFailure;
+import com.zondamarket.checkout.service.PaymentRefundGateway;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,7 +36,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("(local | test | demo) & !prod & !production")
 @ConditionalOnProperty(name = "zonda.mercado-pago.test-enabled", havingValue = "true")
-class MercadoPagoCardGateway implements CardPaymentGateway {
+class MercadoPagoCardGateway implements CardPaymentGateway, PaymentRefundGateway {
     private static final String ORDERS = "/v1/orders";
     private static final Set<String> CARD_TYPES = Set.of("credit_card", "debit_card");
     private static final Set<String> TERMINAL_FAILURES = Set.of("failed", "canceled", "expired");
@@ -74,7 +76,7 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
     @Override public String publicKey() { return publicKey; }
 
     @Override
-    public String create(Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge {
+    public String create(CardPaymentGateway.Charge charge, CardPaymentRequest card) throws SubmissionUncertain, NoCharge {
         verifyTestCollector();
         if (!clock.instant().isBefore(charge.expiresAt())) throw new NoCharge();
         try {
@@ -98,7 +100,7 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
     }
 
     @Override
-    public Optional<Observation> lookup(String id, String reference, Instant expiresAt) throws SubmissionUncertain {
+    public Optional<CardPaymentGateway.Observation> lookup(String id, String reference, Instant expiresAt) throws SubmissionUncertain {
         try {
             var read = options(Map.of());
             if (id == null) {
@@ -124,7 +126,7 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
     }
 
     @Override
-    public Optional<Observation> lookupOrder(String id) throws PaymentProviderReadFailure {
+    public Optional<CardPaymentGateway.Observation> lookupOrder(String id) throws PaymentProviderReadFailure {
         if (!validId(id)) return Optional.empty();
         try {
             return observation(orders.exchange(ORDERS + "/" + id, HttpMethod.GET, null, null, options(Map.of())), id);
@@ -135,13 +137,9 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
         }
     }
 
-    private Optional<Observation> observation(JsonObject order, String id) {
+    private Optional<CardPaymentGateway.Observation> observation(JsonObject order, String id) {
         var reference = value(order, "external_reference");
-        if (!id.equals(value(order, "id")) || reference.isBlank()
-                || !"online".equals(value(order, "type")) || !"ARG".equals(value(order, "country_code"))
-                || !Long.toString(collector).equals(value(order, "user_id"))
-                || (order.has("currency") && !"ARS".equals(value(order, "currency")))
-                || (order.has("live_mode") && !"false".equals(value(order, "live_mode")))) {
+        if (reference.isBlank() || !matchesOrder(order, id)) {
             return Optional.empty();
         }
         var payments = object(order, "transactions").getAsJsonArray("payments");
@@ -158,16 +156,82 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
         if ("processed".equals(orderState) && "accredited".equals(value(order, "status_detail"))
                 && "processed".equals(paymentState) && "accredited".equals(value(payment, "status_detail"))) {
             if (!validId(paymentId)) return Optional.empty();
-            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.APROBADO));
+            return Optional.of(new CardPaymentGateway.Observation(id, paymentId, reference, amount, "ARS", Status.APROBADO));
         }
         if (!validId(paymentId)) paymentId = null;
         if (TERMINAL_FAILURES.contains(orderState) && TERMINAL_FAILURES.contains(paymentState)) {
-            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.RECHAZADO));
+            return Optional.of(new CardPaymentGateway.Observation(id, paymentId, reference, amount, "ARS", Status.RECHAZADO));
         }
         if (OPEN_STATES.contains(orderState)) {
-            return Optional.of(new Observation(id, paymentId, reference, amount, "ARS", Status.PENDIENTE));
+            return Optional.of(new CardPaymentGateway.Observation(id, paymentId, reference, amount, "ARS", Status.PENDIENTE));
         }
         return Optional.empty();
+    }
+
+    private boolean matchesOrder(JsonObject order, String id) {
+        return id.equals(value(order, "id")) && "online".equals(value(order, "type"))
+                && "ARG".equals(value(order, "country_code")) && Long.toString(collector).equals(value(order, "user_id"))
+                && (!order.has("currency") || "ARS".equals(value(order, "currency")))
+                && (!order.has("live_mode") || "false".equals(value(order, "live_mode")));
+    }
+
+    @Override public Method refundMethod() { return Method.CARD; }
+
+    @Override
+    public PaymentRefundGateway.Observation inspect(PaymentRefundGateway.Charge charge) throws PaymentProviderReadFailure {
+        if (!validId(charge.orderId()) || !validId(charge.paymentId()) || !"ARS".equals(charge.currency())) {
+            return MercadoPagoRefunds.REVIEW;
+        }
+        try {
+            var order = orders.exchange(ORDERS + "/" + charge.orderId(), HttpMethod.GET, null, null, options(Map.of()));
+            var transactions = object(order, "transactions");
+            var payments = transactions.getAsJsonArray("payments");
+            if (!matchesOrder(order, charge.orderId()) || !charge.reference().equals(value(order, "external_reference"))
+                    || !sameAmount(order, "total_amount", charge.amount()) || payments == null || payments.size() != 1) {
+                return MercadoPagoRefunds.REVIEW;
+            }
+            var payment = payments.get(0).getAsJsonObject();
+            if (!charge.paymentId().equals(value(payment, "id")) || !sameAmount(payment, "amount", charge.amount())
+                    || !CARD_TYPES.contains(value(object(payment, "payment_method"), "type"))) return MercadoPagoRefunds.REVIEW;
+            var refunds = transactions.get("refunds");
+            if (refunds != null && !refunds.isJsonNull() && !refunds.isJsonArray()) return MercadoPagoRefunds.REVIEW;
+            return MercadoPagoRefunds.read(refunds == null || refunds.isJsonNull() ? null : refunds.getAsJsonArray(),
+                    charge, "transaction_id", "processed",
+                    accredited(order) && accredited(payment));
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    @Override
+    public PaymentRefundGateway.Observation refund(PaymentRefundGateway.Charge charge) throws PaymentProviderReadFailure {
+        if (!validId(charge.orderId()) || !validId(charge.paymentId())) return MercadoPagoRefunds.REVIEW;
+        try {
+            verifyTestCollector();
+            var reply = orders.exchange(ORDERS + "/" + charge.orderId() + "/refund", HttpMethod.POST, null, null,
+                    options(Map.of("X-Idempotency-Key", charge.key().toString())));
+            var rows = object(reply, "transactions").getAsJsonArray("refunds");
+            if (!charge.orderId().equals(value(reply, "id")) || rows == null || rows.isEmpty()) {
+                throw new PaymentProviderReadFailure(0);
+            }
+            return MercadoPagoRefunds.read(rows, charge, "transaction_id", "processed", false);
+        } catch (NoCharge error) {
+            throw new PaymentProviderReadFailure(0);
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    private static boolean sameAmount(JsonObject value, String field, BigDecimal expected) {
+        return expected.compareTo(new BigDecimal(value(value, field))) == 0;
+    }
+
+    private static boolean accredited(JsonObject value) {
+        return "processed".equals(value(value, "status")) && "accredited".equals(value(value, "status_detail"));
     }
 
     private void verifyTestCollector() throws NoCharge {
@@ -183,7 +247,7 @@ class MercadoPagoCardGateway implements CardPaymentGateway {
         }
     }
 
-    private static JsonObject payload(Charge charge, CardPaymentRequest card) {
+    private static JsonObject payload(CardPaymentGateway.Charge charge, CardPaymentRequest card) {
         var method = new JsonObject();
         method.addProperty("id", card.paymentMethodId());
         method.addProperty("type", card.paymentType());

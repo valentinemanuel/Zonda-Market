@@ -8,9 +8,11 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "zonda.checkout.reconciliation.enabled", matchIfMissing = true, havingValue = "true")
 class PaymentReconciliationSchedule {
     private final PaymentReconciliationWorker worker;
+    private final PaymentCompensationWorker compensation;
 
-    PaymentReconciliationSchedule(PaymentReconciliationWorker worker) {
+    PaymentReconciliationSchedule(PaymentReconciliationWorker worker, PaymentCompensationWorker compensation) {
         this.worker = worker;
+        this.compensation = compensation;
     }
 
     @Scheduled(fixedDelayString = "${zonda.checkout.reconciliation.delay-ms:3000}")
@@ -21,5 +23,6 @@ class PaymentReconciliationSchedule {
         for (int i = 0; i < 2 && worker.reconcileNextAttempt(); i++) {
             // Give pending attempts time even when the inbox is busy.
         }
+        compensation.processNext();
     }
 }

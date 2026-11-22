@@ -20,11 +20,12 @@ public class PaymentOutcomeStore {
 
     public enum Result { APPROVED, REJECTED, LATE_APPROVAL, EXPIRED }
 
-    public record Recorded(String reference, Outcome outcome, Result result) {}
+    public record Recorded(String reference, Outcome outcome, Result result, Method paymentMethod, String providerPaymentId) {}
 
     public Optional<Recorded> find(UUID id) {
         return sql.sql("""
-                SELECT reference, outcome, result FROM zonda_market.checkout_payment_outcome WHERE order_id = :id
+                SELECT reference, outcome, result, payment_method, provider_payment_id
+                FROM zonda_market.checkout_payment_outcome WHERE order_id = :id
                 """).param("id", id).query(Recorded.class).optional();
     }
 

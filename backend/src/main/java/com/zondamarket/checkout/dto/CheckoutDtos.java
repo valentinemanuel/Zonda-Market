@@ -35,7 +35,8 @@ public final class CheckoutDtos {
     public record TestPayment(String reference, String result) {}
 
     public record OrderResponse(UUID id, Instant expiresAt, Instant serverNow, String status,
-                                List<SubOrder> subOrders, String total, String currency, TestPayment testPayment) {}
+                                List<SubOrder> subOrders, String total, String currency, TestPayment testPayment,
+                                List<CompensationDtos.Refund> refunds, String refundedAmount) {}
 
     public record OrderSummary(UUID id, Instant createdAt, Instant expiresAt, String status, String total, String currency) {}
 

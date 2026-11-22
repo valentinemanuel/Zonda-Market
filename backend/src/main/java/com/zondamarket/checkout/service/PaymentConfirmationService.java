@@ -1,11 +1,15 @@
 package com.zondamarket.checkout.service;
 
 import com.zondamarket.cart.repository.CartStore;
+import com.zondamarket.checkout.dto.CompensationDtos.Reason;
 import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.PaymentAttemptStore;
+import com.zondamarket.checkout.repository.PaymentAttemptStore.Attempt;
+import com.zondamarket.checkout.repository.PaymentCompensationStore;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
+import com.zondamarket.checkout.repository.PaymentOutcomeStore.Recorded;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore.Result;
 import com.zondamarket.checkout.repository.PaymentTransactionStore;
 import com.zondamarket.checkout.repository.ReservationStore;
@@ -29,17 +33,19 @@ public class PaymentConfirmationService {
     private final PaymentOutcomeStore outcomes;
     private final PaymentAttemptStore attempts;
     private final PaymentTransactionStore transactions;
+    private final PaymentCompensationStore compensations;
     private final Clock clock;
 
     PaymentConfirmationService(CartStore carts, CheckoutStore orders, ReservationStore reservations,
                                PaymentOutcomeStore outcomes, PaymentAttemptStore attempts,
-                               PaymentTransactionStore transactions, Clock clock) {
+                               PaymentTransactionStore transactions, PaymentCompensationStore compensations, Clock clock) {
         this.carts = carts;
         this.orders = orders;
         this.reservations = reservations;
         this.outcomes = outcomes;
         this.attempts = attempts;
         this.transactions = transactions;
+        this.compensations = compensations;
         this.clock = clock;
     }
 
@@ -75,7 +81,10 @@ public class PaymentConfirmationService {
         var previous = outcomes.find(orderId);
         if (previous.isPresent()) {
             var saved = previous.get();
-            if (!external && (!saved.reference().equals(outcome.reference()) || saved.outcome() != outcome.outcome())) {
+            if (external) {
+                if (saved.result() != Result.APPROVED) enqueue(orderId, attempt, verified, Reason.TARDIO, trace);
+                else if (!isWinningPayment(saved, attempt, verified)) enqueue(orderId, attempt, verified, Reason.DUPLICADO, trace);
+            } else if (!saved.reference().equals(outcome.reference()) || saved.outcome() != outcome.outcome()) {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "La referencia ya tiene otro resultado.");
             }
             return;
@@ -88,12 +97,21 @@ public class PaymentConfirmationService {
             if (!external) {
                 throw conflict("PAYMENT_OUTCOME_CONFLICT", "El intento no admite ese resultado.");
             }
+            enqueue(orderId, attempt, verified, Reason.TARDIO, trace);
             return;
         }
         boolean active = "RESERVADA".equals(order.status()) || "PAGO_PENDIENTE".equals(order.status());
         if (!active && !"EXPIRADA".equals(order.status())) {
-            if (external) return;
+            if (external) {
+                enqueue(orderId, attempt, verified, Reason.TARDIO, trace);
+                return;
+            }
             throw conflict("PAYMENT_ORDER_CLOSED", "La orden ya tiene un estado definitivo.");
+        }
+        if (external && active && clock.instant().isBefore(order.expiresAt()) && attempt.method() == Method.CARD
+                && attempt.providerOrderId() != null && !attempt.providerOrderId().equals(verified.providerOrderId())) {
+            enqueue(orderId, attempt, verified, Reason.DUPLICADO, trace);
+            return;
         }
         if (active) reservations.lockResources(orderId);
         var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
@@ -107,6 +125,7 @@ public class PaymentConfirmationService {
                 if (external) {
                     event = attempt.method() == Method.CHECKOUT_PRO
                             ? "CHECKOUT_PRO_PAYMENT_LATE" : "CARD_PAYMENT_LATE";
+                    enqueue(orderId, attempt, verified, Reason.TARDIO, trace);
                 }
                 reservations.event(orderId, event, trace, now);
             }
@@ -130,6 +149,20 @@ public class PaymentConfirmationService {
             }
             attempts.update(orderId, attemptId, Status.APROBADO, trace, now);
         }
+    }
+
+    private static boolean isWinningPayment(Recorded saved, Attempt attempt, VerifiedPayment verified) {
+        if (saved.providerPaymentId() != null) {
+            return saved.paymentMethod() == attempt.method() && saved.providerPaymentId().equals(verified.providerPaymentId());
+        }
+        // Older outcomes may only have the winning attempt and its bound provider resource.
+        return saved.reference().equals(verified.externalReference())
+                && (attempt.providerOrderId() == null || attempt.providerOrderId().equals(verified.providerOrderId()));
+    }
+
+    private void enqueue(UUID order, Attempt attempt, VerifiedPayment payment, Reason reason, UUID trace) {
+        compensations.enqueue(order, attempt.method(), payment.providerPaymentId(), reason, payment.amount(),
+                trace, clock.instant());
     }
 
     private static ApiProblemException conflict(String code, String detail) {

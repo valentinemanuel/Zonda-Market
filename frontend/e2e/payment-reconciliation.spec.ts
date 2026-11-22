@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { PaymentOptions } from "../src/features/checkout/checkout-api";
+import type { PaymentOptions, Refund } from "../src/features/checkout/checkout-api";
 import { credentials } from "./cart-fixtures";
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -13,10 +13,13 @@ test("recupera una confirmación persistida en la reserva abierta y al recargar"
   let approved = false;
   let optionsReads = 0;
   let manualReads = 0;
+  let refund: Refund | null = null;
 
   await page.route("**" + path, (route) => route.fulfill({ json: {
     id: order, status: approved ? "PAGADA" : "RESERVADA", expiresAt, serverNow: new Date().toISOString(),
     total: "19.25", subOrders: [], testPayment: null,
+    refunds: refund ? [refund] : [],
+    refundedAmount: refund?.status === "CONFIRMADA" ? refund.amount : "0.00",
   } }));
   await page.route("**" + path + "/payment-options", (route) => {
     optionsReads++;
@@ -52,6 +55,15 @@ test("recupera una confirmación persistida en la reserva abierta y al recargar"
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("confirmacion-aprobada-movil.png"), fullPage: true });
 
+  refund = { id: randomUUID(), reason: "DUPLICADO", status: "PENDIENTE", amount: "19.25" };
   await page.reload();
+  const compensation = page.getByRole("region", { name: "Devoluciones" });
+  await expect(compensation.getByText("Cobro duplicado")).toBeVisible();
+  await expect(compensation.getByRole("status")).toHaveText("Devolución pendiente.");
+  await page.screenshot({ path: testInfo.outputPath("devolucion-pendiente-movil.png"), fullPage: true });
+  refund = { ...refund, status: "CONFIRMADA" };
+  await expect(compensation.getByRole("status")).toHaveText("Devolución confirmada.", { timeout: 10_000 });
+  await expect(compensation).toContainText("19,25");
   await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("devolucion-confirmada-movil.png"), fullPage: true });
 });
