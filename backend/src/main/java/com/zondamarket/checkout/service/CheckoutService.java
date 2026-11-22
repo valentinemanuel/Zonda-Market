@@ -10,9 +10,11 @@ import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
 import com.zondamarket.checkout.dto.CheckoutDtos.TestPayment;
+import com.zondamarket.checkout.dto.CompensationDtos.Status;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.CheckoutStore.Order;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
+import com.zondamarket.checkout.repository.PaymentCompensationStore;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
@@ -46,14 +48,16 @@ public class CheckoutService {
     private final CartStore carts;
     private final CheckoutStore store;
     private final PaymentOutcomeStore outcomes;
+    private final PaymentCompensationStore compensations;
     private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
 
-    CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes,
+    CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes, PaymentCompensationStore compensations,
                     ObjectProvider<LocalPaymentPort> localPayment, Clock clock) {
         this.carts = carts;
         this.store = store;
         this.outcomes = outcomes;
+        this.compensations = compensations;
         this.localPayment = localPayment;
         this.clock = clock;
     }
@@ -142,8 +146,11 @@ public class CheckoutService {
         TestPayment fixture = localPayment.getIfAvailable() == null ? null
                 : new TestPayment(LocalPaymentPort.reference(order.id()),
                     outcomes.find(order.id()).map(saved -> saved.result().name()).orElse(null));
+        var refunds = compensations.forOrder(order.id());
+        var refunded = refunds.stream().filter(refund -> refund.status() == Status.CONFIRMADA)
+                .map(refund -> new BigDecimal(refund.amount())).reduce(ZERO, BigDecimal::add);
         return new OrderResponse(order.id(), order.expiresAt(), now(), order.status(),
-                subOrders, order.total().toPlainString(), order.currency(), fixture);
+                subOrders, order.total().toPlainString(), order.currency(), fixture, refunds, refunded.toPlainString());
     }
 
     private Snapshot snapshot(UUID buyer, UUID cart, AddressResponse address) {

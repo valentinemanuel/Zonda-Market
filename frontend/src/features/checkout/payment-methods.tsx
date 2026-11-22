@@ -51,11 +51,28 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
 }) {
   const client = useQueryClient();
   const status = useRef<HTMLParagraphElement>(null);
+  const commandInFlight = useRef(false);
+  const navigationInFlight = useRef(false);
+  const [leaving, setLeaving] = useState(false);
   const [cardError, setCardError] = useState(false);
   const [checkingReturn, setCheckingReturn] = useState(false);
   const [returnError, setReturnError] = useState(false);
   const id = order.id;
   const key = paymentOptionsKey(revision, id);
+  const openCheckout = useCallback((url: string) => {
+    if (navigationInFlight.current) return;
+    navigationInFlight.current = true;
+    setLeaving(true);
+    window.location.assign(url);
+  }, []);
+  useEffect(() => {
+    const restore = () => {
+      navigationInFlight.current = false;
+      setLeaving(false);
+    };
+    window.addEventListener("pageshow", restore);
+    return () => window.removeEventListener("pageshow", restore);
+  }, []);
   const options = useQuery({
     queryKey: key, queryFn: ({ signal }) => fetchPaymentOptions(id, signal), retry: false,
     refetchInterval: (query) => {
@@ -95,10 +112,17 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     onSuccess: (result, command) => {
       if (getSessionRevision() !== revision || (command.type !== "start" && command.type !== "open-pro")) return;
       const url = checkoutDestination(result);
-      if (url && eligible) window.location.assign(url);
+      if (url && eligible) openCheckout(url);
     },
     onSettled: refresh,
   });
+  function run(command: Command) {
+    if (commandInFlight.current || navigationInFlight.current) return;
+    commandInFlight.current = true;
+    void payment.mutateAsync(command).catch(() => {
+      // The mutation exposes failures in the payment panel.
+    }).finally(() => { commandInFlight.current = false; });
+  }
   const attempt = options.data?.latestAttempt;
   useEffect(() => {
     if (attempt?.status === "APROBADO") void client.invalidateQueries({ queryKey: orderKey(revision, id) });
@@ -160,7 +184,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     if (payment.isSuccess) status.current?.focus();
   }, [payment.isSuccess]);
   const methods = eligible ? options.data?.methods ?? [] : [];
-  const busy = payment.isPending || options.isPending || checkingReturn;
+  const busy = payment.isPending || options.isPending || checkingReturn || leaving;
   const showCard = options.isPending || options.isError || attempt || methods.length > 0 || payment.isError;
   const showFixture = options.isSuccess && !cardConfig && !options.data.checkoutPro && !attempt && !payment.isPending;
 
@@ -173,7 +197,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
           : order.testPayment && <p className="text-sm text-muted-foreground">Modo de prueba local.</p>}
         {options.isPending && <p role="status">Consultando medios de pago…</p>}
         {options.isError && <p role="alert" className="text-destructive">No pudimos consultar los medios de pago.</p>}
-        {payment.isPending && <p role="status">Actualizando pago…</p>}
+        {(payment.isPending || leaving) && <p role="status">Actualizando pago…</p>}
         {checkingReturn && <p role="status">Consultando el pago con Mercado Pago…</p>}
         {returnError && <p role="alert" className="text-destructive">No pudimos consultar el pago. Volvé a intentarlo.</p>}
         {(payment.isError || cardError) && <p role="alert" className="text-destructive">
@@ -189,7 +213,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
         </div>}
         {methods.length > 0 && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {methods.map((method) => <Button key={method} type="button" variant="outline" disabled={busy || options.isError}
-            onClick={() => payment.mutate({ type: "start", method, key: crypto.randomUUID() })}>
+            onClick={() => run({ type: "start", method, key: crypto.randomUUID() })}>
             {method === "CHECKOUT_PRO" && options.data?.checkoutPro ? "Pagar con saldo de Mercado Pago"
               : method === "CARD" && cardConfig ? "Pagar con tarjeta"
               : method === "CHECKOUT_PRO" && cardConfig ? "Elegir Checkout Pro (simulado)" : "Elegir " + methodLabels[method]}
@@ -203,32 +227,33 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
             if (attempt?.provider === "MERCADO_PAGO" &&
                 (attempt.nextAction === "CONSULTAR" || proAttempt?.status === "PENDIENTE")) {
               setCardError(false);
-              payment.mutate({ type: "consult", attemptId: attempt.id, method: attempt.method });
+              run({ type: "consult", attemptId: attempt.id, method: attempt.method });
             } else {
               void options.refetch().then((updated) => {
                 if (updated.isSuccess) setCardError(false);
               });
             }
           }}>Consultar estado</Button>}
-        {eligible && !returned && checkoutUrl && !busy && <Button asChild>
-          <a href={checkoutUrl}>Continuar en Mercado Pago</a>
+        {eligible && !returned && checkoutUrl && <Button type="button" disabled={busy}
+          onClick={() => openCheckout(checkoutUrl)}>
+          Continuar en Mercado Pago
         </Button>}
         {eligible && proAttempt?.nextAction === "ABRIR_CHECKOUT_PRO" && proAttempt.status === "CREADO" && <Button
-          type="button" disabled={busy} onClick={() => payment.mutate({ type: "open-pro", attemptId: proAttempt.id })}>
+          type="button" disabled={busy} onClick={() => run({ type: "open-pro", attemptId: proAttempt.id })}>
           Abrir Mercado Pago
         </Button>}
         {eligible && cardAttempt && cardConfig && <Suspense fallback={<p role="status">Cargando el formulario de tarjeta…</p>}>
           <CardPaymentForm key={cardAttempt} config={cardConfig} blocked={cardError || options.isError} onSubmit={submitCard} />
         </Suspense>}
         {eligible && attempt?.provider === "LOCAL" && attempt.status === "CREADO" && <Button type="button" disabled={busy}
-          onClick={() => payment.mutate({ type: "submit", attemptId: attempt.id })}>Continuar intento</Button>}
+          onClick={() => run({ type: "submit", attemptId: attempt.id })}>Continuar intento</Button>}
         {order.testPayment && attempt?.provider === "LOCAL" && attempt.nextAction === "CONSULTAR" && attempt.status !== "CREADO" &&
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Simulá una respuesta del proveedor para este intento.</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {(["PENDIENTE", "APROBADO", "RECHAZADO"] as const).map((outcome) =>
                 <Button key={outcome} type="button" variant="outline" disabled={busy || attempt.status === outcome}
-                  onClick={() => payment.mutate({ type: "simulate", attemptId: attempt.id, outcome })}>
+                  onClick={() => run({ type: "simulate", attemptId: attempt.id, outcome })}>
                   Marcar {outcome.toLowerCase()}
                 </Button>)}
             </div>

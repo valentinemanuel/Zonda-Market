@@ -1,6 +1,7 @@
 package com.zondamarket.integrations.payment;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mercadopago.MercadoPagoConfig;
@@ -12,8 +13,10 @@ import com.mercadopago.net.HttpMethod;
 import com.mercadopago.net.MPDefaultHttpClient;
 import com.mercadopago.net.MPHttpClient;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
+import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.service.CheckoutProGateway;
 import com.zondamarket.checkout.service.PaymentProviderReadFailure;
+import com.zondamarket.checkout.service.PaymentRefundGateway;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,7 +36,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("(local | test | demo) & !prod & !production")
 @ConditionalOnProperty(name = "zonda.mercado-pago.pro.test-enabled", havingValue = "true")
-class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
+class MercadoPagoCheckoutProGateway implements CheckoutProGateway, PaymentRefundGateway {
     private static final String PREFERENCES = "/checkout/preferences";
     private static final String PAYMENTS = "/v1/payments";
     private static final Set<String> CHECKOUT_HOSTS = Set.of("www.mercadopago.com.ar", "www.mercadopago.com");
@@ -79,10 +82,7 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
     public Preference create(Checkout checkout) throws Uncertain, Unavailable {
         try {
             var account = exchange("/users/me", HttpMethod.GET, null, null, Map.of());
-            var tags = account.getAsJsonArray("tags");
-            if (!collector.equals(value(account, "id")) || !"MLA".equals(value(account, "site_id"))
-                    || tags == null || tags.asList().stream().noneMatch(tag -> "test_user".equals(tag.getAsString()))
-                    || !clock.instant().isBefore(expiration(checkout))) {
+            if (!isTestCollector(account) || !clock.instant().isBefore(expiration(checkout))) {
                 throw new Unavailable();
             }
         } catch (Uncertain | RuntimeException error) {
@@ -151,12 +151,7 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
             var reference = value(payment, "external_reference");
             var currency = value(payment, "currency_id");
             var amount = payment.get("transaction_amount").getAsBigDecimal();
-            if (!id.equals(value(payment, "id")) || reference.isBlank()
-                    || !collector.equals(value(payment, "collector_id"))
-                    || !"ARS".equals(currency)
-                    || !"account_money".equals(value(payment, "payment_type_id"))
-                    || !"account_money".equals(value(payment, "payment_method_id"))
-                    || amount.signum() <= 0) {
+            if (!matchesPayment(payment, id) || reference.isBlank() || amount.signum() <= 0) {
                 return Optional.empty();
             }
             var status = value(payment, "status");
@@ -173,6 +168,62 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
         } catch (MPException | RuntimeException malformed) {
             throw new PaymentProviderReadFailure(0);
         }
+    }
+
+    private boolean matchesPayment(JsonObject payment, String id) {
+        return id.equals(value(payment, "id")) && collector.equals(value(payment, "collector_id"))
+                && "ARS".equals(value(payment, "currency_id"))
+                && "account_money".equals(value(payment, "payment_type_id"))
+                && "account_money".equals(value(payment, "payment_method_id"));
+    }
+
+    private boolean isTestCollector(JsonObject account) {
+        var tags = account.getAsJsonArray("tags");
+        return collector.equals(value(account, "id")) && "MLA".equals(value(account, "site_id"))
+                && tags != null && tags.asList().stream().anyMatch(tag -> "test_user".equals(tag.getAsString()));
+    }
+
+    @Override public Method refundMethod() { return Method.CHECKOUT_PRO; }
+
+    @Override
+    public Observation inspect(Charge charge) throws PaymentProviderReadFailure {
+        if (!validRefundCharge(charge)) return MercadoPagoRefunds.REVIEW;
+        try {
+            String path = PAYMENTS + "/" + charge.paymentId();
+            var payment = client.exchange(path, HttpMethod.GET, null, null, options(Map.of()));
+            if (!matchesPayment(payment, charge.paymentId()) || !charge.reference().equals(value(payment, "external_reference"))
+                    || charge.amount().compareTo(payment.get("transaction_amount").getAsBigDecimal()) != 0) {
+                return MercadoPagoRefunds.REVIEW;
+            }
+            var history = client.exchangeRaw(path + "/refunds", HttpMethod.GET, null, null, options(Map.of()));
+            var available = "approved".equals(value(payment, "status")) && "accredited".equals(value(payment, "status_detail"));
+            return MercadoPagoRefunds.read(history.getAsJsonArray(), charge, "payment_id", "approved", available);
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    @Override
+    public Observation refund(Charge charge) throws PaymentProviderReadFailure {
+        if (!validRefundCharge(charge)) return MercadoPagoRefunds.REVIEW;
+        try {
+            var account = client.exchange("/users/me", HttpMethod.GET, null, null, options(Map.of()));
+            if (!isTestCollector(account)) return MercadoPagoRefunds.REVIEW;
+            var reply = client.exchange(PAYMENTS + "/" + charge.paymentId() + "/refunds", HttpMethod.POST,
+                    new JsonObject(), null, options(Map.of("X-Idempotency-Key", charge.key().toString())));
+            return MercadoPagoRefunds.read(reply, charge, "payment_id", "approved");
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    private static boolean validRefundCharge(Charge charge) {
+        return charge.orderId().equals(charge.paymentId()) && charge.paymentId().matches("[0-9]{1,30}")
+                && "ARS".equals(charge.currency());
     }
 
     private Optional<Preference> preference(Checkout checkout, JsonObject candidate) throws Uncertain {
@@ -280,7 +331,12 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway {
 
         JsonObject exchange(String path, HttpMethod method, JsonObject payload, Map<String, Object> query,
                             MPRequestOptions options) throws MPException, MPApiException {
-            return JsonParser.parseString(send(path, method, payload, query, options).getContent()).getAsJsonObject();
+            return exchangeRaw(path, method, payload, query, options).getAsJsonObject();
+        }
+
+        JsonElement exchangeRaw(String path, HttpMethod method, JsonObject payload, Map<String, Object> query,
+                                MPRequestOptions options) throws MPException, MPApiException {
+            return JsonParser.parseString(send(path, method, payload, query, options).getContent());
         }
     }
 }

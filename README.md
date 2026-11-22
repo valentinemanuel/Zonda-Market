@@ -126,6 +126,24 @@ ORDER BY received_at DESC
 LIMIT 50;
 ```
 
+### Devolución de un cobro tardío o duplicado
+
+Cuando Mercado Pago confirma un cobro sin una reserva válida o un cargo adicional, Zonda reserva una devolución por pago. El worker consulta el historial antes de enviar o reintentar. Los reembolsos de tarjeta usan Orders API y los de saldo usan Payments API. [Reembolsos de tarjeta](https://www.mercadopago.com.ar/developers/es/docs/checkout-api-orders/payment-management/refunds-cancellations) · [Reembolsos de Checkout Pro](https://www.mercadopago.com.ar/developers/en/docs/checkout-pro-preferences/additional-settings/refunds-and-cancellations)
+
+En **Mis órdenes**, abrí el detalle para consultar el motivo, el importe y el estado de la devolución. Si la orden figura **Pagada**, las subórdenes siguen su curso con el cobro que confirmó ese pedido. El botón de pago se deshabilita mientras Zonda procesa el primer envío.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=PaymentWebhookContractIT"` para probar un pago tardío tras la reventa del SKU, un pago extra y la recuperación tras una respuesta perdida. Desde `frontend/`, ejecutá `npm run test:e2e -- card-payment checkout-pro payment-reconciliation` con Compose activo para probar el bloqueo del envío y los estados de devolución en móvil.
+
+Operaciones puede consultar devoluciones en revisión y fallos transitorios por `trace_id`.
+
+```sql
+SELECT id, order_id, status, trace_id, attempts, next_attempt_at, failure_code
+FROM zonda_market.payment_compensation
+WHERE status = 'EN_REVISION' OR failure_code IS NOT NULL
+ORDER BY updated_at DESC
+LIMIT 50;
+```
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

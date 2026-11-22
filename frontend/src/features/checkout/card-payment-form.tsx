@@ -31,7 +31,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
     else setFormError(true);
   }, []);
   const submit = useCallback<NonNullable<ComponentProps<typeof CardPayment>["onSubmit"]>>(async (data, additional) => {
-    if (sending.current) return;
+    if (blocked || sending.current) return;
     const paymentType = additional?.paymentTypeId;
     if (paymentType !== "credit_card" && paymentType !== "debit_card") {
       setFormError(true);
@@ -56,7 +56,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
       sending.current = false;
       setSubmitting(false);
     }
-  }, [onSubmit, payerEmail]);
+  }, [blocked, onSubmit, payerEmail]);
 
   return <div className="min-w-0 space-y-2">
     {state === "loading" && <p role="status">Cargando el formulario de tarjeta…</p>}
@@ -69,9 +69,10 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
           <p role="alert" className="text-destructive">No pudimos cargar el formulario de Mercado Pago.</p>
           <Button type="button" variant="outline" onClick={() => window.location.reload()}>Recargar formulario</Button>
         </div>
-      : <div inert={blocked || submitting} aria-busy={state === "loading" || submitting}>
+      : <fieldset aria-label="Datos de tarjeta" className="min-w-0 disabled:opacity-60"
+          disabled={blocked || submitting} aria-busy={state === "loading" || submitting}>
           <CardPayment initialization={initialization} customization={customization} locale="es-AR"
             onReady={ready} onError={failed} onSubmit={submit} />
-        </div>}
+        </fieldset>}
   </div>;
 }

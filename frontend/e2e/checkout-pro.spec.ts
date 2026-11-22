@@ -15,6 +15,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   let attempt: PaymentAttempt | null = null;
   let verified = false;
   let consultations = 0;
+  let starts = 0;
   let finishPreparation!: () => void;
   const preparation = new Promise<void>((resolve) => { finishPreparation = resolve; });
 
@@ -28,6 +29,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
     return route.fulfill({ json: options });
   });
   await page.route("**" + orderApi + "/payments", (route) => {
+    starts++;
     expect(route.request().postDataJSON()).toEqual({ method: "CHECKOUT_PRO" });
     attempt = { id: attemptId, provider: "MERCADO_PAGO", method: "CHECKOUT_PRO", status: "CREADO",
       nextAction: "ABRIR_CHECKOUT_PRO", expiresAt };
@@ -57,13 +59,19 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
   await page.goto("/checkout/reserva/" + id);
   const pay = page.getByRole("button", { name: "Pagar con saldo de Mercado Pago" });
-  await pay.press("Enter");
+  await expect(pay).toBeEnabled();
+  await pay.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
   try {
     await expect(page.getByText("Actualizando pago…")).toBeVisible();
+    await expect(pay).toBeDisabled();
   } finally {
     finishPreparation();
   }
   await expect(page.getByRole("heading", { name: "Checkout Pro ficticio" })).toBeVisible();
+  expect(starts).toBe(1);
 
   await page.goto(new URL(resultPage + "?status=approved&payment_id=999", testInfo.project.use.baseURL).href);
   await expect(page.getByRole("heading", { name: "Resultado del pago" })).toBeVisible();

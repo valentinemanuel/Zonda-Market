@@ -1,10 +1,13 @@
 package com.zondamarket.checkout;
 
 import com.zondamarket.checkout.dto.CardPaymentRequest;
+import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
 import com.zondamarket.checkout.service.CardPaymentGateway;
 import com.zondamarket.checkout.service.CheckoutProGateway;
 import com.zondamarket.checkout.service.PaymentProviderReadFailure;
+import com.zondamarket.checkout.service.PaymentCompensationWorker;
+import com.zondamarket.checkout.service.PaymentRefundGateway;
 import com.zondamarket.checkout.service.PaymentReconciliationWorker;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,18 +66,25 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
 
     @Autowired CheckoutContractIT.TestClock clock;
     @Autowired PaymentReconciliationWorker worker;
+    @Autowired PaymentCompensationWorker compensation;
     @Autowired BalanceFixture pro;
     @Autowired CardFixture card;
+    @Autowired RefundFixture refunds;
 
     @BeforeEach
     void reset() {
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
         sql.sql("DELETE FROM zonda_market.payment_webhook_inbox").update();
         sql.sql("UPDATE zonda_market.payment_attempt SET reconcile_after = now() + interval '1 day'").update();
+        sql.sql("UPDATE zonda_market.payment_compensation SET next_attempt_at = now() + interval '1 day'").update();
         pro.payment = null;
         pro.failure = 0;
         pro.reads.set(0);
         card.order = null;
+        refunds.sent.clear();
+        refunds.history = null;
+        refunds.timeoutAfterSending = false;
+        refunds.timeoutBeforeSending = false;
     }
 
     @Test
@@ -186,6 +197,98 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
         assertPaid(purchase, id);
     }
 
+    @Test
+    void refundsALateCardPaymentAfterResaleAndRecoversALostResponse() throws Exception {
+        String orderId = "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP61";
+        String paymentId = "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP61";
+        var original = startCard(orderId);
+        clock.set(clock.instant().plusSeconds(901));
+        var originalBuyer = login(original.buyer());
+        mvc.perform(auth(get(ORDERS + original.order()), originalBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRADA"));
+        var secondBuyer = account(true);
+        add(secondBuyer, original.sku(), 2, 0);
+        var quote = uuid(quote(secondBuyer, address(secondBuyer), 1).andExpect(status().isOk()).andReturn());
+        var resale = uuid(confirm(secondBuyer, quote, "resale").andExpect(status().isOk()).andReturn());
+        var reference = field(mvc.perform(auth(get(ORDERS + resale), secondBuyer)).andExpect(status().isOk()).andReturn(),
+                "testPayment.reference");
+        mvc.perform(auth(post("/api/v1/test-fixtures/orders/" + resale + "/payment-outcome"), secondBuyer)
+                .content("{\"reference\":\"" + reference + "\",\"outcome\":\"APPROVED\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PAGADA"));
+        assertStock(original.sku(), 0, 0);
+
+        approveCard(original, orderId, paymentId, "31");
+        approveCard(original, orderId, paymentId, "32");
+        mvc.perform(auth(get(ORDERS + original.order()), originalBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.subOrders[0].status").value("CANCELADA"))
+                .andExpect(jsonPath("$.refunds.length()").value(1))
+                .andExpect(jsonPath("$.refunds[0].reason").value("TARDIO"))
+                .andExpect(jsonPath("$.refunds[0].status").value("PENDIENTE"))
+                .andExpect(jsonPath("$.refundedAmount").value("0.00"));
+        mvc.perform(auth(get(ORDERS + original.order()), secondBuyer)).andExpect(status().isNotFound());
+        assertEquals(0, eventCount(original.order(), "CHECKOUT_PAID"));
+
+        refunds.timeoutAfterSending = true;
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(compensation::processNext);
+            var second = pool.submit(compensation::processNext);
+            assertTrue(first.get(10, TimeUnit.SECONDS) ^ second.get(10, TimeUnit.SECONDS));
+        }
+        assertEquals(1, refunds.sent.size());
+        assertEquals(paymentId, refunds.sent.getFirst().paymentId());
+        assertFalse(compensation.processNext());
+        clock.set(clock.instant().plusSeconds(5));
+        assertTrue(compensation.processNext());
+        assertEquals(1, refunds.sent.size());
+        mvc.perform(auth(get(ORDERS + original.order()), originalBuyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRADA"))
+                .andExpect(jsonPath("$.refunds[0].status").value("CONFIRMADA"))
+                .andExpect(jsonPath("$.refundedAmount").value("19.25"));
+        assertStock(original.sku(), 0, 0);
+    }
+
+    @Test
+    void refundsOnlyTheExtraCardChargeAndRetriesWithThePersistedKey() throws Exception {
+        String validOrder = "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP62";
+        String validPayment = "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP62";
+        String extraOrder = "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP63";
+        String extraPayment = "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP63";
+        var purchase = startCard(validOrder);
+        approveCard(purchase, validOrder, validPayment, "33");
+        approveCard(purchase, validOrder, validPayment, "34");
+        assertFalse(compensation.processNext());
+        approveCard(purchase, extraOrder, extraPayment, "35");
+        approveCard(purchase, extraOrder, extraPayment, "36");
+
+        refunds.timeoutBeforeSending = true;
+        assertTrue(compensation.processNext());
+        refunds.timeoutBeforeSending = false;
+        clock.set(clock.instant().plusSeconds(5));
+        assertTrue(compensation.processNext());
+        assertFalse(compensation.processNext());
+        assertEquals(2, refunds.sent.size());
+        assertEquals(refunds.sent.getFirst(), refunds.sent.getLast());
+        assertEquals(extraOrder, refunds.sent.getFirst().orderId());
+        assertEquals(extraPayment, refunds.sent.getFirst().paymentId());
+        assertEquals(validPayment, settledPayment(purchase.order()));
+        assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
+        assertStock(purchase.sku(), 1, 0);
+        mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGADA"))
+                .andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"))
+                .andExpect(jsonPath("$.refunds.length()").value(1))
+                .andExpect(jsonPath("$.refunds[0].reason").value("DUPLICADO"))
+                .andExpect(jsonPath("$.refunds[0].status").value("CONFIRMADA"))
+                .andExpect(jsonPath("$.refundedAmount").value("19.25"));
+    }
+
+    private void approveCard(Purchase purchase, String orderId, String paymentId, String event) throws Exception {
+        card.order = new CardPaymentGateway.Observation(orderId, paymentId, purchase.reference(),
+                TOTAL, "ARS", Status.APROBADO);
+        mvc.perform(notification("order", orderId, event, "card-fixture-secret")).andExpect(status().isOk());
+        assertTrue(worker.processNextNotification());
+    }
+
     private Purchase startBalance() throws Exception {
         var purchase = reserve("CHECKOUT_PRO");
         mvc.perform(auth(post(ORDERS + purchase.order() + "/payments/pro"), purchase.buyer())
@@ -196,6 +299,11 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     }
 
     private Purchase startCard() throws Exception {
+        return startCard(CARD_ORDER_ID);
+    }
+
+    private Purchase startCard(String orderId) throws Exception {
+        card.nextOrderId = orderId;
         var purchase = reserve("CARD");
         mvc.perform(auth(post(ORDERS + purchase.order() + "/payments/card"), purchase.buyer())
                 .header("Idempotency-Key", "submit").content("""
@@ -284,6 +392,7 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     static class ProviderFixture {
         @Bean BalanceFixture checkoutProGateway() { return new BalanceFixture(); }
         @Bean CardFixture cardPaymentGateway() { return new CardFixture(); }
+        @Bean RefundFixture refundGateway() { return new RefundFixture(); }
     }
 
     static class BalanceFixture implements CheckoutProGateway {
@@ -307,14 +416,34 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
 
     static class CardFixture implements CardPaymentGateway {
         private volatile Observation order;
+        private volatile String nextOrderId;
 
         @Override public String publicKey() { return "fixture"; }
-        @Override public String create(Charge charge, CardPaymentRequest request) { return CARD_ORDER_ID; }
+        @Override public String create(Charge charge, CardPaymentRequest request) { return nextOrderId; }
         @Override public Optional<Observation> lookup(String id, String reference, Instant expires) {
             return lookupOrder(id);
         }
         @Override public Optional<Observation> lookupOrder(String id) {
             return Optional.ofNullable(order).filter(found -> found.providerOrderId().equals(id));
+        }
+    }
+
+    static class RefundFixture implements PaymentRefundGateway {
+        private final CopyOnWriteArrayList<Charge> sent = new CopyOnWriteArrayList<>();
+        private volatile Observation history;
+        private volatile boolean timeoutBeforeSending;
+        private volatile boolean timeoutAfterSending;
+
+        @Override public Method refundMethod() { return Method.CARD; }
+        @Override public Observation inspect(Charge charge) {
+            return history == null ? new Observation(State.AVAILABLE, null) : history;
+        }
+        @Override public Observation refund(Charge charge) throws PaymentProviderReadFailure {
+            sent.add(charge);
+            if (timeoutBeforeSending) throw new PaymentProviderReadFailure(0);
+            history = new Observation(State.CONFIRMED, "REF-" + charge.paymentId());
+            if (timeoutAfterSending) throw new PaymentProviderReadFailure(0);
+            return history;
         }
     }
 }

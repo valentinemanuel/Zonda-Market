@@ -4,9 +4,10 @@ import { Link, useParams } from "react-router-dom";
 import { profileLink } from "@/features/auth/profile-fields";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
 import { signInRequired } from "@/features/cart/cart-api";
+import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order } from "./checkout-api";
+import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
 import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 
@@ -24,6 +25,8 @@ function OrderCheckout({ returned }: { returned: boolean }) {
   const client = useQueryClient();
   const order = useQuery({
     queryKey: orderKey(revision, id), queryFn: ({ signal }) => fetchOrder(id, signal), retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.refunds?.some((refund) => refund.status === "PENDIENTE") ? 5000 : false,
   });
   const { data, refetch } = order;
   useEffect(() => {
@@ -92,6 +95,19 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
       </div>}
     </div>
     <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />
+    {order.refunds && order.refunds.length > 0 && <section aria-labelledby="refunds-heading"
+      className="space-y-2 rounded-lg border bg-card p-4">
+      <h2 id="refunds-heading" className="text-lg font-semibold">Devoluciones</h2>
+      <ul className="divide-y">
+        {order.refunds.map((refund) => <li key={refund.id} className="flex flex-wrap justify-between gap-2 py-2">
+          <div>
+            <p className="font-medium">{refund.reason === "TARDIO" ? "Cobro fuera de plazo" : "Cobro duplicado"}</p>
+            <p role="status">{refundStatus[refund.status]}</p>
+          </div>
+          <p className="tabular-nums">{formattedPrice(refund.amount)}</p>
+        </li>)}
+      </ul>
+    </section>}
     {address && <section aria-label="Dirección de entrega" className="space-y-1 rounded-lg border bg-card p-4">
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>
@@ -99,6 +115,12 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} />
   </div>;
 }
+
+const refundStatus: Record<Refund["status"], string> = {
+  PENDIENTE: "Devolución pendiente.",
+  CONFIRMADA: "Devolución confirmada.",
+  EN_REVISION: "Devolución en revisión.",
+};
 
 function secondsLeft(order: Order) {
   return Math.max(0, Math.ceil(remainingMs(order) / 1000));
