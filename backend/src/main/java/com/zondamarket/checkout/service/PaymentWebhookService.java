@@ -8,7 +8,6 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -43,8 +42,7 @@ public class PaymentWebhookService {
                 || !authentic(signature, resource, request, secret)) {
             throw new ApiProblemException(HttpStatus.UNAUTHORIZED, "WEBHOOK_SIGNATURE_INVALID", "La firma no es válida.");
         }
-        String canonicalResource = topic == PaymentWebhookTopic.ORDER ? resource.toUpperCase(Locale.ROOT) : resource;
-        inbox.receive(topic, event, canonicalResource, request, trace, clock.instant());
+        inbox.receive(topic, event, resource, request, trace, clock.instant());
     }
 
     private static boolean authentic(String signature, String resource, String request, String secret) {
@@ -61,7 +59,7 @@ public class PaymentWebhookService {
         if (timestamp == null || !timestamp.matches("(?:[0-9]{10}|[0-9]{13})")
                 || digest == null || !digest.matches("[0-9a-fA-F]{64}")) return false;
         // The signature covers this manifest. Provider retries can arrive days after the initial delivery.
-        String manifest = "id:" + resource.toLowerCase(Locale.ROOT) + ";request-id:" + request + ";ts:" + timestamp + ";";
+        String manifest = "id:" + resource + ";request-id:" + request + ";ts:" + timestamp + ";";
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));

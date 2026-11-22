@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -256,7 +255,7 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     private MockHttpServletRequestBuilder notification(String topic, String id, String event, String secret) throws Exception {
         var request = UUID.randomUUID().toString();
         var time = Long.toString(clock.instant().toEpochMilli());
-        var manifest = "id:" + id.toLowerCase(Locale.ROOT) + ";request-id:" + request + ";ts:" + time + ";";
+        var manifest = "id:" + id + ";request-id:" + request + ";ts:" + time + ";";
         var hmac = Mac.getInstance("HmacSHA256");
         hmac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         var hash = HexFormat.of().formatHex(hmac.doFinal(manifest.getBytes(StandardCharsets.UTF_8)));
