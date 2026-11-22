@@ -30,10 +30,10 @@ public class FulfillmentService {
     }
 
     @Transactional(readOnly = true)
-    public SellerOrderPage sellerOrders(AccountResponse account, SellerOrderStatus status, int page, int size) {
+    public SellerOrderPage sellerOrders(AccountResponse account, SellerOrderStatus status, UUID subOrderId, int page, int size) {
         var seller = sellerId(account).orElseThrow(() -> new ApiProblemException(
                 HttpStatus.FORBIDDEN, "SELLER_REQUIRED", "Activá tu perfil de vendedor."));
-        var orders = checkout.sellerOrders(seller, status, page, size);
+        var orders = checkout.sellerOrders(seller, status, subOrderId, page, size);
         boolean hasNext = orders.size() > size;
         return new SellerOrderPage(hasNext ? orders.subList(0, size) : orders, page, size, hasNext);
     }

@@ -1,48 +1,13 @@
-import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { credentials, publish } from "./cart-fixtures";
-import { linkFromMail } from "./mailpit";
-import { productPhoto } from "./product-photo";
+import { credentials } from "./cart-fixtures";
+import { purchaseFixture } from "./purchase-fixture";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
 test("registra un despacho y confirma solo esa entrega con teclado en móvil", async ({ page, browser, request, baseURL }, testInfo) => {
   const origin = new URL(baseURL!).origin;
-  await page.goto("/registro");
-  const photo = await productPhoto(page, "#2563eb");
-  const alpha = await publish(request, origin, photo, "Alfa envío", 100);
-  const beta = await publish(request, origin, photo, "Beta envío", 150);
-  const buyer = `envio-${randomUUID().slice(0, 8)}@example.test`;
-  const registered = page.waitForResponse("**/api/v1/auth/register");
-  await credentials(page, buyer);
-  const headers = { Authorization: "Bearer " + (await (await registered).json()).accessToken };
-  await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
-  expect((await request.post("/api/v1/auth/email-verification/request", { data: { email: buyer } })).status()).toBe(202);
-  const verification = await linkFromMail(request, buyer, "/verificar-correo");
-  const token = new URLSearchParams(verification.hash.slice(1)).get("token");
-  expect((await request.post("/api/v1/auth/email-verification/confirm", { data: { token } })).status()).toBe(204);
-  const address = await request.post("/api/v1/me/addresses", {
-    headers, data: { street: "Calle Ficticia 200", city: "La Plata", provinceCode: "AR-B", postalCode: "1900", country: "AR" },
-  });
-  expect(address.status()).toBe(201);
-  for (const [expectedVersion, product] of [alpha, beta].entries()) {
-    expect((await request.put("/api/v1/cart/items/" + product.skuId, {
-      headers, data: { quantity: 1, expectedVersion },
-    })).status()).toBe(200);
-  }
-  const quote = await request.post("/api/v1/checkout/quote", {
-    headers, data: { addressId: (await address.json()).id, cartVersion: 2 },
-  });
-  expect(quote.status()).toBe(200);
-  const { id: quoteId } = await quote.json();
-  const reservation = await request.post("/api/v1/checkout/confirm", {
-    headers: { ...headers, "Idempotency-Key": quoteId }, data: { quoteId },
-  });
-  expect(reservation.status()).toBe(200);
-  const order = await reservation.json();
-  expect((await request.post(`/api/v1/test-fixtures/orders/${order.id}/payment-outcome`, {
-    headers, data: { reference: order.testPayment.reference, outcome: "APPROVED" },
-  })).status()).toBe(200);
+  const { order, alpha, beta, approve } = await purchaseFixture(page, request, origin);
+  await approve();
 
   await page.goto("/mis-ordenes");
   await page.getByRole("link", { name: "Ver orden " + order.id }).press("Enter");

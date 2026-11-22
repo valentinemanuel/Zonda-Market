@@ -121,9 +121,11 @@ export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
 }
 
-export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", signal: AbortSignal): Promise<SellerOrderPage> {
+export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", subOrderId: string | null,
+  signal: AbortSignal): Promise<SellerOrderPage> {
   const params = new URLSearchParams({ page: String(page) });
   if (status) params.set("status", status);
+  if (subOrderId) params.set("subOrderId", subOrderId);
   return (await authenticatedRequest("/api/v1/seller/orders?" + params, { signal })).json();
 }
 

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { profileLink } from "@/features/auth/profile-fields";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
 import { signInRequired } from "@/features/cart/cart-api";
@@ -22,6 +22,7 @@ export function CheckoutResultPage() {
 
 function OrderCheckout({ returned }: { returned: boolean }) {
   const { id = "" } = useParams();
+  const { hash } = useLocation();
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const client = useQueryClient();
   const order = useQuery({
@@ -30,6 +31,12 @@ function OrderCheckout({ returned }: { returned: boolean }) {
       query.state.data?.refunds?.some((refund) => refund.status === "PENDIENTE") ? 5000 : false,
   });
   const { data, refetch } = order;
+  const loadedId = data?.id;
+  useEffect(() => {
+    if (loadedId && /^#suborden-[0-9a-f-]{36}$/i.test(hash)) {
+      document.getElementById(hash.slice(1))?.focus();
+    }
+  }, [hash, loadedId]);
   useEffect(() => {
     if (data?.status === "EXPIRADA" || data?.status === "PAGADA") {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
@@ -60,7 +67,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     </div>
     {order.isPending ? <p role="status">Cargando reserva…</p>
       : signInRequired(order.error) ? <Button asChild>
-          <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned }}>Iniciar sesión para ver la reserva</Link>
+          <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned, orderHash: hash }}>Iniciar sesión para ver la reserva</Link>
         </Button>
       : order.isError ? <div className="space-y-2">
           <p role="alert" className="text-destructive">{order.error instanceof ApiError && order.error.status === 404

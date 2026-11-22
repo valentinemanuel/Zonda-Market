@@ -187,8 +187,9 @@ public class CheckoutStore {
                 .param("order", order));
     }
 
-    public List<SubOrder> sellerOrders(UUID seller, SellerOrderStatus status, int page, int size) {
+    public List<SubOrder> sellerOrders(UUID seller, SellerOrderStatus status, UUID subOrderId, int page, int size) {
         var filter = status == null ? "" : " AND own.status = :status";
+        if (subOrderId != null) filter += " AND own.id = :subOrder";
         var query = subOrderRows("""
                 sub.id IN (SELECT own.id FROM zonda_market.checkout_sub_order own
                     WHERE own.seller_id = :seller AND own.status IN ('PREPARANDO', 'DESPACHADA', 'ENTREGADA', 'REEMBOLSADA')
@@ -196,6 +197,7 @@ public class CheckoutStore {
                 "sub.created_at DESC, sub.id DESC")
                 .param("seller", seller).param("offset", (long) page * size).param("limit", size + 1);
         if (status != null) query.param("status", status.name());
+        if (subOrderId != null) query.param("subOrder", subOrderId);
         return readSubOrders(query);
     }
 
