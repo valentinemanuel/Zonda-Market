@@ -38,6 +38,9 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre el catálogo e
   await page.route("**/api/v1/cart", (route) => route.fulfill({
     json: { version: 0, groups: [], unavailable: [], total: "0.00", currency: "ARS", itemCount: 0 },
   }));
+  await page.route(/\/api\/v1\/me\/notifications\?page=0$/, (route) => route.fulfill({
+    json: { content: [], page: 0, size: 10, hasNext: false, unreadCount: 0 },
+  }));
 
   let release!: () => void;
   const hold = new Promise<void>((resolve) => { release = resolve; });
@@ -68,6 +71,7 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre el catálogo e
 
   await expect(page).toHaveURL(/\/catalogo$/);
   await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Notificaciones", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
   await expect(page.getByText("Google vinculado")).toBeVisible();
