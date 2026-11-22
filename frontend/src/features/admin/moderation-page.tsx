@@ -162,8 +162,8 @@ function Queue({ resource, revision }: { resource: Resource; revision: number })
         <div className="rounded-xl border">
           <table className="w-full table-fixed text-left text-sm sm:table-auto">
             <thead className="bg-muted/60">
-              <tr><th scope="col" className="w-[37%] p-2 sm:w-auto sm:p-3">{listings ? "Publicación" : "Cuenta"}</th>
-                <th scope="col" className="w-1/4 p-2 sm:w-auto sm:p-3">Estado</th>
+              <tr><th scope="col" className="w-[34%] p-2 sm:w-auto sm:p-3">{listings ? "Publicación" : "Cuenta"}</th>
+                <th scope="col" className="w-[29%] p-2 sm:w-auto sm:p-3">Estado</th>
                 <th scope="col" className="p-2 sm:p-3">Acciones</th></tr>
             </thead>
             <tbody>
@@ -260,7 +260,7 @@ function Details({ row, resource, queryKey, close }: {
   return (
     <section aria-labelledby="moderation-detail" className="space-y-4 rounded-xl border bg-muted/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h3 ref={title} tabIndex={-1} id="moderation-detail" className="font-semibold">Detalle de {label(row)}</h3>
+        <h3 ref={title} tabIndex={-1} id="moderation-detail" className="min-w-0 font-semibold wrap-anywhere">Detalle de {label(row)}</h3>
         <Button variant="outline" size="sm" type="button" onClick={close}>Cerrar detalle</Button>
       </div>
       <DetailSection<Audit> resource={resource} id={row.id} queryKey={queryKey} section="history" title="Historial de moderación"
