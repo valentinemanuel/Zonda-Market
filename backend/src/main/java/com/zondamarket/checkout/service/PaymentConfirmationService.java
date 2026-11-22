@@ -136,6 +136,7 @@ public class PaymentConfirmationService {
                 throw new IllegalStateException("Las líneas compradas no coinciden con las reservas de la orden.");
             }
             carts.advance(cart.id());
+            orders.recordSubOrderSettlements(orderId, order.currency(), now);
             result = Result.APPROVED;
         } else {
             reservations.settle(orderId, false, "FALLIDA", "CANCELADA", "CHECKOUT_PAYMENT_REJECTED", trace, now);

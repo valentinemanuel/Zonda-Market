@@ -144,6 +144,34 @@ ORDER BY updated_at DESC
 LIMIT 50;
 ```
 
+### E4-06 · Checkout con dos vendedores
+
+1. Prepará dos cuentas vendedoras ficticias, cada una con una publicación activa y al menos dos unidades disponibles. Usá una tercera cuenta como comprador, verificá su correo y agregale una dirección.
+2. Agregá una unidad de cada vendedor al carrito. Confirmá una reserva y pagá con tarjeta de prueba. Abrí **Seguir mi compra** y comprobá que la orden está **Pagada**, muestra un total y que cada vendedor tiene una suborden en preparación con su propia referencia.
+3. Con el mismo comprador y los mismos dos vendedores, armá otra reserva. Pagá con **Pagar con saldo de Mercado Pago** desde el origen HTTPS de prueba. Si el retorno sigue pendiente, usá **Consultar estado**. Al acreditarse, revisá la segunda orden y las dos subórdenes. Usá las credenciales de cada aplicación y la configuración de Webhooks detalladas arriba. La cuenta compradora de Mercado Pago se usa en el checkout externo.
+4. Creá una tercera reserva, dejala vencer y volvé a abrirla. Las subórdenes deben figurar canceladas y los productos deben poder cotizarse de nuevo. En otra reserva, probá un rechazo y confirmá que la reserva vigente sigue disponible.
+
+El smoke automático del backend usa un comprador y dos vendedores reales de la base de prueba, webhooks firmados y notificaciones repetidas. Los contratos de los adaptadores usan respuestas ficticias versionadas en `backend/src/test/resources/mercadopago/`. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=PaymentWebhookContractIT"` para reproducir ambos medios con fixtures. Desde `frontend/`, `npm run test:e2e -- checkout.spec.ts checkout-pro.spec.ts` cubre el resumen móvil, el teclado, el retorno pendiente y la expiración.
+
+Para la certificación externa, anotá por cada compra el método, ID de la orden Zonda, ID del pago de Mercado Pago, correlación `trace_id` y los dos estados de suborden. Capturá el resumen sin credenciales ni datos personales. Compará los asientos con el total de la orden y verificá que ambos corresponden al cobro ganador. En el retorno pendiente, guardá también una captura anterior a la acreditación. Para la consulta, configurá `order_id` como variable de `psql`.
+
+```sql
+SELECT paid.order_id, paid.payment_method, paid.provider_payment_id AS payment_id,
+       paid.trace_id, sub.id AS sub_order_id, sub.status, entry.merchandise,
+       entry.shipping, entry.commission, entry.seller_net, entry.currency
+FROM zonda_market.checkout_payment_outcome paid
+JOIN zonda_market.checkout_sub_order sub ON sub.order_id = paid.order_id
+JOIN zonda_market.checkout_sub_order_settlement entry ON entry.sub_order_id = sub.id
+WHERE paid.order_id = :'order_id'::uuid
+ORDER BY sub.id;
+
+SELECT method, verified_day, approved, rejected, pending, avg_terminal_seconds
+FROM zonda_market.payment_reconciliation_metrics
+ORDER BY verified_day DESC, method;
+```
+
+La vista agrupa por método y día UTC de la última transición verificada de cada pago externo. La latencia terminal mide desde la creación del intento hasta la aprobación o el rechazo verificado e incluye el tiempo en el checkout y en la conciliación. Los reenvíos con el mismo estado conservan la medición.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

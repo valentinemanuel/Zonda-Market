@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -179,6 +180,111 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void settlesTwoSellersOncePerOrderForCardAndBalanceWithTheSameBuyer() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var address = address(buyer);
+        var first = product("Tienda Alfa", "100.25", "5.00", 3);
+        var second = product("Tienda Beta", "250.90", "9.00", 3);
+        var total = new BigDecimal("365.15");
+        var baseline = metric("CARD", "approved");
+        var balanceBaseline = metric("CHECKOUT_PRO", "approved");
+        var providerOrder = "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP65";
+        var cardPaymentId = "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP65";
+
+        var cardOrder = reserve(buyer, address, first, second, 0, "CARD");
+        submitCard(cardOrder, providerOrder);
+        clock.set(clock.instant().plusSeconds(7));
+        card.order = new CardPaymentGateway.Observation(providerOrder, cardPaymentId, cardOrder.reference(),
+                total, "ARS", Status.APROBADO);
+        for (String event : List.of("51", "52")) {
+            mvc.perform(notification("order", providerOrder, event, "card-fixture-secret")).andExpect(status().isOk());
+            assertTrue(worker.processNextNotification());
+        }
+        assertDualSettlement(cardOrder, outsider, "CARD", cardPaymentId);
+        assertStock(first, 2, 0);
+        assertStock(second, 2, 0);
+
+        var balanceOrder = reserve(buyer, address, first, second, 3, "CHECKOUT_PRO");
+        submitBalance(balanceOrder);
+        var paymentId = nextId();
+        pro.payment = new CheckoutProGateway.Payment(paymentId, balanceOrder.reference(), total, "ARS", Status.PENDIENTE);
+        mvc.perform(notification("payment", paymentId, "53", "pro-fixture-secret")).andExpect(status().isOk());
+        assertTrue(worker.processNextNotification());
+        assertEquals(0, eventCount(balanceOrder.order(), "CHECKOUT_PAID"));
+        assertStock(first, 1, 1);
+        assertStock(second, 1, 1);
+
+        clock.set(clock.instant().plusSeconds(9));
+        pro.payment = new CheckoutProGateway.Payment(paymentId, balanceOrder.reference(), total, "ARS", Status.APROBADO);
+        for (String event : List.of("54", "55")) {
+            mvc.perform(notification("payment", paymentId, event, "pro-fixture-secret")).andExpect(status().isOk());
+            assertTrue(worker.processNextNotification());
+        }
+        assertDualSettlement(balanceOrder, outsider, "CHECKOUT_PRO", paymentId);
+        assertStock(first, 1, 0);
+        assertStock(second, 1, 0);
+        assertEquals(baseline + 1, metric("CARD", "approved"));
+        assertEquals(balanceBaseline + 1, metric("CHECKOUT_PRO", "approved"));
+    }
+
+    @Test
+    void measuresVerifiedRejectionOnceAndCreatesNoSettlement() throws Exception {
+        var purchase = startBalance();
+        var rejected = metric("CHECKOUT_PRO", "rejected");
+        var paymentId = nextId();
+        pro.payment = balance(purchase, paymentId, Status.RECHAZADO);
+        clock.set(clock.instant().plusSeconds(5));
+        for (String event : List.of("56", "57")) {
+            mvc.perform(notification("payment", paymentId, event, "pro-fixture-secret")).andExpect(status().isOk());
+            assertTrue(worker.processNextNotification());
+        }
+        assertEquals(rejected + 1, metric("CHECKOUT_PRO", "rejected"));
+        assertEquals(0, settlementAmounts(purchase.order()).size());
+    }
+
+    private long metric(String method, String status) {
+        return sql.sql("""
+                SELECT COALESCE(sum(CASE WHEN :status = 'approved' THEN approved ELSE rejected END), 0)
+                FROM zonda_market.payment_reconciliation_metrics
+                WHERE method = :method
+                """).param("status", status).param("method", method)
+                .query(Long.class).single();
+    }
+
+    private void assertDualSettlement(Purchase purchase, Account outsider, String method, String paymentId) throws Exception {
+        mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAGADA"))
+                .andExpect(jsonPath("$.total").value("365.15"))
+                .andExpect(jsonPath("$.subOrders.length()").value(2))
+                .andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"))
+                .andExpect(jsonPath("$.subOrders[1].status").value("PREPARANDO"));
+        mvc.perform(auth(get(ORDERS + purchase.order()), outsider)).andExpect(status().isNotFound());
+        assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
+        assertEquals(1, transactions(purchase.attempt()));
+        assertEquals(paymentId, settledPayment(purchase.order()));
+        assertEquals(List.of("105.25", "259.90"), settlementAmounts(purchase.order()));
+        assertTrue(sql.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM zonda_market.checkout_payment_outcome outcome
+                    JOIN zonda_market.payment_transaction tx
+                      ON (tx.method, tx.provider_payment_id) = (outcome.payment_method, outcome.provider_payment_id)
+                    JOIN zonda_market.payment_attempt attempt ON attempt.id = tx.attempt_id
+                    WHERE outcome.order_id = :order AND tx.method = :method
+                      AND tx.trace_id = outcome.trace_id AND tx.verified_at > attempt.created_at
+                )
+                """).param("order", purchase.order()).param("method", method).query(Boolean.class).single());
+    }
+
+    private List<String> settlementAmounts(UUID order) {
+        return sql.sql("""
+                SELECT settlement.seller_net FROM zonda_market.checkout_sub_order_settlement settlement
+                JOIN zonda_market.checkout_sub_order sub ON sub.id = settlement.sub_order_id
+                WHERE sub.order_id = :order ORDER BY sub.seller_name
+                """).param("order", order).query(BigDecimal.class).list().stream().map(BigDecimal::toPlainString).toList();
+    }
+
+    @Test
     void recoversPendingPaymentsUsingTheSweepWithNoWebhookDelivery() throws Exception {
         var purchase = startBalance();
         var id = nextId();
@@ -227,6 +333,7 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
                 .andExpect(jsonPath("$.refundedAmount").value("0.00"));
         mvc.perform(auth(get(ORDERS + original.order()), secondBuyer)).andExpect(status().isNotFound());
         assertEquals(0, eventCount(original.order(), "CHECKOUT_PAID"));
+        assertTrue(settlementAmounts(original.order()).isEmpty());
 
         refunds.timeoutAfterSending = true;
         try (var pool = Executors.newFixedThreadPool(2)) {
@@ -272,6 +379,7 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
         assertEquals(extraPayment, refunds.sent.getFirst().paymentId());
         assertEquals(validPayment, settledPayment(purchase.order()));
         assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
+        assertEquals(List.of("19.25"), settlementAmounts(purchase.order()));
         assertStock(purchase.sku(), 1, 0);
         mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAGADA"))
@@ -291,11 +399,15 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
 
     private Purchase startBalance() throws Exception {
         var purchase = reserve("CHECKOUT_PRO");
+        submitBalance(purchase);
+        return purchase;
+    }
+
+    private void submitBalance(Purchase purchase) throws Exception {
         mvc.perform(auth(post(ORDERS + purchase.order() + "/payments/pro"), purchase.buyer())
                 .header("Idempotency-Key", "submit")
                 .content("{\"attemptId\":\"" + purchase.attempt() + "\"}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDIENTE"));
-        return purchase;
     }
 
     private Purchase startCard() throws Exception {
@@ -303,23 +415,33 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     }
 
     private Purchase startCard(String orderId) throws Exception {
-        card.nextOrderId = orderId;
         var purchase = reserve("CARD");
+        submitCard(purchase, orderId);
+        return purchase;
+    }
+
+    private void submitCard(Purchase purchase, String orderId) throws Exception {
+        card.nextOrderId = orderId;
         mvc.perform(auth(post(ORDERS + purchase.order() + "/payments/card"), purchase.buyer())
                 .header("Idempotency-Key", "submit").content("""
                         {"attemptId":"%s","token":"token_ficticio_tarjeta","paymentMethodId":"visa",
                          "paymentType":"credit_card","installments":1,"payer":{"email":"comprador@example.test"}}
                         """.formatted(purchase.attempt()))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESULTADO_DESCONOCIDO"));
-        return purchase;
     }
 
     private Purchase reserve(String method) throws Exception {
         var buyer = account(true);
         var sku = product("Webhook ficticio", TOTAL.toPlainString(), "0.00", 2);
-        add(buyer, sku, 1, 0);
-        var quote = uuid(quote(buyer, address(buyer), 1).andExpect(status().isOk()).andReturn());
-        var order = uuid(confirm(buyer, quote, "reserve").andExpect(status().isOk()).andReturn());
+        return reserve(buyer, address(buyer), sku, null, 0, method);
+    }
+
+    private Purchase reserve(Account buyer, UUID address, UUID sku, UUID second, long version, String method)
+            throws Exception {
+        add(buyer, sku, 1, version++);
+        if (second != null) add(buyer, second, 1, version++);
+        var quote = uuid(quote(buyer, address, version).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, quote, "reserve-" + quote).andExpect(status().isOk()).andReturn());
         var attempt = uuid(mvc.perform(auth(post(ORDERS + order + "/payments"), buyer)
                 .header("Idempotency-Key", "start").content("{\"method\":\"" + method + "\"}"))
                 .andExpect(status().isOk()).andReturn());

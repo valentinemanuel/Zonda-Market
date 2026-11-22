@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { PaymentAttempt, PaymentOptions } from "../src/features/checkout/checkout-api";
+import type { Order, PaymentAttempt, PaymentOptions } from "../src/features/checkout/checkout-api";
 import { credentials } from "./cart-fixtures";
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -18,10 +18,21 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   let starts = 0;
   let finishPreparation!: () => void;
   const preparation = new Promise<void>((resolve) => { finishPreparation = resolve; });
+  const subOrders: Order["subOrders"] = ["Alfa", "Beta"].map((seller) => ({
+    id: randomUUID(),
+    status: "ESPERA_PAGO",
+    address: { id: randomUUID(), street: "Calle Ficticia 123", city: "La Plata", provinceCode: "AR-B",
+      postalCode: "1900", country: "AR" },
+    group: { sellerId: randomUUID(), sellerName: "Tienda " + seller, merchandise: "9.50", shipping: "0.00",
+      subtotal: "9.50", items: [{ skuId: randomUUID(), title: "Producto " + seller, quantity: 1, attributes: {},
+        subtotal: "9.50" }] },
+  }));
 
   await page.route("**" + orderApi, (route) => route.fulfill({ json: {
     id, status: attempt?.status === "APROBADO" ? "PAGADA" : "RESERVADA", expiresAt,
-    serverNow: new Date().toISOString(), total: "19.25", subOrders: [], testPayment: null,
+    serverNow: new Date().toISOString(), total: "19.00",
+    subOrders: subOrders.map((sub) => ({ ...sub, status: attempt?.status === "APROBADO" ? "PREPARANDO" : sub.status })),
+    testPayment: null,
   } }));
   await page.route("**" + orderApi + "/payment-options", (route) => {
     const options: PaymentOptions = { methods: attempt ? [] : ["CHECKOUT_PRO", "CARD"], latestAttempt: attempt,
@@ -78,6 +89,8 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await expect(page.getByText("El pago está pendiente de confirmación.")).toBeVisible();
   await expect(page.getByText("No pudimos consultar el pago. Volvé a intentarlo.")).toBeVisible();
   await expect(page.getByText("Pago aprobado.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("En espera de pago", { exact: true })).toHaveCount(2);
+  await expect(page.getByRole("link", { name: "Seguir mi compra" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("saldo-pendiente-movil.png"), fullPage: true });
 
@@ -86,6 +99,8 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await consult.press("Enter");
   await expect(page.getByText("Pago aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
+  await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
+  await expect(page.getByRole("link", { name: "Seguir mi compra" })).toHaveAttribute("href", "/mis-ordenes");
   expect(consultations).toBe(3);
   await page.screenshot({ path: testInfo.outputPath("saldo-aprobado-movil.png"), fullPage: true });
 });

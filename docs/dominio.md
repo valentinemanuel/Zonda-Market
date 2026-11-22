@@ -62,6 +62,7 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 - Una compensación reserva todo el importe de la transacción y usa una clave de idempotencia persistida por pago. La tarjeta consulta y devuelve en Orders API. El saldo usa Payments API. Antes de enviar o reintentar, el worker concilia el historial del proveedor. Un reembolso parcial existente o una respuesta discordante pasa a revisión. El importe reembolsado se refleja después de verificar la confirmación.
 - El envío desde la pantalla bloquea una segunda activación mientras la primera esté en curso. La API conserva la identidad del intento y verifica su elegibilidad bajo bloqueo para cubrir recargas, otras pestañas y reintentos.
 - Card Payment Brick y Checkout Pro comparten conciliación. En la demo los cobros usan una cuenta de prueba colectora y la liquidación por vendedor se registra internamente.
+- La aprobación ganadora crea un asiento inicial por suborden en la misma transacción que el resultado y el consumo de la reserva. El asiento conserva mercadería, envío, comisión, moneda y neto estimado (mercadería más envío menos comisión). Cada asiento se vincula al mismo cobro ganador mediante su orden. La simulación local usa la misma regla y queda identificada por el resultado sin transacción externa. Los rechazos, los cobros tardíos y los repetidos no generan asientos iniciales adicionales.
 
 ## Despacho, disputas y devoluciones
 
