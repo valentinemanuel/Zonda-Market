@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"zonda.auth.jwt-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "zonda.checkout.expiry.enabled=false"})
+        "zonda.checkout.expiry.enabled=false", "zonda.checkout.reconciliation.enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
 @ActiveProfiles("test")
@@ -256,7 +256,9 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
             assertEquals(lastCharge.externalReference(), reference);
             if (paymentId != null) assertEquals(lastId, paymentId);
             return Optional.ofNullable(answer).map(status ->
-                    new Observation(lastId, reference, lastCharge.amount().add(amountAdjustment), "ARS", status));
+                    new Observation(lastId, "PAY-" + lastId, reference, lastCharge.amount().add(amountAdjustment), "ARS", status));
         }
+
+        @Override public Optional<Observation> lookupOrder(String id) { return Optional.empty(); }
     }
 }

@@ -16,9 +16,19 @@ interface PaymentStrategy {
                           String currency, Instant expiresAt) {}
 
     record VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status,
-                           String providerOrderId) {
+                           String providerOrderId, String providerPaymentId) {
         VerifiedPayment(String externalReference, BigDecimal amount, String currency, Status status) {
-            this(externalReference, amount, currency, status, null);
+            this(externalReference, amount, currency, status, null, null);
+        }
+
+        static VerifiedPayment from(CardPaymentGateway.Observation payment) {
+            return new VerifiedPayment(payment.externalReference(), payment.amount(), payment.currency(), payment.status(),
+                    payment.providerOrderId(), payment.providerPaymentId());
+        }
+
+        static VerifiedPayment from(CheckoutProGateway.Payment payment) {
+            return new VerifiedPayment(payment.reference(), payment.amount(), payment.currency(), payment.status(),
+                    payment.id(), payment.id());
         }
     }
 

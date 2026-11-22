@@ -58,6 +58,11 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
   const key = paymentOptionsKey(revision, id);
   const options = useQuery({
     queryKey: key, queryFn: ({ signal }) => fetchPaymentOptions(id, signal), retry: false,
+    refetchInterval: (query) => {
+      const latest = query.state.data?.latestAttempt;
+      return eligible && latest?.provider === "MERCADO_PAGO"
+        && ["ENVIADO", "PENDIENTE", "RESULTADO_DESCONOCIDO"].includes(latest.status) ? 4000 : false;
+    },
   });
   const refresh = useCallback(async () => {
     if (getSessionRevision() !== revision) return;
@@ -95,6 +100,9 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     onSettled: refresh,
   });
   const attempt = options.data?.latestAttempt;
+  useEffect(() => {
+    if (attempt?.status === "APROBADO") void client.invalidateQueries({ queryKey: orderKey(revision, id) });
+  }, [attempt?.status, client, id, revision]);
   const cardConfig = options.data?.card;
   const cardAttempt = attempt?.nextAction === "INGRESAR_TARJETA" ? attempt.id : undefined;
   const proAttempt = attempt?.provider === "MERCADO_PAGO" && attempt.method === "CHECKOUT_PRO" ? attempt : null;
@@ -152,7 +160,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     if (payment.isSuccess) status.current?.focus();
   }, [payment.isSuccess]);
   const methods = eligible ? options.data?.methods ?? [] : [];
-  const busy = payment.isPending || options.isFetching || checkingReturn;
+  const busy = payment.isPending || options.isPending || checkingReturn;
   const showCard = options.isPending || options.isError || attempt || methods.length > 0 || payment.isError;
   const showFixture = options.isSuccess && !cardConfig && !options.data.checkoutPro && !attempt && !payment.isPending;
 

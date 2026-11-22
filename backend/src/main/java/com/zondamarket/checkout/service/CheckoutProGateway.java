@@ -20,6 +20,8 @@ public interface CheckoutProGateway {
 
     Optional<Payment> lookup(Checkout checkout) throws Uncertain;
 
+    Optional<Payment> lookupPayment(String paymentId) throws PaymentProviderReadFailure;
+
     class Uncertain extends Exception {}
     class Unavailable extends Exception {}
 }

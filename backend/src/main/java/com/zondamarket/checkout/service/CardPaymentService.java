@@ -118,8 +118,7 @@ public class CardPaymentService {
             if (result.isPresent()) {
                 var verified = result.get();
                 if (attempt.amount().compareTo(verified.amount()) == 0) {
-                    reconciler.apply(buyer, order, attempt.id(), new VerifiedPayment(verified.externalReference(),
-                            verified.amount(), verified.currency(), verified.status(), verified.providerOrderId()), trace);
+                    reconciler.apply(buyer, order, attempt.id(), VerifiedPayment.from(verified), trace);
                     return;
                 }
             }

@@ -14,8 +14,11 @@ public interface CardPaymentGateway {
 
     Optional<Observation> lookup(String providerOrderId, String externalReference, Instant expiresAt) throws SubmissionUncertain;
 
+    Optional<Observation> lookupOrder(String providerOrderId) throws PaymentProviderReadFailure;
+
     record Charge(UUID idempotencyKey, String externalReference, BigDecimal amount, Instant expiresAt, String provinceCode) {}
-    record Observation(String providerOrderId, String externalReference, BigDecimal amount, String currency, Status status) {}
+    record Observation(String providerOrderId, String providerPaymentId, String externalReference, BigDecimal amount,
+                       String currency, Status status) {}
 
     class SubmissionUncertain extends Exception {}
     class NoCharge extends Exception {}
