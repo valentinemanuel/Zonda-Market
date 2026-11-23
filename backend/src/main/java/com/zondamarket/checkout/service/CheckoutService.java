@@ -12,10 +12,13 @@ import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
 import com.zondamarket.checkout.dto.CheckoutDtos.TestPayment;
 import com.zondamarket.checkout.dto.CompensationDtos.Status;
+import com.zondamarket.checkout.dto.PaymentDtos;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.CheckoutStore.Order;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
+import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentCompensationStore;
+import com.zondamarket.checkout.repository.ReservationStore;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
@@ -50,16 +53,21 @@ public class CheckoutService {
     private final CheckoutStore store;
     private final PaymentOutcomeStore outcomes;
     private final PaymentCompensationStore compensations;
+    private final PaymentAttemptStore attempts;
+    private final ReservationStore reservations;
     private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
     private final CategoryLock categoryLock;
 
     CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes, PaymentCompensationStore compensations,
+                    PaymentAttemptStore attempts, ReservationStore reservations,
                     ObjectProvider<LocalPaymentPort> localPayment, Clock clock, CategoryLock categoryLock) {
         this.carts = carts;
         this.store = store;
         this.outcomes = outcomes;
         this.compensations = compensations;
+        this.attempts = attempts;
+        this.reservations = reservations;
         this.localPayment = localPayment;
         this.clock = clock;
         this.categoryLock = categoryLock;
@@ -133,6 +141,28 @@ public class CheckoutService {
     public OrderResponse get(UUID buyer, UUID id) {
         return store.find(buyer, id).map(this::response).orElseThrow(() ->
                 new ApiProblemException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "No encontramos esa orden."));
+    }
+
+    @Transactional(timeout = 5)
+    public void cancelReservation(UUID buyer, UUID id, UUID trace) {
+        var order = store.lock(buyer, id).orElseThrow(() ->
+                new ApiProblemException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "No encontramos esa orden."));
+        if (List.of("CANCELADA", "EXPIRADA", "FALLIDA").contains(order.status())) return;
+        if (!List.of("RESERVADA", "PAGO_PENDIENTE").contains(order.status())) {
+            throw conflict("ORDER_ALREADY_SETTLED", "Esta orden ya tiene un resultado definitivo.");
+        }
+        var attempt = attempts.latest(id).orElse(null);
+        var now = now();
+        if (attempt != null) {
+            switch (attempt.status()) {
+                case CREADO -> attempts.update(id, attempt.id(), PaymentDtos.Status.RECHAZADO, trace, now);
+                case RECHAZADO -> { }
+                default -> throw conflict("PAYMENT_IN_PROGRESS",
+                        "El pago está en proceso. Consultá su estado antes de volver a Envío.");
+            }
+        }
+        reservations.lockResources(id);
+        reservations.settle(id, false, "CANCELADA", "CANCELADA", "CHECKOUT_CANCELLED", trace, now);
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

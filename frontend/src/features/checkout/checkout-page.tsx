@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LockKeyhole, MapPin } from "lucide-react";
+import { ArrowLeft, LockKeyhole, MapPin } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { getAddresses, type Address } from "@/features/auth/profile-api";
@@ -29,7 +29,7 @@ export function CheckoutPage() {
   const reload = () => { void Promise.all(queries.map((query) => query.refetch())); };
 
   return <div className="mx-auto max-w-7xl space-y-5">
-    <Link className={profileLink + " text-sm"} to="/carrito">Volver al carrito</Link>
+    <Link className={profileLink + " gap-2 text-sm"} to="/carrito"><ArrowLeft aria-hidden="true" className="size-4" />Volver al carrito</Link>
     <CheckoutHeading title="Confirmar compra" step="Envío" />
     {active.data && !active.isFetching ? <Navigate to={reservationPath(active.data.id)} replace />
       : queries.some((query) => signInRequired(query.error)) ? <Button asChild>
@@ -90,7 +90,7 @@ function CheckoutForm({ revision, cart, addresses, reload }: {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
-      navigate(reservationPath(result.id), { replace: true });
+      navigate(reservationPath(result.id));
     },
     onError: (error) => {
       if (revision !== getSessionRevision()) return;
@@ -123,7 +123,7 @@ function CheckoutForm({ revision, cart, addresses, reload }: {
     <Card className="gap-0 py-4">
       <CardContent className="space-y-3 px-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 font-semibold"><MapPin aria-hidden="true" className="size-4 text-primary" />Dirección de entrega</h2>
+          <h2 className="flex items-center gap-3 text-lg font-bold"><MapPin aria-hidden="true" className="size-10 rounded-xl bg-accent p-2.5 text-primary" />Dirección de entrega</h2>
           <Link className={profileLink + " text-sm"} to="/cuenta/direcciones">Cambiar o agregar</Link>
         </div>
         <form className="space-y-3" onSubmit={submit}>

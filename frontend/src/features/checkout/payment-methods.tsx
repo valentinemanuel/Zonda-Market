@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CreditCard, Wallet } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { getSessionRevision } from "@/features/auth/session-api";
 import { Button } from "@/shared/ui/button";
@@ -6,7 +7,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import {
   activeOrderKey, fetchPaymentOptions, orderKey, ordersKey, paymentOptionsKey, simulateAttemptOutcome,
   reconcileCardPayment, reconcileCheckoutPro, startPayment, submitCardPayment, submitCheckoutPro, submitPayment,
-  type CardData, type Order,
+  type CardConfig, type CardData, type Order,
   type PaymentAttempt, type PaymentMethod, type PaymentOptions, type VerifiedAttemptOutcome,
 } from "./checkout-api";
 import { TestPaymentAction } from "./test-payment-action";
@@ -55,6 +56,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
   const navigationInFlight = useRef(false);
   const [leaving, setLeaving] = useState(false);
   const [cardError, setCardError] = useState(false);
+  const [submittingCard, setSubmittingCard] = useState<{ attempt: string; config: CardConfig }>();
   const [checkingReturn, setCheckingReturn] = useState(false);
   const [returnError, setReturnError] = useState(false);
   const id = order.id;
@@ -163,7 +165,9 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     };
   }, [id, pollAttempt, refresh, revision]);
   const submitCard = useCallback(async (data: CardData) => {
-    if (!cardAttempt || getSessionRevision() !== revision) return;
+    if (!cardAttempt || !cardConfig || getSessionRevision() !== revision) return;
+    setSubmittingCard({ attempt: cardAttempt, config: cardConfig });
+    const minimumAnimation = new Promise<void>((resolve) => window.setTimeout(resolve, 900));
     try {
       const result = await submitCardPayment(id, cardAttempt, data);
       if (getSessionRevision() !== revision) return;
@@ -175,23 +179,27 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
     } catch {
       if (getSessionRevision() === revision) setCardError(true);
     } finally {
-      await refresh();
+      await Promise.all([refresh(), minimumAnimation]);
+      setSubmittingCard(undefined);
       if (getSessionRevision() === revision) status.current?.focus();
     }
-  }, [cardAttempt, client, id, refresh, revision]);
+  }, [cardAttempt, cardConfig, client, id, refresh, revision]);
 
   useEffect(() => {
     if (payment.isSuccess) status.current?.focus();
   }, [payment.isSuccess]);
   const methods = eligible ? options.data?.methods ?? [] : [];
-  const busy = payment.isPending || options.isPending || checkingReturn || leaving;
-  const showCard = options.isPending || options.isError || attempt || methods.length > 0 || payment.isError;
+  const busy = payment.isPending || options.isPending || checkingReturn || leaving || !!submittingCard;
+  const showCard = submittingCard || options.isPending || options.isError || attempt || methods.length > 0 || payment.isError;
+  const visibleCard = submittingCard ?? (eligible && cardAttempt && cardConfig ? { attempt: cardAttempt, config: cardConfig } : undefined);
   const showFixture = options.isSuccess && !cardConfig && !options.data.checkoutPro && !attempt && !payment.isPending;
 
   return <>
     {showCard && <Card className="gap-0 py-4">
       <CardContent className="space-y-3 px-4 sm:px-6">
-        <h2 className="text-lg font-semibold">Medios de pago</h2>
+        <h2 className="flex items-center gap-3 text-lg font-bold">
+          <CreditCard aria-hidden="true" className="size-10 rounded-xl bg-accent p-2 text-primary" />Medios de pago
+        </h2>
         {cardConfig ? <p className="text-sm text-muted-foreground">Usá tarjetas de prueba de Mercado Pago.</p>
           : options.data?.checkoutPro ? <p className="text-sm text-muted-foreground">Usá una cuenta de prueba de Mercado Pago con saldo.</p>
           : order.testPayment && <p className="text-sm text-muted-foreground">Modo de prueba local.</p>}
@@ -211,9 +219,11 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
             : cardAttempt ? "El formulario de tarjeta no está disponible."
             : statusLabels[attempt.status]}</p>
         </div>}
-        {methods.length > 0 && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {methods.length > 0 && <div className="grid gap-3 sm:grid-cols-2">
           {methods.map((method) => <Button key={method} type="button" variant="outline" disabled={busy || options.isError}
+            className="h-auto min-h-14 justify-start whitespace-normal rounded-panel text-left"
             onClick={() => run({ type: "start", method, key: crypto.randomUUID() })}>
+            {method === "CARD" ? <CreditCard aria-hidden="true" /> : <Wallet aria-hidden="true" />}
             {method === "CHECKOUT_PRO" && options.data?.checkoutPro ? "Pagar con saldo de Mercado Pago"
               : method === "CARD" && cardConfig ? "Pagar con tarjeta"
               : method === "CHECKOUT_PRO" && cardConfig ? "Elegir Checkout Pro (simulado)" : "Elegir " + methodLabels[method]}
@@ -242,8 +252,9 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
           type="button" disabled={busy} onClick={() => run({ type: "open-pro", attemptId: proAttempt.id })}>
           Abrir Mercado Pago
         </Button>}
-        {eligible && cardAttempt && cardConfig && <Suspense fallback={<p role="status">Cargando el formulario de tarjeta…</p>}>
-          <CardPaymentForm key={cardAttempt} config={cardConfig} blocked={cardError || options.isError} onSubmit={submitCard} />
+        {visibleCard && <Suspense fallback={<p role="status">Cargando el formulario de tarjeta…</p>}>
+          <CardPaymentForm key={visibleCard.attempt} config={visibleCard.config}
+            blocked={!!submittingCard || cardError || options.isError} onSubmit={submitCard} />
         </Suspense>}
         {eligible && attempt?.provider === "LOCAL" && attempt.status === "CREADO" && <Button type="button" disabled={busy}
           onClick={() => run({ type: "submit", attemptId: attempt.id })}>Continuar intento</Button>}

@@ -118,6 +118,8 @@ export function SiteLayout() {
 }
 
 export function PrivateLayout() {
+  const { pathname } = useLocation();
+  if (/^\/ingresar\/?$/i.test(pathname)) return <Outlet />;
   return <Card className="mx-auto max-w-lg border-t-4 border-t-brand py-6 shadow-float sm:py-8">
     <CardContent className="sm:px-8"><Outlet /></CardContent>
   </Card>;

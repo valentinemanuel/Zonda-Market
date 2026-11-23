@@ -1,5 +1,5 @@
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Button } from "@/shared/ui/button";
 import type { CardConfig, CardData } from "./checkout-api";
 
@@ -16,8 +16,12 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
   const [formError, setFormError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const sending = useRef(false);
+  const current = useRef({ blocked, onSubmit });
   const { publicKey, amount, payerEmail } = config;
   const initialization = useMemo(() => ({ amount: Number(amount), payer: { email: payerEmail } }), [amount, payerEmail]);
+
+  // The SDK re-creates the Brick when the identity of onSubmit changes.
+  useLayoutEffect(() => { current.current = { blocked, onSubmit }; }, [blocked, onSubmit]);
 
   useEffect(() => {
     initMercadoPago(publicKey, { locale: "es-AR" });
@@ -31,7 +35,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
     else setFormError(true);
   }, []);
   const submit = useCallback<NonNullable<ComponentProps<typeof CardPayment>["onSubmit"]>>(async (data, additional) => {
-    if (blocked || sending.current) return;
+    if (current.current.blocked || sending.current) return;
     const paymentType = additional?.paymentTypeId;
     if (paymentType !== "credit_card" && paymentType !== "debit_card") {
       setFormError(true);
@@ -42,7 +46,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
     setSubmitting(true);
     try {
       const identification = data.payer.identification;
-      await onSubmit({
+      await current.current.onSubmit({
         token: data.token,
         paymentMethodId: data.payment_method_id,
         paymentType,
@@ -56,7 +60,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
       sending.current = false;
       setSubmitting(false);
     }
-  }, [blocked, onSubmit, payerEmail]);
+  }, [payerEmail]);
 
   return <div className="min-w-0 space-y-2">
     {state === "loading" && <p role="status">Cargando el formulario de tarjeta…</p>}
@@ -69,7 +73,7 @@ export function CardPaymentForm({ config, blocked, onSubmit }: {
           <p role="alert" className="text-destructive">No pudimos cargar el formulario de Mercado Pago.</p>
           <Button type="button" variant="outline" onClick={() => window.location.reload()}>Recargar formulario</Button>
         </div>
-      : <fieldset aria-label="Datos de tarjeta" className="min-w-0 disabled:opacity-60"
+      : <fieldset aria-label="Datos de tarjeta" className="min-w-0"
           disabled={blocked || submitting} aria-busy={state === "loading" || submitting}>
           <CardPayment initialization={initialization} customization={customization} locale="es-AR"
             onReady={ready} onError={failed} onSubmit={submit} />

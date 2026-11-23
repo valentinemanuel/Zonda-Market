@@ -82,6 +82,7 @@ export function orderStatus(status: string) {
     case "RESERVADA": return "Reservada";
     case "PAGO_PENDIENTE": return "Pago pendiente";
     case "EXPIRADA": return "Vencida";
+    case "CANCELADA": return "Reserva cancelada";
     case "PAGADA": return "Pagada";
     case "REEMBOLSO_PARCIAL": return "Con devolución parcial";
     case "REEMBOLSADA": return "Reembolsada";
@@ -122,6 +123,10 @@ export async function activeOrder(signal: AbortSignal): Promise<Order | null> {
 
 export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
+}
+
+export async function cancelReservation(id: string): Promise<void> {
+  await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/cancel-reservation", { method: "POST" });
 }
 
 export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", subOrderId: string | null,

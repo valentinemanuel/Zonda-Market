@@ -41,7 +41,7 @@ public class CartStore {
                         UUID sellerAccountId, boolean visible, String code, int commissionBps, BigDecimal shipping) {}
 
     public record Line(Offer offer, int quantity, BigDecimal referencePrice, String referenceTitle,
-                       Map<String, String> referenceAttributes) {}
+                       Map<String, String> referenceAttributes, String thumbnailUrl) {}
 
     public record ReservedLine(UUID orderId, UUID skuId) {}
 
@@ -76,14 +76,21 @@ public class CartStore {
     public List<Line> lines(UUID cartId) {
         return sql.sql(OFFER_COLUMNS + """
                 , item.quantity, item.reference_price, item.reference_title, item.reference_attributes
+                , cover.thumbnail_url
                 FROM zonda_market.cart_item item
                 JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
                 """ + OFFER_JOINS + """
+                LEFT JOIN LATERAL (
+                    SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                    WHERE image.listing_id = listing.id AND NOT image.deleted
+                    ORDER BY image.position, image.id LIMIT 1
+                ) cover ON public_listing.id IS NOT NULL
                 WHERE item.cart_id = :cart AND NOT item.deleted
                 ORDER BY seller.display_name, seller.id, item.created_at, item.id
                 """).param("cart", cartId)
                 .query((rs, row) -> new Line(readOffer(rs), rs.getInt("quantity"), rs.getBigDecimal("reference_price"),
-                        rs.getString("reference_title"), json.readValue(rs.getString("reference_attributes"), ATTRIBUTES)))
+                        rs.getString("reference_title"), json.readValue(rs.getString("reference_attributes"), ATTRIBUTES),
+                        rs.getString("thumbnail_url")))
                 .list();
     }
 

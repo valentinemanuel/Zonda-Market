@@ -102,11 +102,20 @@
     padding-block-end: calc(var(--store-hero-overlap) + 1rem);
     background:
       linear-gradient(to bottom, transparent 80%, var(--color-background) 100%),
-      radial-gradient(ellipse at 59% 27%, #78452e88, transparent 47%),
       radial-gradient(ellipse at 100% 100%, #8a3011, transparent 52%),
       radial-gradient(ellipse at 0% 110%, #60533b80, transparent 56%),
       linear-gradient(125deg, #101727, #242632 76%, #171e2e);
   }
+
+  .store-hero-glow {
+    opacity: 0;
+    background: radial-gradient(ellipse at 63% 30%, var(--store-glow), transparent 61%);
+  }
+
+  .store-hero-glow[data-theme="tecnologia"] { --store-glow: #ae583a70; }
+  .store-hero-glow[data-theme="hogar"] { --store-glow: #b479387d; }
+  .store-hero-glow[data-theme="calzado"] { --store-glow: #884ca682; }
+  .store-hero-glow[data-active="true"] { opacity: 1; }
 
   .store-shortcuts {
     margin-block-start: calc(-1 * var(--store-hero-overlap));
@@ -136,18 +145,55 @@
     --store-slide-offset: -3rem;
   }
 
-  .store-hero-slide[data-state="entering"] {
-    animation: store-slide-in 280ms var(--ease-store) both;
+  .store-hero {
+    --store-reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .store-hero-glow { transition: opacity 800ms ease; }
+  .store-hero-slide[data-state="entering"] .store-hero-copy > * {
+    animation: store-text-in 520ms var(--store-reveal-ease) var(--store-reveal-delay, 0ms) both;
+  }
+  .store-hero-title { --store-reveal-delay: 90ms; }
+  .store-hero-description { --store-reveal-delay: 180ms; }
+  .store-hero-actions { --store-reveal-delay: 260ms; }
+  .store-hero-slide[data-state="entering"] .store-hero-artwork {
+    animation: store-artwork-in 650ms var(--store-reveal-ease) both;
+  }
+  .store-hero-slide:is([data-state="active"], [data-state="entering"]) .store-hero-float {
+    animation: store-float 4s ease-in-out 650ms infinite;
+  }
+  .store-hero-progress {
+    transform-origin: left;
+    animation: store-progress 4500ms linear both;
+  }
+  .store-hero[data-rotating="false"] :is(.store-hero-progress, .store-hero-float) {
+    animation-play-state: paused;
   }
 
   .store-hero-slide[data-state="leaving"] {
     visibility: visible;
-    animation: store-slide-out 280ms var(--ease-store) both;
+    animation: store-slide-out 240ms var(--ease-store) both;
   }
 }
 
-@keyframes store-slide-in {
-  from { opacity: 0; translate: var(--store-slide-offset) 0; }
+@keyframes store-text-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes store-artwork-in {
+  from { opacity: 0; transform: scale(0.92) translateX(24px); }
+  to { opacity: 1; transform: scale(1) translateX(0); }
+}
+
+@keyframes store-float {
+  0%, 100% { translate: 0 -6px; }
+  50% { translate: 0 6px; }
+}
+
+@keyframes store-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @keyframes store-slide-out {

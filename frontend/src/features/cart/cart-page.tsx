@@ -1,9 +1,10 @@
-import { ShoppingCart } from "lucide-react";
+import { ArrowLeft, ArrowRight, Minus, Package, Plus, ShoppingBag, ShoppingCart, Store, Trash2 } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
 import { attributeEntries, attributeLabel } from "@/features/listings/listing-forms";
 import { formattedPrice, listingPublicPath } from "@/features/listings/public-listing-format";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { cartEditError, signInRequired, useCart, useCartEdit, type Cart, type CartItem, type UnavailableReason } from "./cart-api";
@@ -19,12 +20,18 @@ export function CartPage() {
   const { query, revision } = useCart();
   const heading = useRef<HTMLHeadingElement>(null);
   return <div className="mx-auto max-w-7xl space-y-5">
-    <div className="space-y-2">
-      <Link className={profileLink + " text-sm"} to="/catalogo">Seguir comprando</Link>
-      <h1 ref={heading} tabIndex={-1} className="store-section-title flex items-center gap-2 border-b pb-4">
-        <ShoppingCart aria-hidden="true" className="size-5 text-primary" />Mi carrito
-      </h1>
-    </div>
+    <header className="workspace-heading flex flex-wrap items-center justify-between gap-3 p-5 sm:p-7">
+      <div className="flex min-w-0 items-center gap-3">
+        <ShoppingCart aria-hidden="true" className="size-11 shrink-0 rounded-xl border border-white/15 bg-white/10 p-2.5 text-brand-gold" />
+        <div>
+          <h1 ref={heading} tabIndex={-1} className="font-wordmark text-3xl font-extrabold focus-visible:outline-brand-gold">Mi carrito</h1>
+          {query.data && <p className="text-sm text-hero-muted">{query.data.itemCount === 1 ? "1 unidad" : query.data.itemCount + " unidades"}</p>}
+        </div>
+      </div>
+      <Button asChild variant="outline" className="min-h-11 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:outline-brand-gold">
+        <Link to="/catalogo"><ArrowLeft aria-hidden="true" />Seguir comprando</Link>
+      </Button>
+    </header>
     {query.isPending ? <p role="status">Cargando carrito…</p>
       : signInRequired(query.error) ? <div className="space-y-3">
         <p>Ingresá para ver tu carrito.</p>
@@ -54,13 +61,20 @@ function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: n
     {edit.isSuccess && <p role="status" className="text-success">
       {edit.variables?.kind === "remove" ? "Producto quitado del carrito." : "Cantidad actualizada."}
     </p>}
-    {cart.itemCount === 0 ? <p>Tu carrito está vacío.</p> : (
+    {cart.itemCount === 0 ? <Card>
+      <CardContent className="grid justify-items-center gap-3 py-6">
+        <ShoppingBag aria-hidden="true" className="size-12 rounded-xl bg-accent p-3 text-primary" />
+        <p className="font-semibold">Tu carrito está vacío.</p>
+        <Button asChild className="min-h-11"><Link to="/catalogo">Explorar productos <ArrowRight aria-hidden="true" /></Link></Button>
+      </CardContent>
+    </Card> : (
       <div className="grid items-start gap-5 md:grid-cols-[minmax(0,2fr)_minmax(14rem,1fr)]">
         <div className="space-y-4">
           {cart.groups.map((group) => (
             <Card key={group.sellerId} className="gap-0 py-4">
               <CardContent className="space-y-3 px-4 sm:px-6">
-                <h2 className="break-words text-lg font-semibold">
+                <h2 className="flex items-center gap-3 border-b pb-2 text-lg font-semibold">
+                  <Store aria-hidden="true" className="size-9 shrink-0 rounded-lg bg-accent p-2 text-primary" />
                   <Link className={profileLink} to={"/vendedores/" + group.sellerSlug}>{group.sellerName}</Link>
                 </h2>
                 <ul className="divide-y">{group.items.map(renderItem)}</ul>
@@ -83,17 +97,18 @@ function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: n
             </CardContent>
           </Card>}
         </div>
-        <Card className="gap-0 py-4">
-          <CardContent className="space-y-2 px-4 sm:px-6">
-            <h2 className="font-semibold">Resumen</h2>
+        <Card className="gap-0 border-t-4 border-t-brand py-4 md:sticky md:top-28">
+          <CardContent className="space-y-4 px-4 sm:px-6">
+            <h2 className="border-b pb-3 font-wordmark text-lg font-bold">Resumen</h2>
             <p className="flex flex-wrap justify-between gap-x-3 text-lg font-semibold tabular-nums" aria-live="polite">
               Total <span>{formattedPrice(cart.total)}</span>
             </p>
+            <p className="text-sm text-muted-foreground">El envío se calcula en el paso Envío.</p>
             {cart.unavailable.length > 0 && <p className="text-sm text-muted-foreground">El total incluye los productos disponibles.</p>}
             {cart.activeOrderId ? <Button className="min-h-11 w-full" asChild>
               <Link to={"/checkout/reserva/" + cart.activeOrderId}>Ver mi reserva</Link>
             </Button> : !unavailable.length && <Button className="min-h-11 w-full" asChild>
-              <Link to="/checkout">Continuar al checkout</Link>
+              <Link to="/checkout">Continuar al checkout <ArrowRight aria-hidden="true" /></Link>
             </Button>}
           </CardContent>
         </Card>
@@ -114,11 +129,18 @@ function CartLine({ item, busy, save, remove }: {
   const max = Math.min(99, item.availableStock);
   const attributes = attributeEntries(item.attributes).map(([name, value]) => attributeLabel(name) + " " + value).join(" · ");
   const priceChanged = item.unitPrice !== item.referencePrice;
+  const [failedImage, setFailedImage] = useState<string | null>();
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!busy) save(Number(draft.value));
   }
-  return <li className="space-y-2 py-3">
+  return <li className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 py-3 sm:gap-4">
+    <span className="store-photo grid size-12 place-items-center overflow-hidden rounded-lg bg-muted sm:size-20">
+      {item.thumbnailUrl && item.thumbnailUrl !== failedImage
+        ? <img src={item.thumbnailUrl} alt="" className="size-full object-cover" loading="lazy" onError={() => setFailedImage(item.thumbnailUrl)} />
+        : <Package aria-hidden="true" className="size-5 text-muted-foreground" />}
+    </span>
+    <div className="min-w-0 space-y-2">
     <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
       {item.listingSlug ? <Link to={listingPublicPath(item.listingSlug)} className={profileLink + " break-words font-semibold"}>{item.title}</Link>
         : <p className="break-words font-semibold">{item.title}</p>}
@@ -136,9 +158,15 @@ function CartLine({ item, busy, save, remove }: {
     </p>}
     <div className="flex flex-wrap items-end gap-2">
       {editable ? <form className="flex flex-wrap items-end gap-2" onSubmit={submit}>
+        <div className="flex gap-1">
+          <Button type="button" variant="outline" size="icon" className="size-10" disabled={busy || item.quantity <= 1}
+            aria-label={"Reducir cantidad de " + item.title} onClick={() => save(item.quantity - 1)}><Minus aria-hidden="true" /></Button>
+          <Button type="button" variant="outline" size="icon" className="size-10" disabled={busy || item.quantity >= max}
+            aria-label={"Aumentar cantidad de " + item.title} onClick={() => save(item.quantity + 1)}><Plus aria-hidden="true" /></Button>
+        </div>
         <div>
           <label htmlFor={inputId} className="block text-sm font-medium">Cantidad <span className="sr-only">de {item.title} {attributes}</span></label>
-          <input className={profileControl + " w-20 tabular-nums"} id={inputId} type="number" inputMode="numeric"
+          <input className={cn(profileControl, "w-20 tabular-nums")} id={inputId} type="number" inputMode="numeric"
             min={1} max={max} required readOnly={busy} value={draft.value}
             onChange={(event) => setDraft({ original: item.quantity, value: event.currentTarget.value })} />
         </div>
@@ -146,8 +174,9 @@ function CartLine({ item, busy, save, remove }: {
       </form> : <p className="self-center text-sm">Cantidad: {item.quantity}</p>}
       {!item.reserved && <Button type="button" variant="ghost" className="min-h-11" aria-disabled={busy}
         aria-label={`Quitar ${item.title}${attributes ? " " + attributes : ""}`} onClick={() => { if (!busy) remove(); }}>
-        Quitar
+        <Trash2 aria-hidden="true" />Quitar
       </Button>}
+    </div>
     </div>
   </li>;
 }
