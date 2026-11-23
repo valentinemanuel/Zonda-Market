@@ -46,6 +46,12 @@ export const router = createBrowserRouter([
       { path: "admin/reclamos", lazy: async () => ({
         Component: (await import("@/features/disputes/dispute-admin-page")).DisputeAdminPage,
       }) },
+      { path: "admin/auditoria", lazy: async () => ({
+        Component: (await import("@/features/admin/audit-page")).AuditPage,
+      }) },
+      { path: "admin/incidencias", lazy: async () => ({
+        Component: (await import("@/features/admin/payment-incidents-page")).PaymentIncidentsPage,
+      }) },
       { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,

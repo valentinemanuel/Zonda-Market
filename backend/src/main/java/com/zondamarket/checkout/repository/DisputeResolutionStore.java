@@ -31,7 +31,8 @@ public class DisputeResolutionStore {
                          BigDecimal merchandiseConfirmed, BigDecimal commissionReversed, BigDecimal paymentConfirmed) {}
     public record Work(UUID id, UUID disputeId, UUID orderId, UUID subOrderId, UUID actorId, UUID traceId, UUID leaseId,
                        Method method, String paymentId, String providerOrderId, String paymentReference, BigDecimal amount,
-                       BigDecimal captured, String providerRefundId, OffsetDateTime sentAt, int attempts, Status status) {}
+                       BigDecimal captured, String providerRefundId, OffsetDateTime sentAt, int attempts, Status status,
+                       boolean reconcileOnly) {}
     public record Replay(UUID actorId, int expectedVersion, UUID id) {}
 
     public Optional<Context> context(UUID dispute) {
@@ -154,7 +155,7 @@ public class DisputeResolutionStore {
                 FROM due WHERE due.id = r.id
                 RETURNING r.id, r.dispute_id, r.order_id, r.sub_order_id, r.actor_id, r.trace_id, r.lease_id,
                           r.method, r.payment_id, r.provider_order_id, r.payment_reference, r.amount, r.captured,
-                          r.provider_refund_id, r.sent_at, r.attempts, r.status
+                          r.provider_refund_id, r.sent_at, r.attempts, r.status, r.reconcile_only
                 """).param("lease", UUID.randomUUID()).param("now", at(now))
                 .param("until", at(now.plusSeconds(120))).query(Work.class).optional();
     }
@@ -176,7 +177,8 @@ public class DisputeResolutionStore {
     public boolean save(Work work, Status status, String reference, Instant now, Instant next) {
         return sql.sql("""
                 UPDATE zonda_market.dispute_resolution SET status = :status, updated_at = :now, next_attempt_at = :next,
-                    provider_refund_id = COALESCE(:reference, provider_refund_id), lease_id = NULL, lease_until = NULL
+                    provider_refund_id = COALESCE(:reference, provider_refund_id), lease_id = NULL, lease_until = NULL,
+                    reconcile_only = FALSE
                 WHERE id = :id AND lease_id = :lease
                 """).param("status", status.name()).param("now", at(now)).param("next", at(next))
                 .param("reference", reference).param("id", work.id()).param("lease", work.leaseId()).update() == 1;

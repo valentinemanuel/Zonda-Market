@@ -32,6 +32,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,6 +57,7 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
         gateway.sends = 0;
         gateway.loseReply = false;
         gateway.reject = false;
+        gateway.revealHistory = false;
     }
 
     @Test
@@ -144,6 +146,61 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
                 SELECT sum(r.merchandise_refunded + r.shipping_refunded) FROM zonda_market.checkout_sub_order_refund r
                 JOIN zonda_market.checkout_sub_order sub ON r.sub_order_id = sub.id WHERE sub.order_id = :id
                 """).param("id", order.id()).query(BigDecimal.class).single());
+    }
+
+    @Test
+    void correlatesADisputeAndRecoversAnExistingRefundByReadOnlyLookup() throws Exception {
+        var buyer = account(true);
+        var admin = admin();
+        var order = paid(buyer, product("Auditoría", "30.00", "0", 2));
+        externalize(order.id());
+        var dispute = mediate(buyer, admin, order.subs().getFirst());
+        gateway.loseReply = true;
+        var refund = uuid(resolve(admin, dispute, UUID.randomUUID(), "REEMBOLSO", "15.00", 1)
+                .andExpect(status().isOk()).andReturn());
+        assertTrue(worker.processNext());
+        assertEquals(1, gateway.sends);
+        // Model a work item whose provider response remained uncertain past the automatic send window.
+        sql.sql("UPDATE zonda_market.dispute_resolution SET status = 'EN_REVISION' WHERE id = :id")
+                .param("id", refund).update();
+        var auditPath = "/api/v1/admin/audit-logs";
+        mvc.perform(auth(get(auditPath), buyer)).andExpect(status().isForbidden());
+        mvc.perform(auth(get(auditPath), admin).param("from", "2026-11-22").param("to", "2026-11-01"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("AUDIT_INVALID_RANGE"));
+
+        var recovery = "/api/v1/admin/payment-incidents/" + refund + "/reconcile";
+        var key = UUID.randomUUID();
+        var reason = """
+                {"reason":"Motivo privado ficticio"}
+                """;
+        var accepted = mvc.perform(auth(post(recovery), admin).header("Idempotency-Key", key).content(reason))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        // The first manual observation is still uncertain. It must never call the refund write.
+        assertTrue(worker.processNext());
+        assertEquals(1, gateway.sends);
+        assertEquals(0, countAdjustment(refund));
+        due(refund);
+        gateway.revealHistory = true;
+        assertTrue(worker.processNext());
+        assertEquals(1, gateway.sends);
+        assertEquals(1, countAdjustment(refund));
+        detail(buyer, dispute, "CERRADA_REEMBOLSADA", "CONFIRMADA");
+        assertEquals(accepted, mvc.perform(auth(post(recovery), admin).header("Idempotency-Key", key).content(reason))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+
+        var events = mvc.perform(auth(get(auditPath), admin).param("resource", dispute.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[*].action", hasItems(
+                        "DISPUTE_OPENED", "DISPUTE_ASSIGNED", "DISPUTE_DECIDED", "INCIDENT_RECONCILE_REQUESTED",
+                        "DISPUTE_REFUND_STATUS")))
+                .andExpect(jsonPath("$.items[*].result", hasItems("EN_REVISION", "CONFIRMADA")))
+                .andReturn().getResponse().getContentAsString();
+        for (var privateValue : List.of("Datos ficticios", "Decisión ficticia", "Motivo privado ficticio", "fixture-" + refund)) {
+            assertFalse(events.contains(privateValue));
+        }
+        mvc.perform(auth(get(auditPath), admin).param("actor", admin.id().toString()).param("action", "DISPUTE_DECIDED")
+                        .param("resource", dispute.toString()).param("size", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].role").value("ADMIN"))
+                .andExpect(jsonPath("$.hasNext").value(false));
     }
 
     @Test
@@ -249,11 +306,13 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
         int sends;
         boolean loseReply;
         boolean reject;
+        boolean revealHistory;
 
         @Override public Method refundMethod() { return Method.CARD; }
         @Override public Observation inspect(Charge charge) { throw new AssertionError(); }
         @Override public Observation refund(Charge charge) { throw new AssertionError(); }
         @Override public Observation inspectPartial(PartialCharge request) {
+            if (revealHistory && refunds.containsKey(request.refund().key())) return refunds.get(request.refund().key());
             return new Observation(State.AVAILABLE, null);
         }
 

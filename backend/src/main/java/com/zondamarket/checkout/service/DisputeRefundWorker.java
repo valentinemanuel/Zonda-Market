@@ -50,7 +50,7 @@ public class DisputeRefundWorker {
         }
         var gateway = work.method() == null ? null : gateways.get(work.method());
         if (gateway == null) {
-            defer(work, Status.PENDIENTE, null);
+            defer(work, work.reconcileOnly() ? Status.EN_REVISION : Status.PENDIENTE, null);
             return;
         }
 
@@ -78,8 +78,8 @@ public class DisputeRefundWorker {
     }
 
     private boolean maySend(Work work) {
-        return work.sentAt() == null || (work.status() == Status.PENDIENTE
-                && clock.instant().isBefore(work.sentAt().toInstant().plus(SEND_WINDOW)));
+        return !work.reconcileOnly() && (work.sentAt() == null || (work.status() == Status.PENDIENTE
+                && clock.instant().isBefore(work.sentAt().toInstant().plus(SEND_WINDOW))));
     }
 
     private void defer(Work work, Status status, String reference) {

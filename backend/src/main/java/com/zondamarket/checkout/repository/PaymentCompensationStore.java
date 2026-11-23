@@ -43,7 +43,7 @@ public class PaymentCompensationStore {
         return sql.sql("""
                 WITH due AS (
                     SELECT id FROM zonda_market.payment_compensation
-                    WHERE status = 'PENDIENTE' AND method IN (:methods) AND next_attempt_at <= :now
+                    WHERE (status = 'PENDIENTE' OR reconcile_only) AND method IN (:methods) AND next_attempt_at <= :now
                       AND (lease_until IS NULL OR lease_until <= :now)
                     ORDER BY next_attempt_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
                 )
@@ -55,7 +55,7 @@ public class PaymentCompensationStore {
                   AND payment.provider_payment_id = refund.provider_payment_id
                 RETURNING refund.id, refund.method, payment.provider_order_id, refund.provider_payment_id,
                           attempt.external_reference, refund.amount, payment.currency, refund.provider_refund_id,
-                          refund.lease_id, refund.trace_id, refund.attempts, refund.created_at
+                          refund.lease_id, refund.trace_id, refund.attempts, refund.created_at, refund.reconcile_only
                 """).param("methods", methods.stream().map(Method::name).toList())
                 .param("lease", UUID.randomUUID()).param("now", now.atOffset(ZoneOffset.UTC))
                 .param("until", now.plusSeconds(120).atOffset(ZoneOffset.UTC)).query(Work.class).optional();
@@ -65,7 +65,7 @@ public class PaymentCompensationStore {
         sql.sql("""
                 UPDATE zonda_market.payment_compensation
                 SET status = :status, provider_refund_id = COALESCE(:providerId, provider_refund_id), failure_code = :failure,
-                    updated_at = :now, next_attempt_at = :next, lease_id = NULL, lease_until = NULL
+                    updated_at = :now, next_attempt_at = :next, lease_id = NULL, lease_until = NULL, reconcile_only = FALSE
                 WHERE id = :id AND lease_id = :lease
                 """).param("status", status.name()).param("providerId", providerId).param("failure", failure)
                 .param("now", now.atOffset(ZoneOffset.UTC)).param("next", next.atOffset(ZoneOffset.UTC))
@@ -74,5 +74,5 @@ public class PaymentCompensationStore {
 
     public record Work(UUID id, Method method, String providerOrderId, String providerPaymentId, String externalReference,
                        BigDecimal amount, String currency, String providerRefundId, UUID leaseId, UUID traceId,
-                       int attempts, Instant createdAt) {}
+                       int attempts, Instant createdAt, boolean reconcileOnly) {}
 }
