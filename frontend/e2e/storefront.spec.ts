@@ -64,7 +64,7 @@ test("categorías cierra al pulsar fuera y los filtros aparecen al elegir una ca
 });
 
 test("la portada rota, permite pausar y cambia de dirección al retroceder", async ({ page }, testInfo) => {
-  await page.goto("/catalogo");
+  await page.goto("/catalogo", { waitUntil: "domcontentloaded" });
   const carousel = page.getByLabel("Explorá Zonda Market", { exact: true });
   const technology = carousel.getByRole("button", { name: "Tecnología", exact: true });
   const home = carousel.getByRole("button", { name: "Hogar y decoración", exact: true });
@@ -91,7 +91,7 @@ test("la portada rota, permite pausar y cambia de dirección al retroceder", asy
 
 test("salta directamente a una página y conserva la búsqueda al avanzar", async ({ page }) => {
   await page.route((url) => url.pathname === "/api/v1/listings", (route) => route.fulfill({ json: {
-    content: [], totalPages: 7, totalElements: 80, page: Number(new URL(route.request().url()).searchParams.get("page")) || 0,
+    content: [], totalPages: 25, totalElements: 300, page: Number(new URL(route.request().url()).searchParams.get("page")) || 0,
     facets: [], sellers: [],
   } }));
   await page.goto("/catalogo?q=auriculares");
@@ -101,4 +101,8 @@ test("salta directamente a una página y conserva la búsqueda al avanzar", asyn
   await expect(pagination.getByRole("link", { name: "Página 4", exact: true })).toHaveAttribute("aria-current", "page");
   await pagination.getByRole("link", { name: "Siguiente" }).press("Enter");
   await expect(pagination.getByRole("link", { name: "Página 5", exact: true })).toHaveAttribute("aria-current", "page");
+  const jump = pagination.getByRole("spinbutton", { name: "Ir a página" });
+  await jump.fill("17");
+  await jump.press("Enter");
+  await expect(pagination.getByRole("link", { name: "Página 17", exact: true })).toHaveAttribute("aria-current", "page");
 });
