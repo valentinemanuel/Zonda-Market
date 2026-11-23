@@ -52,6 +52,9 @@ export const router = createBrowserRouter([
       { path: "admin/incidencias", lazy: async () => ({
         Component: (await import("@/features/admin/payment-incidents-page")).PaymentIncidentsPage,
       }) },
+      { path: "admin/operacion", lazy: async () => ({
+        Component: (await import("@/features/admin/operations-page")).OperationsPage,
+      }) },
       { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,

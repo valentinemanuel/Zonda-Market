@@ -233,6 +233,14 @@ Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=DisputeResolutionContra
 
 Para probar E6-05, como `ADMIN` abrí **Moderación → Auditoría**. Pegá el UUID del reclamo de E6-04 en **ID del recurso**, pulsá **Buscar** y desplegá **Ver detalle** en la decisión y la devolución. En **Moderación → Incidencias**, elegí **Recuperar incidencia** en una fila que lo permita, ingresá el motivo y seguí el enlace a la traza. El escenario `npm run test:e2e -- admin-audit.spec.ts`, desde `frontend/` y contra un Compose de prueba, crea un reclamo y una notificación fallida con datos ficticios.
 
+### E6-06 · Operación global
+
+1. Como `ADMIN`, abrí **Mi cuenta → Moderación → Operación global** o entrá a [Operación global](http://localhost:3000/admin/operacion).
+2. Aplicá **Desde** y **Hasta** para consultar hasta 90 días inclusivos en horario de Buenos Aires. Abrí **Ver métricas por día** para comparar el GMV y las devoluciones con el gráfico. Revisá los desgloses por vendedor y categoría.
+3. Pulsá **Descargar CSV** y compará la fila `total` con las tarjetas. En un rango sin ventas, los importes son cero y **Casos actualmente abiertos** conserva el total vigente.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ExecutiveMetricsContractIT,SellerMetricsContractIT"`. Desde `frontend/`, ejecutá `npm run test:e2e -- admin-operations.spec.ts` en un Compose aislado con perfil `local`. El escenario crea sus cuentas ficticias, aprueba una compra de dos vendedores, confirma una devolución parcial y compara el CSV descargado con la API. Para un proyecto Compose con otro nombre, configurá `COMPOSE_PROJECT_NAME` y `ZONDA_SMOKE_URL`.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
