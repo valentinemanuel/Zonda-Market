@@ -39,6 +39,7 @@ export function PublicCatalogPage() {
   const [draft, setDraft] = useState<{ base: string; value: string }>();
   const term = draft?.base === q ? draft.value : q;
   const categoryId = params.get("category") ?? "";
+  const showFilters = Boolean(q.trim() || categoryId);
   const seller = params.get("seller") ?? "";
   const min = params.get("min") ?? "";
   const max = params.get("max") ?? "";
@@ -124,9 +125,9 @@ export function PublicCatalogPage() {
   if (q) cleaned.set("q", q);
 
   const filtersPanel = (
-        <Card key="filters" id="filtros" className="scroll-mt-40 py-4">
-          <CardContent className={storefront ? "grid items-start gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4" : "space-y-4 px-4"}>
-            <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-full">
+        <Card className="py-4">
+          <CardContent className="space-y-4 px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold">Filtros</h2>
               {filters !== cleaned.toString() && <Link className={profileLink + " text-sm"} to={"/catalogo?" + cleaned}>Limpiar</Link>}
             </div>
@@ -255,8 +256,9 @@ export function PublicCatalogPage() {
           </select>
         </Field>
       </header>
-      <div className={storefront ? "grid gap-6" : "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]"}>
-        {storefront ? [resultsPanel, filtersPanel] : [filtersPanel, resultsPanel]}
+      <div className={showFilters ? "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]" : "grid gap-6"}>
+        {showFilters && filtersPanel}
+        {resultsPanel}
       </div>
       {storefront && <StorefrontEnd />}
     </div>

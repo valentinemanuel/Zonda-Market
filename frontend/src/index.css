@@ -93,13 +93,27 @@
     background-image: radial-gradient(ellipse at 100% 0%, #683722, transparent 65%);
   }
 
+  .store-intro {
+    --store-hero-overlap: clamp(3.5rem, 7vw, 6rem);
+  }
+
   .store-hero {
     margin-inline: calc(-1 * var(--store-gutter));
+    padding-block-end: calc(var(--store-hero-overlap) + 1rem);
     background:
+      linear-gradient(to bottom, transparent 80%, var(--color-background) 100%),
       radial-gradient(ellipse at 59% 27%, #78452e88, transparent 47%),
       radial-gradient(ellipse at 100% 100%, #8a3011, transparent 52%),
       radial-gradient(ellipse at 0% 110%, #60533b80, transparent 56%),
       linear-gradient(125deg, #101727, #242632 76%, #171e2e);
+  }
+
+  .store-shortcuts {
+    margin-block-start: calc(-1 * var(--store-hero-overlap));
+  }
+
+  .store-hero-slide:is([data-state="inactive"], [data-state="leaving"]) {
+    visibility: hidden;
   }
 
   .store-hero-image {
@@ -114,13 +128,30 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .store-hero-art {
-    animation: store-art-in 240ms var(--ease-store) both;
+  .store-hero [data-direction] {
+    --store-slide-offset: 3rem;
+  }
+
+  .store-hero [data-direction="-1"] {
+    --store-slide-offset: -3rem;
+  }
+
+  .store-hero-slide[data-state="entering"] {
+    animation: store-slide-in 280ms var(--ease-store) both;
+  }
+
+  .store-hero-slide[data-state="leaving"] {
+    visibility: visible;
+    animation: store-slide-out 280ms var(--ease-store) both;
   }
 }
 
-@keyframes store-art-in {
-  from { opacity: 0; }
+@keyframes store-slide-in {
+  from { opacity: 0; translate: var(--store-slide-offset) 0; }
+}
+
+@keyframes store-slide-out {
+  to { opacity: 0; translate: calc(-1 * var(--store-slide-offset)) 0; visibility: hidden; }
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {

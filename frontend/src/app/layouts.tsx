@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
-import { useRef } from "react";
+import { useState } from "react";
+import { Popover } from "radix-ui";
 import { Form, Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
 import { getJson } from "@/shared/api/http-client";
@@ -21,7 +22,7 @@ function CartLink({ enabled }: { enabled: boolean }) {
 }
 
 function CategoryNavigation() {
-  const dropdown = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
   const { pathname, search } = useLocation();
   const selected = pathname === "/catalogo" ? new URLSearchParams(search).get("category") : null;
   const categories = useQuery({
@@ -34,22 +35,19 @@ function CategoryNavigation() {
     <NavLink end to="/cuenta/direcciones" className="inline-flex min-h-9 items-center gap-1.5 rounded hover:underline aria-[current=page]:underline">
       <MapPin aria-hidden="true" className="size-3.5" /> Direcciones
     </NavLink>
-    <details ref={dropdown} className="relative" onKeyDown={(event) => {
-      if (event.key !== "Escape" || !event.currentTarget.open) return;
-      event.currentTarget.open = false;
-      event.currentTarget.querySelector("summary")?.focus();
-    }}>
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 rounded [&::-webkit-details-marker]:hidden">
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger className="flex min-h-9 cursor-pointer items-center gap-1 rounded hover:underline">
         Categorías <ChevronDown aria-hidden="true" className="size-3.5" />
-      </summary>
-      <div className="absolute top-full start-0 z-30 w-52 rounded-panel border bg-card p-1.5 text-sm text-foreground shadow-float">
+      </Popover.Trigger>
+      <Popover.Content align="start" aria-label="Categorías del catálogo" onOpenAutoFocus={(event) => event.preventDefault()}
+        className="z-30 max-h-[var(--radix-popover-content-available-height)] w-52 overflow-y-auto overscroll-contain rounded-panel border bg-card p-1.5 text-sm text-foreground shadow-float">
         <Link to="/catalogo" className="block rounded-lg px-3 py-2 hover:bg-accent"
-          onClick={() => { if (dropdown.current) dropdown.current.open = false; }}>Todas las categorías</Link>
+          onClick={() => setOpen(false)}>Todas las categorías</Link>
         {roots.map(({ id, name }) => <Link key={id} to={categoryCatalogPath(id)} aria-current={selected === id ? "page" : undefined}
           className="block rounded-lg px-3 py-2 hover:bg-accent aria-[current=page]:font-bold aria-[current=page]:underline"
-          onClick={() => { if (dropdown.current) dropdown.current.open = false; }}>{name}</Link>)}
-      </div>
-    </details>
+          onClick={() => setOpen(false)}>{name}</Link>)}
+      </Popover.Content>
+    </Popover.Root>
     {roots.slice(0, 6).map(({ id, name }) => <Link key={id} to={categoryCatalogPath(id)} aria-current={selected === id ? "page" : undefined}
       className="hidden min-h-9 items-center rounded hover:underline aria-[current=page]:underline md:inline-flex">{name}</Link>)}
     <NavLink end to="/mis-ordenes" aria-label="Historial de compras" className="ml-auto inline-flex min-h-7 items-center rounded-full bg-brand-ink px-2.5 text-brand-gold hover:bg-hero-panel aria-[current=page]:underline">
