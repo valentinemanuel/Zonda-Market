@@ -62,3 +62,28 @@ Las pantallas actuales y futuras de la tienda reutilizan la [cabecera de `SiteLa
 4. Adjuntá al PR una captura o prueba del estado principal y del fallo relevante. Revisá las reglas aplicables de [buenas prácticas de React](https://github.com/vercel-labs/agent-skills/blob/main/skills/react-best-practices/SKILL.md).
 
 E0-02 aplica estos criterios a la lectura de categoría. La navegación, la grilla y los bloques completos del marketplace se incorporan cuando sus tarjetas definan comportamiento y datos.
+
+## Fotos de la demostración
+
+Las publicaciones ficticias de E7-02 muestran fotos ilustrativas de 20 productos. Cada foto se comparte entre cuatro ofertas del mismo producto y se sirve por URL de Pexels. El catálogo usa miniaturas de 480 px y la ficha usa hasta 1.200 px. [Licencia de Pexels](https://www.pexels.com/license/)
+
+- [Auriculares de estudio](https://www.pexels.com/photo/black-studio-headphones-on-white-background-30428610/)
+- [Teclado mecánico compacto](https://www.pexels.com/photo/premium-mechanical-keyboard-on-desk-15372894/)
+- [Cámara digital](https://www.pexels.com/photo/digital-photo-camera-on-table-in-bright-room-5613269/)
+- [Notebook portátil](https://www.pexels.com/photo/laptop-and-notebook-on-a-desk-7670739/)
+- [Zapatillas urbanas](https://www.pexels.com/photo/pair-of-sneakers-18946896/)
+- [Remera básica de algodón](https://www.pexels.com/photo/minimalist-fashion-flat-lay-of-white-t-shirt-37704838/)
+- [Buzo con capucha](https://www.pexels.com/photo/a-person-holding-a-brown-hoodie-6786666/)
+- [Mochila de trabajo](https://www.pexels.com/photo/a-black-leather-backpack-on-the-white-table-15246346/)
+- [Taza de cerámica](https://www.pexels.com/photo/minimalist-brown-mug-on-wooden-surface-31046284/)
+- [Lámpara de mesa](https://www.pexels.com/photo/close-up-shot-of-table-lamp-12801238/)
+- [Silla de madera](https://www.pexels.com/photo/chair-near-wooden-wall-with-seat-20206663/)
+- [Sartén antiadherente](https://www.pexels.com/photo/a-person-holding-black-frying-pan-8629104/)
+- [Colchoneta para yoga](https://www.pexels.com/photo/a-person-rolling-a-yoga-mat-6193621/)
+- [Par de mancuernas](https://www.pexels.com/photo/dumbbells-and-leg-weights-on-mat-in-gym-4959808/)
+- [Botella reutilizable](https://www.pexels.com/photo/a-water-bottle-on-a-table-20292101/)
+- [Bolso mochila para escapadas](https://www.pexels.com/photo/photo-of-a-backpack-and-two-glasses-on-a-table-16400143/)
+- [Maceta decorativa](https://www.pexels.com/photo/pot-plant-on-table-2326115/)
+- [Anteojos de sol](https://www.pexels.com/photo/black-sunglasses-on-brown-wooden-table-9733595/)
+- [Gorra deportiva ajustable](https://www.pexels.com/photo/cap-and-water-bottle-on-table-16151001/)
+- [Tableta digital](https://www.pexels.com/photo/top-view-of-wireless-electronics-4523063/)
