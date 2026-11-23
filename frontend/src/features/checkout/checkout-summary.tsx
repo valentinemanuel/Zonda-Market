@@ -51,6 +51,7 @@ export function CheckoutSummary({ groups, total, totalLabel = "Total a pagar", c
   const tracking = new Map(subOrders?.map((sub) => [sub.group.sellerId, sub]));
   const items = groups.flatMap((group) => group.items);
   const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = amountTotal(groups.map(({ merchandise }) => merchandise));
   return <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)] lg:gap-8">
     <div className="min-w-0 space-y-4">
       {beforeGroups}
@@ -85,13 +86,13 @@ export function CheckoutSummary({ groups, total, totalLabel = "Total a pagar", c
         </ul>}
         <dl className="space-y-2 text-sm tabular-nums">
           <div className="flex flex-wrap justify-between gap-x-2">
-            <dt>Subtotal ({quantity})</dt><dd>{amountTotal(groups.map(({ merchandise }) => merchandise))}</dd>
+            <dt>Subtotal ({quantity})</dt><dd>{subtotal}</dd>
           </div>
           <div className="flex flex-wrap justify-between gap-x-2">
-            <dt>Envío total</dt><dd>{total === undefined ? "Por cotizar" : amountTotal(groups.map(({ shipping }) => shipping ?? "0"))}</dd>
+            <dt>Envío</dt><dd>{total === undefined ? "Se calcula con tu dirección" : amountTotal(groups.map(({ shipping }) => shipping ?? "0"))}</dd>
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 border-t pt-3 font-bold">
-            <dt>{totalLabel}</dt><dd className="font-wordmark text-xl">{total === undefined ? "Por cotizar" : formattedPrice(total)}</dd>
+            <dt>{totalLabel}</dt><dd className="font-wordmark text-xl">{total === undefined ? `${subtotal} + envío` : formattedPrice(total)}</dd>
           </div>
         </dl>
         {children}

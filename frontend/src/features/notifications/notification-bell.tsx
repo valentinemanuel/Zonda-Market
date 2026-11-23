@@ -5,13 +5,14 @@ import { Link, useLocation } from "react-router-dom";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
 import { signInRequired } from "@/features/cart/cart-api";
 import { Button } from "@/shared/ui/button";
-import { useNotifications } from "./notifications-api";
+import { useMarkNotificationRead, useNotifications } from "./notifications-api";
 import { notificationDate, notificationStyles } from "./notification-presentation";
 
 export function NotificationBell({ enabled }: { enabled: boolean }) {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const { key } = useLocation();
   const query = useNotifications(revision, 0, enabled, true);
+  const mark = useMarkNotificationRead(revision);
   const panel = useRef<HTMLDivElement>(null);
   if (!enabled || !query.data || signInRequired(query.error)) return null;
 
@@ -46,7 +47,8 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
             const { title, icon: Icon, category, color } = notificationStyles[entry.type];
             return <li key={entry.id}>
               <Popover.Close asChild>
-                <Link to={entry.href} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 hover:bg-muted focus-visible:outline-offset-[-3px]">
+                <Link to={entry.href} onClick={() => { if (!entry.read) mark.mutate(entry.id); }}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 hover:bg-muted focus-visible:outline-offset-[-3px]">
                   <span className={`grid size-9 place-items-center rounded-lg ${color}`}><Icon aria-hidden="true" className="size-4" /></span>
                   <span>
                     <span className="block text-sm font-semibold">{title}</span>

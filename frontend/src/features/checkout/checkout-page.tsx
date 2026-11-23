@@ -171,17 +171,17 @@ function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct }
             {addresses.map((item) => <option value={item.id} key={item.id}>{addressText(item)}</option>)}
           </select>
           <Button type="submit" variant={currentQuote ? "outline" : "default"} className="min-h-11" disabled={busy}>
-            {requestQuote.isPending ? "Cotizando…" : currentQuote ? "Volver a cotizar" : "Cotizar compra"}
+            {requestQuote.isPending ? "Calculando envío…" : "Calcular envío"}
           </Button>
         </form>
-        {busy && <p role="status">{confirm.isPending ? "Confirmando la reserva…" : "Consultando importe y stock vigentes…"}</p>}
+        {busy && <p role="status">{confirm.isPending ? "Confirmando la reserva…" : "Calculando el envío y verificando la disponibilidad…"}</p>}
         {error && <p role="alert" className="text-destructive">{checkoutError(error)}</p>}
-        {quote && !currentQuote && <p role="status">El carrito cambió. Volvé a cotizar.</p>}
+        {quote && !currentQuote && <p role="status">El carrito cambió. Volvé a calcular el envío.</p>}
       </CardContent>
     </Card></>
   }>
     {currentQuote && <>
-        <p role="status" className="text-sm font-medium text-success">Cotización lista. El total es {formattedPrice(currentQuote.total)}.</p>
+        <p role="status" className="text-sm font-medium text-success">Envío calculado. El total es {formattedPrice(currentQuote.total)}.</p>
         <Button type="button" className="min-h-11 w-full" disabled={busy} onClick={() => confirm.mutate(currentQuote.id)}>
           <LockKeyhole aria-hidden="true" />
           {confirm.isPending ? "Reservando…" : "Confirmar reserva"}
