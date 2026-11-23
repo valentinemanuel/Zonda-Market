@@ -4,6 +4,8 @@ Marketplace C2C/B2C. El [roadmap](docs/roadmap.md) describe las etapas y las ent
 
 ## Demo interactiva
 
+[Abrí la demo de Zonda Market](https://zonda-market-demo.pages.dev/).
+
 La demo de portfolio permite buscar y filtrar productos ficticios, abrir fichas, elegir variantes y editar un carrito que se guarda en el navegador. El recorrido termina en el carrito.
 
 Para ejecutar la demo estática en local, usá Node.js 24 y corré desde `frontend/`:
