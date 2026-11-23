@@ -11,7 +11,14 @@ test("mantiene una compra de dos vendedores desde checkout hasta una devolución
   page: buyer, browser, request, baseURL,
 }, testInfo) => {
   const origin = new URL(baseURL!).origin;
-  const { alpha, beta, addressId, headers } = await purchaseCartFixture(buyer, request, origin, "regresion");
+  const { alpha, beta, addressId, headers } = await purchaseCartFixture(buyer, request, origin, "regresion", async (_request, email) => {
+    expect(await sql(`
+      WITH verified AS (
+        UPDATE zonda_market.user_account SET email_verified = TRUE WHERE email = '${email}' RETURNING email
+      )
+      SELECT email FROM verified
+    `)).toBe(email);
+  });
   const inventory = () => sql(`
     SELECT concat_ws('|', count(*), sum(available_stock), sum(reserved_stock))
     FROM zonda_market.listing_sku WHERE id IN ('${alpha.skuId}', '${beta.skuId}')
