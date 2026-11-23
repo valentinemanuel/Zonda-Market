@@ -18,12 +18,12 @@ const slides = [
 ];
 
 const shortcuts = [
-  { label: "Mi cuenta", description: "Tus datos y direcciones", action: "Ver mi perfil", to: "/cuenta", icon: UserRound },
-  { label: "Tus compras", description: "Historial y seguimiento", action: "Ver pedidos", to: "/mis-ordenes", icon: ClipboardList },
-  { label: "Hasta $20.000", description: "Publicaciones por precio", action: "Explorar", to: "/catalogo?max=20000", icon: Tag },
+  { label: "Mi cuenta", description: "Datos y direcciones", action: "Ver mi perfil", to: "/cuenta", icon: UserRound },
+  { label: "Tus compras", description: "Seguí tus pedidos", action: "Ver pedidos", to: "/mis-ordenes", icon: ClipboardList },
+  { label: "Hasta $20.000", description: "Buscá por precio", action: "Explorar", to: "/catalogo?max=20000", icon: Tag },
   { label: "Disponibles", description: "Productos con stock", action: "Ver catálogo", to: "/catalogo?inStock=true", icon: PackageCheck },
-  { label: "Publicá y vendé", description: "Administrá tus publicaciones", action: "Abrir herramientas", to: "/vendedor", icon: Store },
-  { label: "Tu carrito", description: "Productos de cada vendedor", action: "Abrir carrito", to: "/carrito", icon: ShoppingCart },
+  { label: "Publicá y vendé", description: "Tus publicaciones", action: "Abrir herramientas", to: "/vendedor", icon: Store },
+  { label: "Tu carrito", description: "Revisá tus productos", action: "Abrir carrito", to: "/carrito", icon: ShoppingCart },
 ];
 
 export function StorefrontIntro({ categories }: { categories: CatalogCategoryNode[] }) {
@@ -32,10 +32,10 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
   const featured = categories.find(({ category }) => category.name === slide.name);
   const featuredPath = featured ? categoryCatalogPath(featured.category.id) : "/catalogo?q=" + encodeURIComponent(slide.name);
 
-  return <>
+  return <div>
     <section aria-roledescription="carrusel" aria-label="Explorá Zonda Market"
       className="store-hero relative text-white">
-      <div className="store-frame grid items-center gap-5 pt-7 pb-14 sm:gap-7 md:min-h-[23rem] md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:pt-8 md:pb-17">
+      <div className="store-frame grid items-center gap-5 pt-7 pb-14 sm:gap-7 md:min-h-[22.5rem] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:pt-8 md:pb-14">
         <div className="min-w-0">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[0.68rem] font-bold text-brand-gold">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" /> {slide.label}
@@ -102,7 +102,7 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
           const Icon = icons[position];
           return <li key={category.id}>
             <Link to={categoryCatalogPath(category.id)}
-              className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-panel border bg-card p-2 text-center text-xs font-bold hover:border-primary/50 hover:bg-accent">
+              className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-panel border bg-card p-2 text-center text-xs font-bold hover:border-primary/50 hover:bg-accent lg:min-h-28">
               <span className="grid size-10 place-items-center rounded-full bg-background"><Icon aria-hidden="true" className="size-5" /></span>
               {category.name}
             </Link>
@@ -110,7 +110,7 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
         })}
       </ul>
     </section>}
-  </>;
+  </div>;
 }
 
 export function StorefrontEnd() {

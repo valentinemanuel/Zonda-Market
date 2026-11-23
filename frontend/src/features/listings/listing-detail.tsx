@@ -94,6 +94,12 @@ function VariantPicker({ skus, purchase }: { skus: PublicSku[]; purchase?: Purch
   const hasAttributes = Object.keys(selected.attributes).length > 0;
   return (
     <div className="space-y-3">
+      <div aria-live="polite" className="space-y-2 border-y py-4">
+        <p className="break-words font-wordmark text-3xl font-extrabold tabular-nums">{formattedPrice(selected.price)}</p>
+        <p className={"flex items-center gap-2 text-sm font-semibold " + (selected.available ? "text-success" : "text-muted-foreground")}>
+          <PackageCheck aria-hidden="true" className="size-4" />{selected.available ? "Disponible" : "Sin stock"}
+        </p>
+      </div>
       {hasAttributes && (
         <div>
           <label htmlFor={id} className="mb-1.5 block text-sm font-medium">Variante</label>
@@ -106,12 +112,6 @@ function VariantPicker({ skus, purchase }: { skus: PublicSku[]; purchase?: Purch
           </select>
         </div>
       )}
-      <div aria-live="polite" className="space-y-2 border-y py-4">
-        <p className="break-words font-wordmark text-3xl font-extrabold tabular-nums">{formattedPrice(selected.price)}</p>
-        <p className={"flex items-center gap-2 text-sm font-semibold " + (selected.available ? "text-success" : "text-muted-foreground")}>
-          <PackageCheck aria-hidden="true" className="size-4" />{selected.available ? "Disponible" : "Sin stock"}
-        </p>
-      </div>
       {purchase && <AddToCart skuId={selected.id} available={selected.available} {...purchase} />}
     </div>
   );
@@ -146,7 +146,7 @@ export function ListingDetailView({ detail, preview = false, purchase }: { detai
             <h2 className="text-sm font-semibold">Vendedor</h2>
             <ReputationSummary {...seller} />
           </div>
-          <Button asChild variant="outline"><Link to={"/vendedores/" + seller.slug}>Ver productos del vendedor</Link></Button>
+          <Button asChild variant="outline"><Link to={"/catalogo?seller=" + encodeURIComponent(seller.slug)}>Ver productos del vendedor</Link></Button>
         </CardContent>
       </Card>}
       <div className="space-y-5 rounded-panel border bg-card p-4 shadow-panel sm:p-6">

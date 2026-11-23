@@ -43,7 +43,7 @@ export function SellerPanelPage() {
               <span className="block text-lg font-semibold">Mis publicaciones</span>
               <span className="block text-sm text-muted-foreground">Creá productos y revisá sus fotos, precios y estados.</span>
             </span>
-            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+            <ArrowRight className="text-primary motion-safe:transition-transform motion-safe:group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
           <Link aria-label="Inventario" to={inventoryPath()} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
             <span className="grid size-12 place-items-center rounded-xl bg-orange-100 text-orange-800"><Boxes size={23} aria-hidden="true" /></span>
@@ -51,7 +51,7 @@ export function SellerPanelPage() {
               <span className="block text-lg font-semibold">Inventario</span>
               <span className="block text-sm text-muted-foreground">Consultá cuántas unidades tenés y registrá reposiciones o bajas.</span>
             </span>
-            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+            <ArrowRight className="text-primary motion-safe:transition-transform motion-safe:group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
           <Link aria-label="Preguntas" to={sellerQuestionsPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
             <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><MessageCircle size={23} aria-hidden="true" /></span>
@@ -59,7 +59,7 @@ export function SellerPanelPage() {
               <span className="block text-lg font-semibold">Preguntas</span>
               <span className="block text-sm text-muted-foreground">Respondé las preguntas pendientes sobre tus publicaciones.</span>
             </span>
-            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+            <ArrowRight className="text-primary motion-safe:transition-transform motion-safe:group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
           <Link aria-label="Pedidos recibidos" to={sellerOrdersPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
             <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><Package size={23} aria-hidden="true" /></span>
@@ -67,7 +67,7 @@ export function SellerPanelPage() {
               <span className="block text-lg font-semibold">Pedidos recibidos</span>
               <span className="block text-sm text-muted-foreground">Registrá despachos y consultá las entregas.</span>
             </span>
-            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+            <ArrowRight className="text-primary motion-safe:transition-transform motion-safe:group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
           <Link aria-label="Ventas y neto estimado" to={sellerSalesPath} className="group flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/30 sm:p-6">
             <span className="grid size-12 place-items-center rounded-xl bg-secondary text-accent-foreground"><ChartNoAxesColumnIncreasing size={23} aria-hidden="true" /></span>
@@ -75,7 +75,7 @@ export function SellerPanelPage() {
               <span className="block text-lg font-semibold">Ventas y neto estimado</span>
               <span className="block text-sm text-muted-foreground">Consultá importes y actividad de tus subórdenes.</span>
             </span>
-            <ArrowRight className="text-primary transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+            <ArrowRight className="text-primary motion-safe:transition-transform motion-safe:group-hover:translate-x-1" size={20} aria-hidden="true" />
           </Link>
         </section>
       )}

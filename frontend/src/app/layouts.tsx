@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
 import { useRef } from "react";
-import { Form, Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Form, Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
 import { getJson } from "@/shared/api/http-client";
 import { useCart } from "@/features/cart/cart-api";
@@ -64,6 +64,7 @@ export function SiteLayout() {
   const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
   const catalogTerm = pathname === "/catalogo" ? new URLSearchParams(search).get("q") ?? "" : "";
   const storefront = pathname === "/catalogo" && !search;
+  const listing = pathname.startsWith("/publicaciones/");
 
   return <>
     <a href="#contenido"
@@ -102,7 +103,7 @@ export function SiteLayout() {
       </div>
       <CategoryNavigation />
     </header>
-    <main id="contenido" tabIndex={-1} className={`store-frame min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : "py-5 sm:py-8"}`}>
+    <main id="contenido" tabIndex={-1} className={`store-frame min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : listing ? "pt-2 pb-7" : "py-5 sm:py-8"}`}>
       <Outlet />
     </main>
     <footer className="border-t bg-card">
@@ -114,6 +115,7 @@ export function SiteLayout() {
         </div>
       </div>
     </footer>
+    <ScrollRestoration getKey={({ pathname }) => pathname} />
   </>;
 }
 

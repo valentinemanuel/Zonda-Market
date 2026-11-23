@@ -125,8 +125,8 @@ export function PublicCatalogPage() {
 
   const filtersPanel = (
         <Card key="filters" id="filtros" className="scroll-mt-40 py-4">
-          <CardContent className={storefront ? "grid gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4" : "space-y-4 px-4"}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardContent className={storefront ? "grid items-start gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4" : "space-y-4 px-4"}>
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-full">
               <h2 className="font-semibold">Filtros</h2>
               {filters !== cleaned.toString() && <Link className={profileLink + " text-sm"} to={"/catalogo?" + cleaned}>Limpiar</Link>}
             </div>
@@ -183,19 +183,7 @@ export function PublicCatalogPage() {
         </Card>
   );
   const resultsPanel = (
-        <section key="results" className="min-w-0 space-y-4" aria-label="Resultados">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 className="store-section-title">{storefront ? "Productos destacados" : "Publicaciones"}</h2>
-            <Field label="Ordenar por">
-              <select className={profileControl} value={params.get("sort") ?? "relevance"}
-                onChange={(event) => filter("sort", event.currentTarget.value)}>
-                <option value="relevance">Relevancia</option>
-                <option value="newest">Más recientes</option>
-                <option value="price_asc">Menor precio</option>
-                <option value="price_desc">Mayor precio</option>
-              </select>
-            </Field>
-          </div>
+        <section key="results" className="min-w-0 space-y-3" aria-label="Resultados">
           {(results.isPending || results.isPlaceholderData) && <p role="status">Cargando publicaciones…</p>}
           {results.isError && <div className="space-y-3 rounded-lg border bg-card p-5">
             <p role="alert" className="text-destructive">No pudimos cargar el catálogo. Revisá los filtros o volvé a intentar.</p>
@@ -244,9 +232,10 @@ export function PublicCatalogPage() {
   return (
     <div className="space-y-6">
       {storefront && <StorefrontIntro categories={categories.data ?? []} />}
-      <header id="productos" className="flex scroll-mt-40 flex-wrap items-end justify-between gap-3 border-b pb-4">
-        <h1 className="store-section-title">Catálogo</h1>
-        <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-sm flex-wrap items-end gap-2">
+      <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
+        <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
+        {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
+        <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
           <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">
             <span className="sr-only">Buscar publicaciones</span>
             <input type="search" name="q" maxLength={160} value={term}
@@ -256,6 +245,15 @@ export function PublicCatalogPage() {
           </label>
           <Button type="submit" className="min-h-11"><Search />Buscar</Button>
         </form>
+        <Field label="Ordenar por">
+          <select className={profileControl} value={params.get("sort") ?? "relevance"}
+            onChange={(event) => filter("sort", event.currentTarget.value)}>
+            <option value="relevance">Relevancia</option>
+            <option value="newest">Más recientes</option>
+            <option value="price_asc">Menor precio</option>
+            <option value="price_desc">Mayor precio</option>
+          </select>
+        </Field>
       </header>
       <div className={storefront ? "grid gap-6" : "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]"}>
         {storefront ? [resultsPanel, filtersPanel] : [filtersPanel, resultsPanel]}
