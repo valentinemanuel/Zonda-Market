@@ -6,7 +6,7 @@ const key = (revision: number) => ["private", "notifications", revision] as cons
 
 export type Notification = {
   id: string;
-  type: "PAYMENT_APPROVED" | "SUB_ORDER_SHIPPED" | "DELIVERY_CONFIRMED";
+  type: "PAYMENT_APPROVED" | "SUB_ORDER_SHIPPED" | "DELIVERY_CONFIRMED" | "DISPUTE_OPENED" | "DISPUTE_ASSIGNED";
   createdAt: string;
   read: boolean;
   resourceId: string;

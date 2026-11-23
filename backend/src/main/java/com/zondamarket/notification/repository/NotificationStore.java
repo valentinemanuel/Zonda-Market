@@ -28,7 +28,8 @@ public class NotificationStore {
     public Optional<Event> claimEvent() {
         return sql.sql("""
                 SELECT id, order_id, sub_order_id, event_type, created_at FROM zonda_market.checkout_outbox
-                WHERE notification_pending AND event_type IN ('CHECKOUT_PAID', 'SUB_ORDER_SHIPPED', 'DELIVERY_CONFIRMED')
+                WHERE notification_pending AND event_type IN
+                    ('CHECKOUT_PAID', 'SUB_ORDER_SHIPPED', 'DELIVERY_CONFIRMED', 'DISPUTE_OPENED', 'DISPUTE_ASSIGNED')
                 ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
                 """).query((row, i) -> new Event(row.getObject("id", UUID.class),
                         row.getObject("order_id", UUID.class), row.getObject("sub_order_id", UUID.class),
@@ -57,6 +58,11 @@ public class NotificationStore {
                 """ + filter).param("order", event.orderId());
         if (event.subOrderId() != null) query.param("sub", event.subOrderId());
         return query.query(NotificationStore::recipient).list();
+    }
+
+    public UUID disputeId(UUID subOrder) {
+        return sql.sql("SELECT id FROM zonda_market.dispute WHERE sub_order_id = :sub")
+                .param("sub", subOrder).query(UUID.class).single();
     }
 
     public void enqueue(Event event, Recipient recipient, Type type, UUID resource, String href, Instant now) {

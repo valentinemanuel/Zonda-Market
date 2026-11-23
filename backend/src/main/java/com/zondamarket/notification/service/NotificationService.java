@@ -37,6 +37,8 @@ public class NotificationService {
             case "SUB_ORDER_SHIPPED" -> notifyBuyer(event, Type.SUB_ORDER_SHIPPED, event.subOrderId(),
                     "#suborden-" + event.subOrderId(), now);
             case "DELIVERY_CONFIRMED" -> notifySellers(event, Type.DELIVERY_CONFIRMED, now);
+            case "DISPUTE_OPENED" -> notifyDispute(event, Type.DISPUTE_OPENED, now);
+            case "DISPUTE_ASSIGNED" -> notifyDispute(event, Type.DISPUTE_ASSIGNED, now);
             default -> throw new IllegalStateException("Hito de compra desconocido.");
         }
         store.projected(event.id(), now);
@@ -51,6 +53,17 @@ public class NotificationService {
     private void notifySellers(Event event, Type type, Instant now) {
         for (var seller : store.sellers(event)) {
             store.enqueue(event, seller, type, seller.subOrderId(), "/vendedor/pedidos?suborden=" + seller.subOrderId(), now);
+        }
+    }
+
+    private void notifyDispute(Event event, Type type, Instant now) {
+        UUID dispute = store.disputeId(event.subOrderId());
+        String href = "/reclamos/" + dispute;
+        for (var seller : store.sellers(event)) {
+            store.enqueue(event, seller, type, dispute, href, now);
+        }
+        if (type == Type.DISPUTE_ASSIGNED) {
+            store.buyer(event.orderId()).ifPresent(buyer -> store.enqueue(event, buyer, type, dispute, href, now));
         }
     }
 

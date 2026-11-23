@@ -50,6 +50,7 @@ function EventTime({ value }: { value: string }) {
 
 export function shipmentError(error: unknown, fallback: string) {
   if (!(error instanceof ApiError)) return fallback;
+  if (error.code === "SUB_ORDER_DISPUTED") return "La suborden tiene un reclamo activo. Actualizá el pedido para verlo.";
   if (error.status === 409) return "La suborden cambió. Actualizá su estado.";
   if (error.status === 404) return "No encontramos esa suborden.";
   if (error.status === 400) return "Revisá el transportista y el código de seguimiento.";

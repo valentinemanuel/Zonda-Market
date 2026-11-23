@@ -6,7 +6,15 @@ export const password = "password-ficticia-e301";
 const sellerListings = "/api/v1/seller/listings";
 const categoryId = "e2010000-0000-4000-8000-000000000001";
 
-export async function publish(request: APIRequestContext, origin: string, photo: Buffer, name: string, price: number) {
+export async function verifyByMail(request: APIRequestContext, email: string) {
+  expect((await request.post("/api/v1/auth/email-verification/request", { data: { email } })).status()).toBe(202);
+  const verification = await linkFromMail(request, email, "/verificar-correo");
+  const token = new URLSearchParams(verification.hash.slice(1)).get("token");
+  expect((await request.post("/api/v1/auth/email-verification/confirm", { data: { token } })).status()).toBe(204);
+}
+
+export async function publish(request: APIRequestContext, origin: string, photo: Buffer, name: string, price: number,
+  verify = verifyByMail) {
   const suffix = randomUUID().slice(0, 8);
   const email = `vendedor-carrito-${suffix}@example.test`;
   const session = await playwrightRequest.newContext({ baseURL: origin });
@@ -21,10 +29,7 @@ export async function publish(request: APIRequestContext, origin: string, photo:
     await session.dispose();
   }
   const headers = { Authorization: "Bearer " + accessToken };
-  expect((await request.post("/api/v1/auth/email-verification/request", { data: { email } })).status()).toBe(202);
-  const verification = await linkFromMail(request, email, "/verificar-correo");
-  const token = new URLSearchParams(verification.hash.slice(1)).get("token");
-  expect((await request.post("/api/v1/auth/email-verification/confirm", { data: { token } })).status()).toBe(204);
+  await verify(request, email);
   const seller = `Tienda ${name} ${suffix}`;
   expect((await request.post("/api/v1/me/seller-profile", {
     headers, data: { type: "PERSONAL", displayName: seller, slug: "carrito-" + suffix },

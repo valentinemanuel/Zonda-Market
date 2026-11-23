@@ -5,6 +5,8 @@ import { getSessionRevision, subscribeToSession } from "@/features/auth/session-
 import { signInRequired } from "@/features/cart/cart-api";
 import { SellerHeading, SellerNavigation } from "@/features/listings/seller-workspace";
 import { ApiError } from "@/shared/api/http-client";
+import { disputeActive } from "@/features/disputes/dispute-api";
+import { DisputeLink } from "@/features/disputes/dispute-order-action";
 import { Button } from "@/shared/ui/button";
 import { fetchSellerOrders, sellerOrdersKey, shipSubOrder, type Carrier, type SellerOrderStatus, type SubOrder } from "./checkout-api";
 import { addressText, CheckoutGroupCard } from "./checkout-summary";
@@ -72,7 +74,8 @@ function SellerOrders({ revision, subOrderId }: { revision: number; subOrderId: 
                   <h3 className="font-semibold">Dirección de entrega</h3>
                   <p className="break-words text-sm">{addressText(sub.address)}</p>
                 </div>
-                {sub.status === "PREPARANDO" && <ShipDialog sub={sub} reload={() => void orders.refetch()}
+                {sub.dispute && <DisputeLink dispute={sub.dispute} />}
+                {sub.status === "PREPARANDO" && !disputeActive(sub.dispute?.status) && <ShipDialog sub={sub} reload={() => void orders.refetch()}
                   saved={() => {
                     setNotice("Despacho registrado correctamente.");
                     noticeRef.current?.focus();
