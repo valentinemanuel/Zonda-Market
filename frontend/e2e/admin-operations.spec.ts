@@ -33,7 +33,8 @@ test("concilia una compra de dos vendedores y descarga el reporte global con tec
   await fixture.approve();
   const sub = fixture.order.subOrders.find(({ group }) => group.sellerName === fixture.alpha.seller)!;
   const sellerId = sub.group.sellerId;
-  await sql(`UPDATE zonda_market.seller_profile SET display_name = '=1+1' WHERE id = '${sellerId}'`);
+  const formulaName = `=1+${Number.parseInt(sellerId.replaceAll("-", "").slice(0, 12), 16)}`;
+  await sql(`UPDATE zonda_market.seller_profile SET display_name = '${formulaName}' WHERE id = '${sellerId}'`);
   const opened = await request.post(`/api/v1/me/sub-orders/${sub.id}/disputes`, {
     headers: fixture.headers, data: { reason: "Devolución de prueba", description: "Compra ficticia de dos vendedores" },
   });
@@ -59,7 +60,7 @@ test("concilia una compra de dos vendedores y descarga el reporte global con tec
   expect(report.paidOrders - before.paidOrders).toBe(1);
   expect(report.disputes - before.disputes).toBe(1);
   expect(report.openCases).toBe(before.openCases);
-  expect(report.sellers.find((seller) => seller.id === sellerId)).toMatchObject({ name: "=1+1", gmv: "100.00", refunds: "25.00" });
+  expect(report.sellers.find((seller) => seller.id === sellerId)).toMatchObject({ name: formulaName, gmv: "100.00", refunds: "25.00" });
 
   const admin = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: "es-AR" });
   try {
@@ -90,7 +91,7 @@ test("concilia una compra de dos vendedores y descarga el reporte global con tec
     await daily.press("ArrowRight");
     await expect.poll(() => daily.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
     expect(await admin.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-    await expect(admin.getByRole("rowheader", { name: "=1+1" })).toBeVisible();
+    await expect(admin.getByRole("rowheader", { name: formulaName, exact: true })).toBeVisible();
     await daily.press("ArrowLeft");
     await expect.poll(() => daily.evaluate((element) => element.scrollLeft)).toBe(0);
     await admin.screenshot({ path: testInfo.outputPath("operacion-resumen-movil.png"), fullPage: true });
@@ -104,8 +105,8 @@ test("concilia una compra de dos vendedores y descarga el reporte global con tec
     expect(csv.split("\r\n")[1].split(",").slice(8, 14)).toEqual([
       report.gmv, report.refunds, report.platformCommission, String(report.paidOrders), String(report.disputes), String(report.openCases),
     ]);
-    expect(csv).toContain(`,'=1+1,100.00,25.00,`);
-    expect(csv).not.toContain(",=1+1,");
+    expect(csv).toContain(`,'${formulaName},100.00,25.00,`);
+    expect(csv).not.toContain(`,${formulaName},`);
     expect(csv).not.toContain(email);
     await expect(admin.getByText("Descarga iniciada.")).toBeVisible();
 
