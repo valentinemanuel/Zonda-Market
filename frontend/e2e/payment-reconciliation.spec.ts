@@ -44,7 +44,7 @@ test("recupera una confirmación persistida en la reserva abierta y al recargar"
   await page.reload();
   await expect(pending).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("confirmacion-pendiente-movil.png"), fullPage: true });
-  const orderList = page.getByRole("link", { name: "Mis órdenes", exact: true });
+  const orderList = page.getByRole("main").getByRole("link", { name: "Mis órdenes", exact: true });
   await orderList.focus();
   approved = true;
   await expect(page.getByText("Pagada", { exact: true })).toBeVisible();

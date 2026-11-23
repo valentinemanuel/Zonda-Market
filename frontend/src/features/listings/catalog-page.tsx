@@ -229,6 +229,8 @@ export function PublicCatalogPage() {
       <div className={storefront ? "store-frame mt-6 space-y-6" : "space-y-6"}>
         <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
           <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
+          {!showFilters && max && /^\d+(?:\.\d{1,2})?$/.test(max) &&
+            <p className="text-sm font-medium text-muted-foreground">Productos hasta {formattedPrice(max)}</p>}
           {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
           <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
             <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">

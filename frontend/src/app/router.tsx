@@ -4,15 +4,24 @@ import { StatusPage } from "@/features/status/status-page";
 import { AccountPage } from "@/features/auth/account-page";
 import { googleReturnLoader } from "@/features/auth/google-auth";
 import { GoogleReturnPage } from "@/features/auth/google-return-page";
-import { PrivateLayout, SiteLayout } from "./layouts";
+import { AuthLayout, PrivateLayout, SiteLayout } from "./layouts";
 
 export const router = createBrowserRouter([
+  {
+    element: <AuthLayout />,
+    hydrateFallbackElement: <p role="status">Cargando…</p>,
+    children: [
+      { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
+      { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },
+    ],
+  },
   {
     element: <SiteLayout />,
     children: [
       { index: true, element: <Navigate to="/catalogo" replace /> },
       { path: "catalogo", lazy: async () => ({ Component: (await import("@/features/listings/catalog-page")).PublicCatalogPage }) },
       { path: "estado", element: <StatusPage /> },
+      { path: "informacion/:topic", lazy: async () => ({ Component: (await import("./store-information")).StoreInformation }) },
       { path: "carrito", lazy: async () => ({ Component: (await import("@/features/cart/cart-page")).CartPage }) },
       { path: "checkout", lazy: async () => ({ Component: (await import("@/features/checkout/checkout-page")).CheckoutPage }) },
       { path: "checkout/reserva/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).ReservationPage }) },
@@ -61,8 +70,6 @@ export const router = createBrowserRouter([
         hydrateFallbackElement: <p role="status">Cargando…</p>,
         children: [
           { path: "vendedores/:slug", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).PublicSellerPage }) },
-          { path: "ingresar", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).LoginPage }) },
-          { path: "registro", lazy: async () => ({ Component: (await import("@/features/auth/auth-page")).RegisterPage }) },
           { path: "recuperar-acceso", lazy: async () => ({ Component: (await import("@/features/auth/email-link-pages")).PasswordRequestPage }) },
           { path: "verificar-correo", lazy: async () => ({ Component: (await import("@/features/auth/email-link-pages")).VerificationLinkPage }) },
           { path: "restablecer-clave", lazy: async () => ({ Component: (await import("@/features/auth/email-link-pages")).ResetLinkPage }) },

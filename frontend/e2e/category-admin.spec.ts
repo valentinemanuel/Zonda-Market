@@ -35,7 +35,7 @@ test("edita el árbol y las tasas en móvil con teclado y recupera errores", asy
     await route.abort("failed");
   }, { times: 1 });
   try {
-    await page.getByRole("link", { name: "Categorías" }).press("Enter");
+    await page.getByRole("main").getByRole("link", { name: "Categorías", exact: true }).press("Enter");
     await expect(page.getByText("Cargando categorías…")).toBeVisible();
   } finally {
     release();

@@ -22,6 +22,9 @@ public class RefreshSession extends BaseEntity {
     @Column(nullable = false, updatable = false)
     private Instant expiresAt;
 
+    @Column(nullable = false, updatable = false)
+    private boolean rememberBrowser;
+
     @Column(nullable = false)
     private long generation;
 
@@ -32,14 +35,16 @@ public class RefreshSession extends BaseEntity {
 
     protected RefreshSession() {}
 
-    public RefreshSession(UserAccount account, String jtiHash, Instant expiresAt) {
+    public RefreshSession(UserAccount account, String jtiHash, Instant expiresAt, boolean rememberBrowser) {
         this.account = account;
         this.jtiHash = jtiHash;
         this.expiresAt = expiresAt;
+        this.rememberBrowser = rememberBrowser;
     }
 
     public UserAccount getAccount() { return account; }
     public Instant getExpiresAt() { return expiresAt; }
+    public boolean isRememberBrowser() { return rememberBrowser; }
     public long getGeneration() { return generation; }
     public long getSessionVersion() { return sessionVersion; }
 
