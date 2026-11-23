@@ -79,19 +79,19 @@ public class CheckoutService {
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public DirectPreview directPreview(UUID buyer, UUID skuId) {
-        var snapshot = snapshot(buyer, null, null, skuId);
+    public DirectPreview directPreview(UUID buyer, UUID skuId, int quantity) {
+        var snapshot = snapshot(buyer, null, null, skuId, quantity);
         return new DirectPreview(snapshot.groups(), thumbnails(snapshot.groups()));
     }
 
     @Transactional
-    public QuoteResponse quote(AccountResponse account, UUID addressId, long version, UUID directSkuId) {
+    public QuoteResponse quote(AccountResponse account, UUID addressId, long version, UUID directSkuId, int quantity) {
         requireVerified(account);
         var cart = carts.lock(account.id());
         requireNoActiveOrder(account.id());
         requireVersion(cart.version(), version);
         var address = address(account.id(), addressId, false);
-        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId);
+        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId, quantity);
         var id = UUID.randomUUID();
         var now = now();
         var expiry = now.plus(QUOTE_TTL);
@@ -130,7 +130,8 @@ public class CheckoutService {
         UUID sourceCart = directSkuId == null ? cart.id() : null;
         store.lockOfferVisibility(sourceCart, directSkuId);
         store.lockSkus(sourceCart, directSkuId);
-        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId);
+        int quantity = directSkuId == null ? 1 : quote.snapshot().groups().getFirst().items().getFirst().quantity();
+        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId, quantity);
         var now = now();
         requireCurrentQuote(quote.expiresAt(), now);
         if (!quote.snapshot().equals(snapshot)) {
@@ -212,10 +213,10 @@ public class CheckoutService {
         return carts.thumbnails(groups.stream().flatMap(group -> group.items().stream()).map(Line::skuId).toList());
     }
 
-    private Snapshot snapshot(UUID buyer, UUID cart, DeliveryAddress address, UUID directSkuId) {
+    private Snapshot snapshot(UUID buyer, UUID cart, DeliveryAddress address, UUID directSkuId, int quantity) {
         var lines = directSkuId == null
                 ? carts.lines(cart).stream().map(line -> new PurchaseLine(line.offer(), line.quantity())).toList()
-                : List.of(new PurchaseLine(carts.offer(directSkuId).orElseThrow(CheckoutService::stockChanged), 1));
+                : List.of(new PurchaseLine(carts.offer(directSkuId).orElseThrow(CheckoutService::stockChanged), quantity));
         if (lines.isEmpty()) throw conflict("CART_EMPTY", "Agregá productos para cotizar la compra.");
 
         var groups = new LinkedHashMap<UUID, GroupAmounts>();

@@ -15,7 +15,7 @@ public final class CheckoutDtos {
 
     public record QuoteRequest(@NotNull UUID addressId,
             @NotNull @Min(0) @Max(Long.MAX_VALUE) @Digits(integer = 19, fraction = 0) BigDecimal cartVersion,
-            UUID directSkuId) {}
+            UUID directSkuId, @Min(1) @Max(99) @Digits(integer = 2, fraction = 0) BigDecimal quantity) {}
 
     public record ConfirmRequest(@NotNull UUID quoteId) {}
 

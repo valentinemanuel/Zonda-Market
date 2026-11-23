@@ -8,17 +8,15 @@ import { profileControl } from "@/features/auth/profile-fields";
 import { Button } from "@/shared/ui/button";
 import { fetchPublicListing } from "./listing-api";
 import { attributeEntries, attributeLabel } from "./listing-forms";
-import { formattedPrice, listingPublicPath } from "./public-listing-format";
+import { formattedPrice, listingPublicPath, publicListingTitle } from "./public-listing-format";
 
 export type CatalogItem = {
   id: string; slug: string; title: string; categoryId: string; seller: string; sellerName: string;
   thumbnailUrl: string | null; price: string; available: boolean; condition: string | null; quickSkuId: string | null;
 };
 
-const conditionSuffix = /\s+·\s+(nuevo|como nuevo|buen estado|segunda mano|usado)\s*$/iu;
-
 export function CatalogProductCard({ item, catalogSearch }: { item: CatalogItem; catalogSearch: string }) {
-  const title = item.title.replace(conditionSuffix, "");
+  const title = publicListingTitle(item.title);
   const [whole, cents] = formattedPrice(item.price).split(",");
   const condition = item.condition;
   return <li className="store-product relative h-full min-w-0 rounded-panel border border-border bg-card shadow-panel">
