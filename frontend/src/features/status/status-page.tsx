@@ -28,7 +28,7 @@ export function StatusPage() {
 
   return (
     <div className="space-y-7">
-      <section aria-labelledby="status-title" className="overflow-hidden rounded-[1.85rem] bg-hero p-6 text-white sm:p-9 lg:p-11">
+      <section aria-labelledby="status-title" className="workspace-heading p-6 sm:p-9 lg:p-11">
         <div className="grid gap-8 md:grid-cols-[1fr_18rem] md:items-end lg:gap-16">
           <div>
             <Activity size={29} className="mb-5 text-[#ffc564]" aria-hidden="true" />

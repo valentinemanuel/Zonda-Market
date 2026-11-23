@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LockKeyhole, MapPin } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { getAddresses, type Address } from "@/features/auth/profile-api";
@@ -11,7 +12,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { activeOrder, activeOrderKey, checkoutError, confirmCheckout, orderKey, ordersKey, quoteCheckout,
   reservationPath, type Quote } from "./checkout-api";
-import { addressText, CheckoutSummary } from "./checkout-summary";
+import { addressText, CheckoutHeading, CheckoutSummary } from "./checkout-summary";
 
 export function CheckoutPage() {
   const { query: cart, revision } = useCart();
@@ -27,11 +28,9 @@ export function CheckoutPage() {
   const queries = [cart, account, addresses, active];
   const reload = () => { void Promise.all(queries.map((query) => query.refetch())); };
 
-  return <div className="mx-auto max-w-5xl space-y-6">
-    <div className="space-y-2">
-      <Link className={profileLink + " text-sm"} to="/carrito">Volver al carrito</Link>
-      <h1 className="text-3xl font-semibold">Confirmar compra</h1>
-    </div>
+  return <div className="mx-auto max-w-7xl space-y-5">
+    <Link className={profileLink + " text-sm"} to="/carrito">Volver al carrito</Link>
+    <CheckoutHeading title="Confirmar compra" step="Envío" />
     {active.data && !active.isFetching ? <Navigate to={reservationPath(active.data.id)} replace />
       : queries.some((query) => signInRequired(query.error)) ? <Button asChild>
           <Link to="/ingresar" state={{ returnToCheckout: true }}>Iniciar sesión para comprar</Link>
@@ -113,10 +112,20 @@ function CheckoutForm({ revision, cart, addresses, reload }: {
     requestQuote.mutate();
   }
 
-  return <div className="space-y-4">
+  const groups = currentQuote?.groups ?? cart.groups.map((group) => ({
+    ...group,
+    merchandise: group.subtotal,
+    shipping: null,
+    items: group.items.flatMap((item) => item.subtotal === null ? [] : [{ ...item, subtotal: item.subtotal }]),
+  }));
+
+  return <CheckoutSummary groups={groups} total={currentQuote?.total} beforeGroups={
     <Card className="gap-0 py-4">
       <CardContent className="space-y-3 px-4 sm:px-6">
-        <h2 className="text-lg font-semibold">Dirección de entrega</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-semibold"><MapPin aria-hidden="true" className="size-4 text-primary" />Dirección de entrega</h2>
+          <Link className={profileLink + " text-sm"} to="/cuenta/direcciones">Cambiar o agregar</Link>
+        </div>
         <form className="space-y-3" onSubmit={submit}>
           <label htmlFor={addressInput} className="block text-sm font-medium">Elegí una dirección</label>
           <select className={profileControl} id={addressInput} value={address.id} disabled={busy}
@@ -132,18 +141,18 @@ function CheckoutForm({ revision, cart, addresses, reload }: {
             {requestQuote.isPending ? "Cotizando…" : currentQuote ? "Volver a cotizar" : "Cotizar compra"}
           </Button>
         </form>
+        {busy && <p role="status">{confirm.isPending ? "Confirmando la reserva…" : "Consultando importe y stock vigentes…"}</p>}
+        {error && <p role="alert" className="text-destructive">{checkoutError(error)}</p>}
+        {quote && !currentQuote && <p role="status">El carrito cambió. Volvé a cotizar.</p>}
       </CardContent>
     </Card>
-    {busy && <p role="status">{confirm.isPending ? "Confirmando la reserva…" : "Consultando importe y stock vigentes…"}</p>}
-    {error && <p role="alert" className="text-destructive">{checkoutError(error)}</p>}
-    {quote && !currentQuote && <p role="status">El carrito cambió. Volvé a cotizar.</p>}
-    {currentQuote && <div className="space-y-4">
-      <p role="status">Cotización lista. El total es {formattedPrice(currentQuote.total)}.</p>
-      <CheckoutSummary groups={currentQuote.groups} total={currentQuote.total}>
+  }>
+    {currentQuote && <>
+        <p role="status" className="text-sm font-medium text-success">Cotización lista. El total es {formattedPrice(currentQuote.total)}.</p>
         <Button type="button" className="min-h-11 w-full" disabled={busy} onClick={() => confirm.mutate(currentQuote.id)}>
+          <LockKeyhole aria-hidden="true" />
           {confirm.isPending ? "Reservando…" : "Confirmar reserva"}
         </Button>
-      </CheckoutSummary>
-    </div>}
-  </div>;
+    </>}
+  </CheckoutSummary>;
 }

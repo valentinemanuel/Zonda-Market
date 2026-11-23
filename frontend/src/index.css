@@ -12,33 +12,41 @@
   --font-sans: "Inter Variable", "Segoe UI", sans-serif;
   --font-wordmark: "Bricolage Grotesque", "Inter Variable", sans-serif;
   --font-mono: "IBM Plex Mono", Consolas, monospace;
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
+  --color-background: #f5f7f9;
+  --color-foreground: #111a2d;
   --color-card: #fff;
   --color-card-foreground: #0f172a;
-  --color-primary: #2563eb;
+  --color-primary: #bc3d08;
   --color-primary-foreground: #fff;
-  --color-muted: #f1f5f9;
+  --color-muted: #eef2f6;
   --color-muted-foreground: #475569;
-  --color-border: #e2e8f0;
-  --color-input: #cbd5e1;
-  --color-ring: #2563eb;
-  --color-accent: #eff6ff;
-  --color-accent-foreground: #1e40af;
-  --color-secondary: #eff6ff;
-  --color-secondary-foreground: #1e40af;
+  --color-border: #e0e6ed;
+  --color-input: #8491a1;
+  --color-ring: #a63813;
+  --color-accent: #fff0e3;
+  --color-accent-foreground: #8b2f0a;
+  --color-secondary: #fff0e3;
+  --color-secondary-foreground: #8b2f0a;
   --color-destructive: #b91c1c;
   --color-destructive-soft: #fef2f2;
   --color-success: #047857;
-  --color-brand: #ff7d3b;
+  --color-brand: #f75e0b;
   --color-brand-ink: #12192b;
+  --color-brand-gold: #ffd060;
   --color-hero: #12192b;
   --color-hero-panel: #202a32;
   --color-hero-border: #35434a;
   --color-hero-muted: #bec8c9;
+  --radius-panel: 0.75rem;
+  --shadow-panel: 0 1px 2px #111a2d0a, 0 2px 5px #111a2d08;
+  --shadow-float: 0 2px 4px #111a2d14, 0 8px 18px #111a2d10;
+  --ease-store: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @layer base {
+  :root {
+    --store-gutter: clamp(1rem, 2vw, 2rem);
+  }
   *, ::before, ::after {
     @apply border-border;
   }
@@ -49,6 +57,79 @@
 
   :focus-visible {
     @apply outline-2 outline-offset-4 outline-ring;
+  }
+
+  dialog {
+    overscroll-behavior: contain;
+  }
+}
+
+@layer components {
+  .store-frame {
+    width: min(100%, 90rem);
+    margin-inline: auto;
+    padding-inline: var(--store-gutter);
+  }
+
+  .store-header {
+    background: linear-gradient(105deg, #f4610b, #fb730d 49%, #e85007);
+    box-shadow: 0 2px 8px #10182918;
+  }
+
+  .store-header :focus-visible {
+    outline-color: var(--color-brand-ink);
+  }
+
+  .store-header-link {
+    @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 font-semibold;
+  }
+
+  .store-section-title {
+    @apply text-xl font-bold tracking-tight sm:text-2xl;
+  }
+
+  .workspace-heading {
+    @apply rounded-panel bg-hero text-white shadow-panel;
+    background-image: radial-gradient(ellipse at 100% 0%, #683722, transparent 65%);
+  }
+
+  .store-hero {
+    margin-inline: calc(-1 * var(--store-gutter));
+    background:
+      radial-gradient(ellipse at 59% 27%, #78452e88, transparent 47%),
+      radial-gradient(ellipse at 100% 100%, #8a3011, transparent 52%),
+      radial-gradient(ellipse at 0% 110%, #60533b80, transparent 56%),
+      linear-gradient(125deg, #101727, #242632 76%, #171e2e);
+  }
+
+  .store-hero-image {
+    outline: 1px solid oklch(1 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+
+  .store-photo {
+    outline: 1px solid oklch(0 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .store-hero-art {
+    animation: store-art-in 240ms var(--ease-store) both;
+  }
+}
+
+@keyframes store-art-in {
+  from { opacity: 0; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .store-product img {
+    transition: scale 240ms var(--ease-store);
+  }
+
+  .store-product:hover img {
+    scale: 1.035;
   }
 }
 

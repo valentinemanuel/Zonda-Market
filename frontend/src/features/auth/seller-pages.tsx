@@ -101,12 +101,9 @@ export function PublicSellerPage() {
 
 function SellerCard({ seller }: { seller: Seller }) {
   return (
-    <article className="space-y-4">
-      <div>
-        <h1 className="break-words text-2xl font-semibold">{seller.displayName}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{seller.type === "COMERCIO" ? "Comercio" : "Vendedor particular"}</p>
-      </div>
-      {seller.bio && <p className="whitespace-pre-wrap break-words">{seller.bio}</p>}
+    <article className="mx-auto max-w-6xl space-y-4">
+      <SellerHeading title={seller.displayName} description={seller.type === "COMERCIO" ? "Comercio" : "Vendedor particular"} />
+      {seller.bio && <p className="whitespace-pre-wrap break-words rounded-panel border bg-card p-4 shadow-panel">{seller.bio}</p>}
       <SellerReviews slug={seller.slug} reputation={seller} />
     </article>
   );

@@ -1,3 +1,4 @@
+import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { profileLink } from "@/features/auth/profile-fields";
@@ -17,9 +18,9 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
   cart?: Cart; loading: boolean; error: unknown; retry: () => void;
 }) {
   const edit = useCartEdit(revision);
-  if (!available) return <Button type="button" disabled>Agregar al carrito</Button>;
+  if (!available) return <Button type="button" className="min-h-11 w-full" disabled>Agregar al carrito</Button>;
   if (signInRequired(error) || signInRequired(edit.error)) {
-    return <Button asChild>
+    return <Button asChild className="min-h-11 w-full">
       <Link to="/ingresar" state={{ cartListingSlug: slug, catalogSearch }}>Ingresá para agregar al carrito</Link>
     </Button>;
   }
@@ -33,9 +34,10 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
     ?? cart.unavailable.find((item) => item.skuId === skuId);
   const quantity = item?.quantity ?? 0;
   return <div className="space-y-2">
-    <Button type="button" disabled={edit.isPending || item?.reserved || quantity >= 99}
+    <Button type="button" className="min-h-11 w-full" disabled={edit.isPending || item?.reserved || quantity >= 99}
       onClick={() => edit.mutate({ kind: "put", skuId, quantity: quantity + 1, expectedVersion: cart.version })}>
       {edit.isPending ? "Agregando…" : "Agregar al carrito"}
+      <ShoppingCart aria-hidden="true" />
     </Button>
     {item?.reserved && <p className="text-sm text-muted-foreground">Esta variante está incluida en tu reserva.</p>}
     {quantity >= 99 && <p className="text-sm text-muted-foreground">Alcanzaste el máximo de 99 unidades de esta variante.</p>}

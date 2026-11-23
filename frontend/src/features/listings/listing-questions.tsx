@@ -104,7 +104,7 @@ export function ListingQuestions({ listingId }: { listingId: string }) {
     if (hash === "#preguntas") section.current?.scrollIntoView();
   }, [hash]);
 
-  return <section ref={section} id="preguntas" aria-labelledby="preguntas-titulo" className="mx-auto max-w-5xl space-y-4 border-t pt-5">
+  return <section ref={section} id="preguntas" aria-labelledby="preguntas-titulo" className="mx-auto max-w-7xl scroll-mt-32 space-y-4 rounded-panel border bg-card p-4 shadow-panel sm:p-6">
     <h2 id="preguntas-titulo" className="text-xl font-semibold">Preguntas y respuestas</h2>
     {questions.isPending && <p role="status">Cargando preguntas…</p>}
     {questions.isError && <div className="space-y-2">

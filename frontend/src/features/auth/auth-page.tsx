@@ -69,7 +69,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{title}</h1>
+      <h1 className="store-section-title">{title}</h1>
       <form className="mt-6 space-y-4" noValidate onSubmit={submit} aria-busy={isSubmitting}>
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium">Correo electrónico</label>
