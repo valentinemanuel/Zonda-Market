@@ -20,7 +20,7 @@ export function CategoryPage() {
     <section className="mx-auto max-w-3xl space-y-5">
       <Link to="/estado" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline">
         <ArrowLeft size={16} aria-hidden="true" />
-        Volver al estado del sistema
+        Ver disponibilidad de Zonda Market
       </Link>
 
       <Card className="gap-0 overflow-hidden">

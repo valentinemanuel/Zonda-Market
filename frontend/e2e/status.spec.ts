@@ -20,7 +20,7 @@ test("diagnóstico, caída de PostgreSQL, recuperación y persistencia", async (
   console.log(`JVM con -Xmx384m. ${memory}`);
 
   await page.goto("/estado");
-  await expect(page.getByRole("heading", { name: "Estado del sistema" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Disponibilidad de Zonda Market" })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText(/Sistema operativo/);
   await expect(page.getByText(status.version, { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("estado-operativo.png"), fullPage: true });
