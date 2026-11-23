@@ -16,7 +16,7 @@ export async function getJson(path: string, signal: AbortSignal): Promise<unknow
 export async function request(path: string, init: RequestInit = {}, timeoutMs = 8_000): Promise<Response> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json, application/problem+json");
+  if (!headers.has("Accept")) headers.set("Accept", "application/json, application/problem+json");
   const response = await fetch(path, {
     ...init,
     signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
