@@ -11,6 +11,7 @@ export type UnavailableReason = "LISTING_UNAVAILABLE" | "SKU_UNAVAILABLE" | "INS
 export type CartItem = {
   skuId: string;
   listingSlug: string | null;
+  thumbnailUrl?: string | null;
   title: string;
   attributes: Record<string, string>;
   quantity: number;

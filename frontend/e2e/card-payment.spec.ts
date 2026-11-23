@@ -134,8 +134,15 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
   await chooseCard.press("Enter");
   await document.fill("12345678");
   await send.press("Enter");
+  await expect(send).toBeDisabled();
+  await expect(send).toBeVisible();
   await expect(page.getByText("Pago aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   expect(submissions).toBe(2);
   await page.screenshot({ path: testInfo.outputPath("tarjeta-aprobada-movil.png"), fullPage: true });
+  await page.getByRole("link", { name: "Volver a Pago" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Detalle del pago" })).toBeVisible();
+  await expect(chooseCard).toHaveCount(0);
+  await page.getByRole("link", { name: "Ver confirmación" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Resultado del pago" })).toBeVisible();
 });

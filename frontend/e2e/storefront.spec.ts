@@ -64,26 +64,45 @@ test("categorías cierra al pulsar fuera y los filtros aparecen al elegir una ca
 });
 
 test("la portada rota, permite pausar y cambia de dirección al retroceder", async ({ page }, testInfo) => {
-  await page.clock.install();
-  await page.goto("/catalogo");
+  await page.goto("/catalogo", { waitUntil: "domcontentloaded" });
   const carousel = page.getByLabel("Explorá Zonda Market", { exact: true });
   const technology = carousel.getByRole("button", { name: "Tecnología", exact: true });
   const home = carousel.getByRole("button", { name: "Hogar y decoración", exact: true });
   await expect(technology).toHaveAttribute("aria-pressed", "true");
   await expect(carousel.getByRole("button", { name: "Pausar destacados" })).toBeVisible();
-  await page.clock.fastForward(6100);
-  await expect(home).toHaveAttribute("aria-pressed", "true");
-  await expect(carousel.locator("[data-direction='1'] [data-state=entering]")).toHaveCSS("animation-name", "store-slide-in");
+  await expect(carousel.locator(".store-hero-progress")).toHaveCSS("animation-duration", "4.5s");
+  await expect(home).toHaveAttribute("aria-pressed", "true", { timeout: 6500 });
+  const incoming = carousel.locator("[data-direction='1'] [data-state=entering]");
+  await expect(incoming.locator(".store-hero-actions")).toHaveCSS("animation-delay", "0.26s");
+  await expect(incoming.locator(".store-hero-artwork")).toHaveCSS("animation-duration", "0.65s");
   await carousel.getByRole("button", { name: "Pausar destacados" }).press("Enter");
-  await page.clock.fastForward(6100);
+  await expect(carousel.locator(".store-hero-progress")).toHaveCSS("animation-play-state", "paused");
   await expect(home).toHaveAttribute("aria-pressed", "true");
   await carousel.getByRole("button", { name: "Destacado anterior" }).press("Enter");
   await expect(technology).toHaveAttribute("aria-pressed", "true");
-  await expect(carousel.locator("[data-direction='-1'] [data-state=entering]")).toHaveCSS("animation-name", "store-slide-in");
+  await expect(carousel.locator("[data-direction='-1'] [data-state=entering] .store-hero-title")).toHaveCSS("animation-name", "store-text-in");
   await expect(carousel.getByRole("link", { name: "Ver categoría" })).toHaveCount(1);
   const shortcuts = page.getByRole("region", { name: "Accesos a la tienda" });
   const hero = (await carousel.boundingBox())!;
   const cards = (await shortcuts.boundingBox())!;
   expect(hero.y + hero.height - cards.y).toBeGreaterThan(40);
   await page.screenshot({ path: testInfo.outputPath("portada-carrusel-y-accesos.png"), animations: "disabled" });
+});
+
+test("salta directamente a una página y conserva la búsqueda al avanzar", async ({ page }) => {
+  await page.route((url) => url.pathname === "/api/v1/listings", (route) => route.fulfill({ json: {
+    content: [], totalPages: 25, totalElements: 300, page: Number(new URL(route.request().url()).searchParams.get("page")) || 0,
+    facets: [], sellers: [],
+  } }));
+  await page.goto("/catalogo?q=auriculares");
+  const pagination = page.getByRole("navigation", { name: "Páginas del catálogo" });
+  await pagination.getByRole("link", { name: "Página 4", exact: true }).press("Enter");
+  await expect(page).toHaveURL((url) => url.searchParams.get("q") === "auriculares" && url.searchParams.get("page") === "3");
+  await expect(pagination.getByRole("link", { name: "Página 4", exact: true })).toHaveAttribute("aria-current", "page");
+  await pagination.getByRole("link", { name: "Siguiente" }).press("Enter");
+  await expect(pagination.getByRole("link", { name: "Página 5", exact: true })).toHaveAttribute("aria-current", "page");
+  const jump = pagination.getByRole("spinbutton", { name: "Ir a página" });
+  await jump.fill("17");
+  await jump.press("Enter");
+  await expect(pagination.getByRole("link", { name: "Página 17", exact: true })).toHaveAttribute("aria-current", "page");
 });

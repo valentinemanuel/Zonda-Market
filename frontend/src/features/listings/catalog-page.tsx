@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Package, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
 import { getJson } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
@@ -217,15 +217,8 @@ export function PublicCatalogPage() {
                 </Link>
               </li>)}
             </ul>
-            {(results.data.totalPages > 1 || results.data.page > 0) && <nav aria-label="Páginas del catálogo" className="flex flex-wrap items-center gap-3">
-              {results.data.page > 0 && <Button asChild variant="outline">
-                <Link to={pageLink(params, results.data.page >= results.data.totalPages ? 0 : results.data.page - 1)}>Anterior</Link>
-              </Button>}
-              {results.data.page < results.data.totalPages && <span>Página {results.data.page + 1} de {results.data.totalPages}</span>}
-              {results.data.page + 1 < results.data.totalPages && <Button asChild variant="outline">
-                <Link to={pageLink(params, results.data.page + 1)}>Siguiente</Link>
-              </Button>}
-            </nav>}
+            {(results.data.totalPages > 1 || results.data.page > 0) &&
+              <CatalogPagination params={params} page={results.data.page} total={results.data.totalPages} />}
           </>}
         </section>
   );
@@ -273,5 +266,41 @@ function update(params: URLSearchParams, key: string, value: string) {
 function pageLink(params: URLSearchParams, page: number) {
   const next = new URLSearchParams(params);
   update(next, "page", page ? String(page) : "");
-  return { search: next.toString() };
+  return { search: next.toString(), hash: "#productos" };
+}
+
+function CatalogPagination({ params, page, total }: { params: URLSearchParams; page: number; total: number }) {
+  const navigate = useNavigate();
+  const width = 8;
+  const start = Math.max(1, Math.min(page - 3, total - width - 1));
+  const pages = total <= 10 ? Array.from({ length: total }, (_, index) => index)
+    : [0, ...Array.from({ length: width }, (_, index) => start + index), total - 1];
+  return <nav aria-label="Páginas del catálogo" className="flex flex-wrap items-center justify-center gap-1 rounded-panel border bg-card p-2 shadow-panel">
+    {page > 0 && <Button asChild variant="ghost" className="min-h-11">
+      <Link to={pageLink(params, page >= total ? 0 : page - 1)}><ChevronLeft aria-hidden="true" />Anterior</Link>
+    </Button>}
+    {pages.map((number, index) => <span key={number} className="inline-flex items-center gap-1">
+      {index > 0 && number - pages[index - 1] > 1 && <span aria-hidden="true" className="px-1 text-muted-foreground">…</span>}
+      <Button asChild variant={number === page ? "outline" : "ghost"} className={
+        "size-10 px-0 tabular-nums " + (number === page ? "border-primary bg-accent text-primary" : "")}>
+        <Link aria-label={"Página " + (number + 1)} aria-current={number === page ? "page" : undefined}
+          to={pageLink(params, number)}>{number + 1}</Link>
+      </Button>
+    </span>)}
+    {page + 1 < total && <Button asChild variant="ghost" className="min-h-11">
+      <Link to={pageLink(params, page + 1)}>Siguiente<ChevronRight aria-hidden="true" /></Link>
+    </Button>}
+    {total > 10 && <form className="flex items-center gap-2 pl-2" onSubmit={(event) => {
+      event.preventDefault();
+      const target = Number(new FormData(event.currentTarget).get("destination"));
+      if (Number.isInteger(target) && target >= 1 && target <= total) navigate(pageLink(params, target - 1));
+    }}>
+      <label className="flex items-center gap-2 text-sm">
+        Ir a página
+        <input key={page} name="destination" type="number" inputMode="numeric" min={1} max={total} step={1} required
+          className="h-10 w-20 rounded-lg border border-input bg-card px-2 tabular-nums" />
+      </label>
+      <Button type="submit" variant="outline">Ir</Button>
+    </form>}
+  </nav>;
 }

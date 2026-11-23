@@ -295,6 +295,43 @@ class CheckoutContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void cancelsExactlyOnceAndAllowsAReplacementWithTheSameCart() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var address = address(buyer);
+        var sku = product("Reserva voluntaria", "10.05", "0.00", 3);
+        add(buyer, sku, 2, 0);
+        var original = uuid(quote(buyer, address, 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, original, "original").andExpect(status().isOk()).andReturn());
+        String path = ORDERS + order + "/cancel-reservation";
+        mvc.perform(post(path)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(post(path), outsider)).andExpect(status().isNotFound());
+        assertStock(sku, 1, 2);
+
+        var start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var cancellation = (java.util.concurrent.Callable<MvcResult>) () -> {
+                start.await(5, TimeUnit.SECONDS);
+                return mvc.perform(auth(post(path), buyer)).andExpect(status().isNoContent()).andReturn();
+            };
+            var first = pool.submit(cancellation);
+            var second = pool.submit(cancellation);
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+        }
+        assertStock(sku, 3, 0);
+        assertEquals(1, eventCount(order, "CHECKOUT_CANCELLED"));
+        mvc.perform(auth(get(ORDERS + order), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELADA"));
+        mvc.perform(auth(get(ORDERS + "active"), buyer)).andExpect(status().isNoContent());
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.itemCount").value(2));
+        var next = uuid(quote(buyer, address, 1).andExpect(status().isOk()).andReturn());
+        confirm(buyer, next, "new-reservation").andExpect(status().isOk());
+        assertStock(sku, 1, 2);
+    }
+
+    @Test
     void expiresExactlyOnceAtTheDeadlineAndKeepsTheCart() throws Exception {
         var buyer = account(true);
         var outsider = account(true);
@@ -542,6 +579,9 @@ class CheckoutContractIT extends CheckoutContractFixtures {
         var winnerKey = cardWon ? "card" : "pro";
         var otherMethod = cardWon ? "CHECKOUT_PRO" : "CARD";
         assertEquals("RESULTADO_DESCONOCIDO", field(winner, "status"));
+        mvc.perform(auth(post(path + "/cancel-reservation"), buyer)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_IN_PROGRESS"));
+        assertStock(sku, 1, 1);
         mvc.perform(auth(get(path + "/payment-options"), buyer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.methods").isEmpty())
                 .andExpect(jsonPath("$.latestAttempt.id").value(attempt.toString()));

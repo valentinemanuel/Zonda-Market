@@ -1,9 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShoppingBag, UserRound } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
+import { Card, CardContent } from "@/shared/ui/card";
 import { listingPublicPath } from "@/features/listings/public-listing-format";
 import { authenticate } from "./session-api";
 import { useGoogleOptions } from "./google-auth";
@@ -13,7 +16,21 @@ const credentials = z.object({ email: emailField, password: passwordField });
 const registration = credentials.extend({ password: newPasswordField });
 
 export function LoginPage() {
-  return <AuthPage mode="login" />;
+  return <div className="mx-auto grid max-w-5xl overflow-hidden rounded-panel border bg-card shadow-float md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+    <aside className="workspace-heading hidden flex-col justify-between gap-8 rounded-none p-8 md:flex lg:p-10">
+      <div>
+        <ShoppingBag aria-hidden="true" className="mb-6 size-12 rounded-xl border border-white/15 bg-white/10 p-2.5 text-brand-gold" />
+        <p className="font-wordmark text-4xl leading-tight font-extrabold">Tu próxima compra empieza acá.</p>
+        <p className="mt-4 max-w-xs text-sm leading-relaxed text-hero-muted">Desde tu cuenta podés retomar el carrito, consultar pedidos y seguir tus entregas.</p>
+      </div>
+      <Link to="/catalogo" className="flex w-fit items-center gap-2 rounded text-sm font-semibold text-brand-gold hover:underline focus-visible:outline-brand-gold">
+        Explorar catálogo <ArrowRight aria-hidden="true" className="size-4" />
+      </Link>
+    </aside>
+    <Card className="rounded-none border-0 bg-card p-0 shadow-none">
+      <CardContent className="p-5 sm:p-8 lg:p-10"><AuthPage mode="login" /></CardContent>
+    </Card>
+  </div>;
 }
 
 export function RegisterPage() {
@@ -23,6 +40,7 @@ export function RegisterPage() {
 function AuthPage({ mode }: { mode: "login" | "register" }) {
   const createAccount = mode === "register";
   const title = createAccount ? "Crear cuenta" : "Iniciar sesión";
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { state } = useLocation();
   const listingSlug = typeof state?.listingSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.listingSlug)
@@ -69,30 +87,40 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
 
   return (
     <>
-      <h1 className="store-section-title">{title}</h1>
+      <header>
+        {!createAccount && <UserRound aria-hidden="true" className="mb-3 size-11 rounded-xl bg-accent p-2.5 text-primary" />}
+        <h1 className="font-wordmark text-3xl font-extrabold tracking-tight">{title}</h1>
+        {!createAccount && <p className="mt-2 text-sm text-muted-foreground">Ingresá con tu cuenta de Zonda Market.</p>}
+      </header>
       <form className="mt-6 space-y-4" noValidate onSubmit={submit} aria-busy={isSubmitting}>
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium">Correo electrónico</label>
           <input id="email" type="email" autoComplete="email" maxLength={254} required
-            className="w-full rounded-lg border border-input px-3 py-2.5"
+            className="min-h-12 w-full rounded-lg border border-input px-3 py-2.5"
             aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined}
             {...register("email")} />
           {errors.email && <p role="alert" id="email-error" className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium">Contraseña</label>
-          <input id="password" type="password" autoComplete={createAccount ? "new-password" : "current-password"}
-            maxLength={72} required className="w-full rounded-lg border border-input px-3 py-2.5"
-            aria-invalid={Boolean(errors.password)}
-            aria-describedby={errors.password ? "password-error" : createAccount ? "password-hint" : undefined}
-            {...register("password")} />
+          <div className="relative">
+            <input id="password" type={showPassword ? "text" : "password"} autoComplete={createAccount ? "new-password" : "current-password"}
+              maxLength={72} required className="min-h-12 w-full rounded-lg border border-input py-2.5 pr-12 pl-3"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "password-error" : createAccount ? "password-hint" : undefined}
+              {...register("password")} />
+            <Button type="button" variant="ghost" size="icon" className="absolute top-0.5 right-0.5 size-11"
+              aria-label={showPassword ? "Ocultar clave" : "Mostrar clave"} onClick={() => setShowPassword(!showPassword)}>
+              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            </Button>
+          </div>
           {errors.password
             ? <p role="alert" id="password-error" className="text-sm text-destructive">{errors.password.message}</p>
             : createAccount && <p id="password-hint" className="text-sm text-muted-foreground">Usá al menos 12 caracteres.</p>}
         </div>
         {errors.root && <p role="alert" className="text-sm text-destructive">{errors.root.message}</p>}
         <Button type="submit" className="min-h-11 w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Enviando…" : title}
+          <LockKeyhole aria-hidden="true" />{isSubmitting ? "Enviando…" : title}
         </Button>
       </form>
       {google.data?.enabled && (
@@ -100,17 +128,17 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
           <a href="/oauth2/authorization/google">Continuar con Google</a>
         </Button>
       )}
-      {!createAccount && (
-        <div className="mt-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 border-t pt-2">
+        {!createAccount && (
           <Link className="inline-flex min-h-11 items-center text-primary underline underline-offset-4" to="/recuperar-acceso">
             Olvidé mi contraseña
           </Link>
-        </div>
-      )}
-      <Link className="mt-5 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
-        to={createAccount ? "/ingresar" : "/registro"} state={state}>
-        {createAccount ? "Ya tengo una cuenta" : "Crear una cuenta"}
-      </Link>
+        )}
+        <Link className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
+          to={createAccount ? "/ingresar" : "/registro"} state={state}>
+          {createAccount ? "Ya tengo una cuenta" : "Crear una cuenta"}
+        </Link>
+      </div>
     </>
   );
 }

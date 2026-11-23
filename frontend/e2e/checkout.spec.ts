@@ -4,11 +4,42 @@ import { credentials, publish } from "./cart-fixtures";
 import { compose, sql } from "./compose-fixture";
 import { linkFromMail } from "./mailpit";
 import { productPhoto } from "./product-photo";
+import { purchaseCartFixture } from "./purchase-fixture";
 
 const quotePath = "/api/v1/checkout/quote";
 const confirmPath = "/api/v1/checkout/confirm";
 
 test.use({ viewport: { width: 390, height: 844 }, actionTimeout: 12_000 });
+
+test("volver a Envío confirma la liberación y permite reservar de nuevo", async ({ page, request, baseURL }, testInfo) => {
+  const origin = new URL(baseURL!).origin;
+  await purchaseCartFixture(page, request, origin, "regreso", async (_request, email) => {
+    await sql(`UPDATE zonda_market.user_account SET email_verified = TRUE WHERE email = '${email}'`);
+  });
+  await page.goto("/checkout");
+  async function reserve() {
+    await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+    await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
+    await expect(page.getByRole("timer")).toBeVisible();
+    return page.url();
+  }
+  const original = await reserve();
+  const back = page.getByRole("link", { name: "Volver a Envío" });
+  const dialog = page.getByRole("dialog", { name: "¿Volver a Envío?" });
+  await back.press("Enter");
+  await expect(dialog.getByRole("button", { name: "Seguir en Pago" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(back).toBeFocused();
+  await expect(page.getByRole("timer")).toBeVisible();
+  await page.goBack();
+  await expect(dialog).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("volver-a-envio-movil.png"), fullPage: true });
+  await dialog.getByRole("button", { name: "Cancelar reserva y volver" }).press("Enter");
+  await expect(page).toHaveURL(origin + "/checkout");
+  await expect(page.getByRole("heading", { name: "Confirmar compra" })).toBeVisible();
+  expect(await reserve()).not.toBe(original);
+});
 
 test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", async ({ page, request, baseURL }, testInfo) => {
   const origin = new URL(baseURL!).origin;

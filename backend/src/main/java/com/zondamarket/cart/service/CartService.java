@@ -78,6 +78,7 @@ public class CartService {
             var subtotal = offer.price().multiply(BigDecimal.valueOf(line.quantity()));
             boolean current = offer.visible() && !offer.deleted();
             var item = new Item(offer.skuId(), current ? offer.listingSlug() : null,
+                    current ? line.thumbnailUrl() : null,
                     current ? offer.title() : line.referenceTitle(),
                     current ? offer.attributes() : line.referenceAttributes(), line.quantity(), current ? offer.stock() : 0,
                     (current ? offer.price() : line.referencePrice()).toPlainString(), line.referencePrice().toPlainString(),

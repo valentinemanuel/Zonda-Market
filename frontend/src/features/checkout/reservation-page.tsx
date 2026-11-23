@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, PackageCheck, TriangleAlert } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { profileLink } from "@/features/auth/profile-fields";
@@ -14,6 +15,8 @@ import { DeliveryAction } from "./delivery-action";
 import { ReviewAction } from "@/features/reviews/review-action";
 import { BuyerDisputeAction } from "@/features/disputes/dispute-order-action";
 import { disputeActive } from "@/features/disputes/dispute-api";
+import { ReturnToShipping } from "./return-to-shipping";
+import { subOrderLabel } from "./shipment-timeline";
 
 export function ReservationPage() {
   return <OrderCheckout returned={false} />;
@@ -25,7 +28,7 @@ export function CheckoutResultPage() {
 
 function OrderCheckout({ returned }: { returned: boolean }) {
   const { id = "" } = useParams();
-  const { hash } = useLocation();
+  const { hash, search } = useLocation();
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const client = useQueryClient();
   const order = useQuery({
@@ -34,6 +37,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
       query.state.data?.refunds?.some((refund) => refund.status === "PENDIENTE") ? 5000 : false,
   });
   const { data, refetch } = order;
+  const paymentReview = settled(data?.status) && new URLSearchParams(search).get("paso") === "pago";
   const loadedId = data?.id;
   useEffect(() => {
     if (loadedId && /^#suborden-[0-9a-f-]{36}$/i.test(hash)) {
@@ -41,7 +45,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     }
   }, [hash, loadedId]);
   useEffect(() => {
-    if (data?.status === "EXPIRADA" || settled(data?.status)) {
+    if (data?.status === "EXPIRADA" || data?.status === "CANCELADA" || settled(data?.status)) {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
@@ -61,12 +65,16 @@ function OrderCheckout({ returned }: { returned: boolean }) {
         <Link to="/carrito" className={profileLink + " text-sm"}>Volver al carrito</Link>
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
-      {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
+      {returned && (data === undefined || !settled(data.status)) && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
       </Link>}
+      {data && !settled(data.status) && <ReturnToShipping key={data.id} order={data} revision={revision} />}
+      {data && settled(data.status) && (paymentReview
+        ? <Button asChild variant="outline"><Link to={"/checkout/resultado/" + encodeURIComponent(id)}>Ver confirmación <ArrowRight aria-hidden="true" /></Link></Button>
+        : <Button asChild variant="outline"><Link to={"/checkout/reserva/" + encodeURIComponent(id) + "?paso=pago"}><ArrowLeft aria-hidden="true" />Volver a Pago</Link></Button>)}
     </div>
-    <CheckoutHeading title={returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
-      step={returned || settled(data?.status) ? "Confirmación" : "Pago"} />
+    <CheckoutHeading title={paymentReview ? "Detalle del pago" : returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
+      step={!paymentReview && (returned || settled(data?.status)) ? "Confirmación" : "Pago"} />
     {order.isPending ? <p role="status">Cargando reserva…</p>
       : signInRequired(order.error) ? <Button asChild>
           <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned, orderHash: hash }}>Iniciar sesión para ver la reserva</Link>
@@ -76,11 +84,11 @@ function OrderCheckout({ returned }: { returned: boolean }) {
             ? "No encontramos esa reserva." : "No pudimos cargar la reserva."}</p>
           <Button variant="outline" onClick={() => void order.refetch()}>Reintentar</Button>
         </div>
-      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} returned={returned} />}
+      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} returned={returned} paymentReview={paymentReview} />}
   </div>;
 }
 
-function Reservation({ order, revision, returned }: { order: Order; revision: number; returned: boolean }) {
+function Reservation({ order, revision, returned, paymentReview }: { order: Order; revision: number; returned: boolean; paymentReview: boolean }) {
   const [seconds, setSeconds] = useState(() => secondsLeft(order));
   useEffect(() => {
     if (!running(order.status)) return;
@@ -89,23 +97,46 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
   }, [order]);
   const expired = order.status === "EXPIRADA";
   const active = running(order.status);
+  const cancelled = order.status === "CANCELADA";
+  const paid = settled(order.status);
   const remaining = Math.min(seconds, secondsLeft(order));
   const time = Math.floor(remaining / 60) + ":" + String(remaining % 60).padStart(2, "0");
   const address = order.subOrders[0]?.address;
 
   return <div className="space-y-5">
-    <div className="space-y-2 rounded-lg border bg-card p-4">
-      <p role="status" className={expired ? "font-semibold text-destructive" : "font-semibold text-success"}>
-        {expired ? "La reserva venció." : active && remaining === 0 ? "Comprobando vencimiento…"
-          : order.status === "RESERVADA" ? "Productos reservados" : orderStatus(order.status)}
-      </p>
-      {active && remaining > 0 && <p>Tiempo restante <span role="timer" className="font-semibold tabular-nums">{time}</span></p>}
-      <p className="break-words text-sm text-muted-foreground">Orden {order.id}</p>
-      {(expired || order.status === "FALLIDA") && <div className="space-y-2">
+    <section aria-label="Estado de tu pedido" className="rounded-panel border bg-card p-4 shadow-panel sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          {paid ? <CheckCircle2 aria-hidden="true" className="size-11 shrink-0 rounded-xl bg-emerald-50 p-2.5 text-success" />
+            : active ? <Clock3 aria-hidden="true" className="size-11 shrink-0 rounded-xl bg-accent p-2.5 text-primary" />
+            : <TriangleAlert aria-hidden="true" className="size-11 shrink-0 rounded-xl bg-accent p-2.5 text-primary" />}
+          <div className="min-w-0">
+            <p role="status" className={`font-wordmark text-xl font-extrabold ${paid ? "text-success" : "text-foreground"}`}>
+              {expired ? "La reserva venció." : active && remaining === 0 ? "Comprobando vencimiento…"
+                : order.status === "RESERVADA" ? "Productos reservados" : orderStatus(order.status)}
+            </p>
+            <p className="break-words text-sm text-muted-foreground">Orden {order.id}</p>
+          </div>
+        </div>
+        {active && remaining > 0 && <p className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+          Tiempo restante <span role="timer" className="ml-1 font-bold tabular-nums">{time}</span>
+        </p>}
+      </div>
+      {paid && !paymentReview && <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {order.subOrders.map((sub) => <a key={sub.id} href={"#suborden-" + sub.id}
+          className="flex min-w-0 items-center gap-3 rounded-lg border bg-background p-3 hover:border-primary">
+          <PackageCheck aria-hidden="true" className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="break-words text-sm font-bold">{sub.group.sellerName}</p>
+            <p className="text-sm text-muted-foreground">Estado: {subOrderLabel(sub.status).toLocaleLowerCase("es-AR")}</p>
+          </div>
+        </a>)}
+      </div>}
+      {(expired || cancelled || order.status === "FALLIDA") && <div className="mt-4 space-y-2">
         <p className="text-sm">Tus productos siguen en el carrito.</p>
         <Button asChild><Link to="/checkout">Volver a cotizar</Link></Button>
       </div>}
-    </div>
+    </section>
     <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />
     {order.refunds && order.refunds.length > 0 && <section aria-labelledby="refunds-heading"
       className="space-y-2 rounded-lg border bg-card p-4">
@@ -125,7 +156,7 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
       <p className="break-words">{addressText(address)}</p>
     </section>}
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
-      actions={(sub) => <>
+      actions={paymentReview ? undefined : (sub) => <>
         {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
         <ReviewAction sub={sub} orderId={order.id} revision={revision} />
         <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}

@@ -68,6 +68,15 @@ class CheckoutController {
         return privateResponse(checkout.get(account.id(), id));
     }
 
+    @PostMapping("/orders/{id}/cancel-reservation")
+    @Operation(summary = "Liberar una reserva propia antes de enviar el pago")
+    ResponseEntity<Void> cancelReservation(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, HttpServletResponse response) {
+        expiry.forOrder(account.id(), id, trace(response));
+        checkout.cancelReservation(account.id(), id, trace(response));
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
     @GetMapping("/orders/active")
     @Operation(summary = "Recuperar la reserva de la cuenta")
     ResponseEntity<OrderResponse> active(@AuthenticationPrincipal AccountResponse account, HttpServletResponse response) {
