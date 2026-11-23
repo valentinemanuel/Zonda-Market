@@ -41,7 +41,14 @@ test("la búsqueda de la cabecera conserva el término y recupera un error de ca
   await page.route(request, (route) => route.fulfill({ status: 503 }), { times: 1 });
 
   const search = page.getByRole("searchbox", { name: "Buscar en la tienda" });
-  await search.fill(term);
+  const submit = page.getByRole("button", { name: "Ejecutar búsqueda del catálogo" });
+  await expect(submit).toBeDisabled();
+  await search.fill("   ");
+  await search.press("Enter");
+  await expect(submit).toBeDisabled();
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await search.fill(" " + term + " ");
+  await expect(submit).toBeEnabled();
   await search.press("Enter");
   await expect(page).toHaveURL((url) => url.searchParams.get("q") === term);
   await expect(page.getByRole("heading", { name: "Filtros", exact: true })).toBeVisible();
@@ -49,6 +56,42 @@ test("la búsqueda de la cabecera conserva el término y recupera un error de ca
   await page.getByRole("button", { name: "Reintentar catálogo" }).press("Enter");
   await expect(page.getByText("No encontramos publicaciones con esos filtros.")).toBeVisible();
   await expect(search).toHaveValue(term);
+});
+
+test("el logo vuelve al Hero y las tarjetas alinean precio y condición", async ({ page }) => {
+  const base = { categoryId: "demo", seller: "demo", sellerName: "Tienda de prueba", thumbnailUrl: null, available: false, quickSkuId: null };
+  const cards = [
+    { ...base, id: "1", slug: "mate", title: "Mate · nuevo", condition: "nuevo", price: "999.50" },
+    { ...base, id: "2", slug: "bolso", title: "Bolso deportivo de lona reforzada con bolsillos laterales · segunda mano", condition: "segunda mano", price: "1999.99" },
+  ];
+  await page.route((url) => url.pathname === "/api/v1/listings", (route) => {
+    const condition = new URL(route.request().url()).searchParams.get("condition");
+    const content = condition ? cards.filter((card) => (card.condition === "nuevo" ? "nuevo" : "usado") === condition) : cards;
+    return route.fulfill({ json: { content, page: 0, totalPages: 1, totalElements: content.length, facets: [], sellers: [] } });
+  });
+  await page.goto("/catalogo#productos");
+  const toolbar = page.getByRole("group", { name: "Condición del producto" });
+  const results = page.getByRole("region", { name: "Resultados" });
+  await expect(results.getByRole("heading", { name: "Mate", exact: true })).toBeVisible();
+  await expect(results.getByText("nuevo", { exact: true })).toBeVisible();
+  await expect(results.getByRole("heading", { name: /Bolso deportivo.*laterales$/ })).toBeVisible();
+  const prices = await results.locator("p.tabular-nums").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().top));
+  expect(prices[0]).toBeCloseTo(prices[1], 0);
+  await expect(page.getByRole("searchbox")).toHaveCount(1);
+  const used = toolbar.getByRole("button", { name: "Usado", exact: true });
+  await used.press("Enter");
+  await expect(used).toHaveAttribute("aria-pressed", "true");
+  await expect(results.getByRole("heading", { name: "Mate", exact: true })).toHaveCount(0);
+  await expect(results.getByText("segunda mano", { exact: true })).toBeVisible();
+
+  const logo = page.getByRole("banner").getByRole("link", { name: "Zonda Market", exact: true });
+  await logo.click();
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await toolbar.scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+  await logo.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test("categorías cierra al pulsar fuera y los filtros aparecen al elegir una categoría", async ({ page }) => {

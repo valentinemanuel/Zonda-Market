@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { checkoutPath } from "@/features/checkout/checkout-api";
 import { profileLink } from "@/features/auth/profile-fields";
-import { cartEditError, signInRequired, useCart, useCartEdit, type Cart } from "./cart-api";
+import { cartEditError, findCartItem, signInRequired, useCart, useCartEdit, type Cart } from "./cart-api";
 
 export function AddToCart({ skuId, slug, available, catalogSearch }: {
   skuId: string; slug: string; available: boolean; catalogSearch: string;
@@ -36,8 +36,7 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
     <Button type="button" variant="outline" onClick={retry}>Reintentar carrito</Button>
   </div>;
 
-  const item = cart.groups.flatMap((group) => group.items).find((item) => item.skuId === skuId)
-    ?? cart.unavailable.find((item) => item.skuId === skuId);
+  const item = findCartItem(cart, skuId);
   const quantity = item?.quantity ?? 0;
   return <div className="space-y-2">
     <Button type="button" variant="outline" className="min-h-11 w-full" disabled={edit.isPending || item?.reserved || quantity >= 99}

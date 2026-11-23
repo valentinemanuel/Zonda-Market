@@ -1,5 +1,6 @@
 package com.zondamarket.catalog.controller;
 
+import com.zondamarket.catalog.dto.DiscoveryDtos.ConditionFilter;
 import com.zondamarket.catalog.dto.DiscoveryDtos.ListingPage;
 import com.zondamarket.catalog.dto.DiscoveryDtos.Sort;
 import com.zondamarket.catalog.service.DiscoveryService;
@@ -45,11 +46,12 @@ class DiscoveryController {
             @RequestParam(required = false) @Pattern(regexp = "[a-z0-9]+(-[a-z0-9]+)*") @Size(max = 50) String seller,
             @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> params,
             @RequestParam(required = false) Boolean inStock,
+            @RequestParam(required = false) ConditionFilter condition,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "12") @Min(1) @Max(48) int size,
             @RequestParam(defaultValue = "relevance") Sort sort) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(
                 discovery.search(q, category, min, max, seller, params.getOrDefault("attr", List.of()),
-                        inStock, page, size, sort));
+                        inStock, condition, page, size, sort));
     }
 }
