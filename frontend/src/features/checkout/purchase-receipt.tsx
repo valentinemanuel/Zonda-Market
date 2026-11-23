@@ -60,7 +60,7 @@ export function PurchaseReceipt({ order }: { order: Order }) {
         </div>
       </dl>
       <div className="flex flex-col justify-center gap-2 sm:flex-row">
-        <Button asChild className="min-h-11"><Link to="/mis-ordenes">Ver en Mis órdenes <ArrowRight aria-hidden="true" /></Link></Button>
+        <Button asChild className="min-h-11"><Link to="/cuenta/ordenes">Ver en Mis órdenes <ArrowRight aria-hidden="true" /></Link></Button>
         <Button asChild variant="outline" className="min-h-11"><Link to="/catalogo">Seguir comprando</Link></Button>
       </div>
     </CardContent>

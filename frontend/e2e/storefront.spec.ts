@@ -83,6 +83,20 @@ test("el logo vuelve al Hero y las tarjetas alinean precio y condición", async 
   await expect(used).toHaveAttribute("aria-pressed", "true");
   await expect(results.getByRole("heading", { name: "Mate", exact: true })).toHaveCount(0);
   await expect(results.getByText("segunda mano", { exact: true })).toBeVisible();
+  const sort = page.getByLabel("Ordenar por");
+  const sortOptions = await sort.locator("option").evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value));
+  await sort.selectOption(sortOptions[1]);
+  await expect(sort).toHaveCSS("appearance", "none");
+  await expect(sort).toHaveCSS("padding-right", "36px");
+  await expect(sort).toHaveCSS("background-position-x", "calc(100% - 14px)");
+  await expect(sort).toHaveCSS("background-position-y", "50%");
+  const clear = await used.locator("svg").boundingBox();
+  expect(clear).not.toBeNull();
+  await page.mouse.click(clear!.x + clear!.width / 2, clear!.y + clear!.height / 2);
+  await expect(toolbar.getByRole("button", { name: "Todos", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(sort).toHaveValue(sortOptions[1]);
+  await expect(results.getByRole("heading", { name: "Mate", exact: true })).toBeVisible();
 
   const logo = page.getByRole("banner").getByRole("link", { name: "Zonda Market", exact: true });
   await logo.click();

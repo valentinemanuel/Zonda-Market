@@ -67,7 +67,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     <div className="space-y-2">
       <div className="flex flex-wrap gap-x-5">
         <Link to="/carrito" className={profileLink + " text-sm"}>Volver al carrito</Link>
-        <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
+        <Link to="/cuenta/ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
       {returned && (data === undefined || !settled(data.status)) && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva

@@ -17,6 +17,7 @@ public final class ProfileDtos {
     private static final String PROVINCE = "AR-[ABCDEFGHJKLMNPQRSTUVWXYZ]";
     private static final String POSTAL_CODE = "(?:[0-9]{4}|[A-Z][0-9]{4}[A-Z]{3})";
     private static final String SLUG = "[a-z0-9]+(?:-[a-z0-9]+)*";
+    private static final String PHONE = "(?=(?:[^0-9]*[0-9]){6})[+0-9 ()-]+";
 
     private ProfileDtos() {}
 
@@ -31,7 +32,11 @@ public final class ProfileDtos {
             @NotBlank @Size(max = 80) String city,
             @NotBlank @Pattern(regexp = PROVINCE) String provinceCode,
             @NotBlank @Pattern(regexp = POSTAL_CODE) String postalCode,
-            @NotBlank @Pattern(regexp = "AR") String country
+            @NotBlank @Pattern(regexp = "AR") String country,
+            @Size(min = 1, max = 120) String recipient,
+            @Size(max = 32) @Pattern(regexp = PHONE) String phone,
+            @Size(max = 250) String deliveryDetails,
+            Boolean defaultAddress
     ) {
         public AddressRequest {
             street = strip(street);
@@ -39,6 +44,9 @@ public final class ProfileDtos {
             provinceCode = upper(provinceCode);
             postalCode = upper(postalCode);
             country = upper(country);
+            recipient = strip(recipient);
+            phone = strip(phone);
+            deliveryDetails = strip(deliveryDetails);
         }
     }
 
@@ -47,7 +55,11 @@ public final class ProfileDtos {
             @Size(min = 1, max = 80) String city,
             @Pattern(regexp = PROVINCE) String provinceCode,
             @Pattern(regexp = POSTAL_CODE) String postalCode,
-            @Pattern(regexp = "AR") String country
+            @Pattern(regexp = "AR") String country,
+            @Size(min = 1, max = 120) String recipient,
+            @Size(max = 32) @Pattern(regexp = PHONE) String phone,
+            @Size(max = 250) String deliveryDetails,
+            Boolean defaultAddress
     ) {
         public AddressPatch {
             street = strip(street);
@@ -55,13 +67,19 @@ public final class ProfileDtos {
             provinceCode = upper(provinceCode);
             postalCode = upper(postalCode);
             country = upper(country);
+            recipient = strip(recipient);
+            phone = strip(phone);
+            deliveryDetails = strip(deliveryDetails);
         }
     }
 
-    public record AddressResponse(UUID id, String street, String city, String provinceCode, String postalCode, String country) {
+    public record AddressResponse(UUID id, String street, String city, String provinceCode, String postalCode,
+                                  String country, String recipient, String phone, String deliveryDetails,
+                                  boolean defaultAddress) {
         public static AddressResponse from(AccountAddress address) {
             return new AddressResponse(address.getId(), address.getStreet(), address.getCity(),
-                    address.getProvinceCode(), address.getPostalCode(), address.getCountry());
+                    address.getProvinceCode(), address.getPostalCode(), address.getCountry(), address.getRecipient(),
+                    address.getPhone(), address.getDeliveryDetails(), address.isDefaultAddress());
         }
     }
 

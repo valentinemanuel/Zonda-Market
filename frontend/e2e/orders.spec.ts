@@ -5,7 +5,14 @@ test("busca, filtra y repite una compra sin duplicar el carrito si se pierde la 
   await page.setViewportSize({ width: 390, height: 844 });
   const { order, alpha, beta, headers, approve } = await purchaseFixture(page, request, new URL(baseURL!).origin, "historial");
   const id = "Orden #" + order.id.slice(0, 8);
-  await page.goto("/mis-ordenes");
+  await page.goto("/mis-ordenes?filtro=PAGADAS");
+  await expect(page).toHaveURL(/\/cuenta\/ordenes\?filtro=PAGADAS$/);
+  const accountNav = page.getByRole("navigation", { name: "Secciones de Mi cuenta" });
+  await expect(accountNav.getByRole("link", { name: "Mis órdenes" })).toHaveAttribute("aria-current", "page");
+  await accountNav.getByRole("link", { name: "Perfil y seguridad" }).press("Enter");
+  await page.getByRole("link", { name: "Historial de compras" }).press("Enter");
+  await expect(page).toHaveURL(/\/cuenta\/ordenes$/);
+  await expect(accountNav.getByRole("link", { name: "Mis direcciones" })).toBeVisible();
   const card = page.getByRole("article", { name: id });
   await expect(card.getByText("Reservada", { exact: true })).toBeVisible();
   await expect(card.getByRole("button", { name: "Volver a comprar" })).toHaveCount(0);

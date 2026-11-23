@@ -38,7 +38,7 @@ function CategoryNavigation() {
       <MapPin aria-hidden="true" className="size-3.5" /> Direcciones
     </NavLink>
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex min-h-9 cursor-pointer items-center gap-1 rounded hover:underline">
+      <Popover.Trigger className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded hover:underline">
         Categorías <ChevronDown aria-hidden="true" className="size-3.5" />
       </Popover.Trigger>
       <Popover.Content align="start" aria-label="Categorías del catálogo" onOpenAutoFocus={(event) => event.preventDefault()}
@@ -52,7 +52,7 @@ function CategoryNavigation() {
     </Popover.Root>
     {roots.slice(0, 6).map(({ id, name }) => <Link key={id} to={categoryCatalogPath(id)} aria-current={selected === id ? "page" : undefined}
       className="hidden min-h-9 items-center rounded hover:underline aria-[current=page]:underline md:inline-flex">{name}</Link>)}
-    <NavLink end to="/mis-ordenes" aria-label="Historial de compras" className="ml-auto inline-flex min-h-7 items-center rounded-full bg-brand-ink px-2.5 text-brand-gold hover:bg-hero-panel aria-[current=page]:underline">
+    <NavLink end to="/cuenta/ordenes" aria-label="Historial de compras" className="ml-auto inline-flex min-h-7 items-center rounded-full bg-brand-ink px-2.5 text-brand-gold hover:bg-hero-panel aria-[current=page]:underline">
       Mis órdenes
     </NavLink>
   </nav>;
@@ -132,7 +132,7 @@ export function AuthLayout() {
     <header className="border-b bg-white">
       <div className="store-frame flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-x-3 py-2 sm:min-h-18">
         <StoreBrand />
-        <Link to="/catalogo" className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold text-muted-foreground hover:text-primary">
+        <Link to="/catalogo" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-muted-foreground hover:text-primary">
           Volver a la tienda <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </div>

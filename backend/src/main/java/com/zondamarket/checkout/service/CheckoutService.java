@@ -3,6 +3,7 @@ package com.zondamarket.checkout.service;
 import com.zondamarket.cart.repository.CartStore;
 import com.zondamarket.cart.service.CartService;
 import com.zondamarket.catalog.repository.CategoryLock;
+import com.zondamarket.checkout.dto.CheckoutDtos.DeliveryAddress;
 import com.zondamarket.checkout.dto.CheckoutDtos.DirectPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
@@ -24,7 +25,6 @@ import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentCompensationStore;
 import com.zondamarket.checkout.repository.ReservationStore;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -212,7 +212,7 @@ public class CheckoutService {
         return carts.thumbnails(groups.stream().flatMap(group -> group.items().stream()).map(Line::skuId).toList());
     }
 
-    private Snapshot snapshot(UUID buyer, UUID cart, AddressResponse address, UUID directSkuId) {
+    private Snapshot snapshot(UUID buyer, UUID cart, DeliveryAddress address, UUID directSkuId) {
         var lines = directSkuId == null
                 ? carts.lines(cart).stream().map(line -> new PurchaseLine(line.offer(), line.quantity())).toList()
                 : List.of(new PurchaseLine(carts.offer(directSkuId).orElseThrow(CheckoutService::stockChanged), 1));
@@ -239,7 +239,7 @@ public class CheckoutService {
 
     private record PurchaseLine(CartStore.Offer offer, int quantity) {}
 
-    private AddressResponse address(UUID buyer, UUID id, boolean lock) {
+    private DeliveryAddress address(UUID buyer, UUID id, boolean lock) {
         return store.address(buyer, id, lock).orElseThrow(() ->
                 new ApiProblemException(HttpStatus.NOT_FOUND, "ADDRESS_NOT_FOUND", "Elegí una dirección vigente de tu cuenta."));
     }

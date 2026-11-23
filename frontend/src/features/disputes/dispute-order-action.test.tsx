@@ -17,7 +17,7 @@ const order = "orden-prueba";
 const revision = 3;
 const sub: SubOrder = {
   id: "suborden-prueba", version: 2, status: "PREPARANDO", shipment: null, reviewed: null, dispute: null,
-  address: { id: "direccion", street: "Calle Ficticia 42", city: "La Plata", provinceCode: "AR-B", postalCode: "1900", country: "AR" },
+  address: { id: "direccion", street: "Calle Ficticia 42", city: "La Plata", provinceCode: "AR-B", postalCode: "1900", country: "AR", recipient: null, phone: null, deliveryDetails: null },
   group: { sellerId: "vendedor", sellerName: "Tienda ficticia", items: [], merchandise: "100.00", shipping: "0.00", subtotal: "100.00" },
 };
 

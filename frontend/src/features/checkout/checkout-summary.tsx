@@ -1,14 +1,14 @@
 import { Check, Clock3, LockKeyhole, Package } from "lucide-react";
 import type { ReactNode } from "react";
-import type { Address } from "@/features/auth/profile-api";
+import type { DeliveryAddress } from "@/features/auth/profile-api";
 import { attributeEntries, attributeLabel } from "@/features/listings/listing-forms";
 import { formattedPrice } from "@/features/listings/public-listing-format";
 import { Card, CardContent } from "@/shared/ui/card";
 import type { Group, SubOrder } from "./checkout-api";
 import { ShipmentTimeline, subOrderLabel } from "./shipment-timeline";
 
-export function addressText(address: Address) {
-  return [address.street, address.city, address.provinceCode, address.postalCode].join(" · ");
+export function addressText(address: DeliveryAddress) {
+  return [address.recipient, address.street, address.deliveryDetails, address.city, address.provinceCode, address.postalCode].filter(Boolean).join(" · ");
 }
 
 const steps = ["Envío", "Pago", "Confirmación"] as const;

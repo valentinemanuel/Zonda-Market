@@ -6,7 +6,7 @@ const topics = {
   ayuda: {
     title: "Centro de ayuda",
     sections: [
-      { title: "Seguí tus compras", text: "Abrí el detalle de una orden para consultar el estado del pago, ver el seguimiento o registrar un problema con la compra.", link: ["Ir a Mis órdenes", "/mis-ordenes"] },
+      { title: "Seguí tus compras", text: "Abrí el detalle de una orden para consultar el estado del pago, ver el seguimiento o registrar un problema con la compra.", link: ["Ir a Mis órdenes", "/cuenta/ordenes"] },
       { title: "Entrá a tu cuenta", text: "Si olvidaste la contraseña, solicitá un enlace al correo de tu cuenta.", link: ["Recuperar el acceso", "/recuperar-acceso"] },
       { title: "Actualizá tus direcciones", text: "Elegí una dirección vigente antes de cotizar el envío.", link: ["Administrar direcciones", "/cuenta/direcciones"] },
     ],
@@ -25,7 +25,7 @@ const topics = {
     sections: [
       { title: "Precios y reserva", text: "El checkout confirma el precio y el costo de envío para la dirección seleccionada. La reserva tiene un plazo visible para pagar." },
       { title: "Envío y entrega", text: "Cada vendedor tramita su despacho. El comprador puede consultar el seguimiento y confirmar la recepción en el detalle de la orden." },
-      { title: "Problemas con una compra", text: "El comprador puede abrir un reclamo desde el detalle de la orden. La conversación queda disponible para las partes y el equipo de moderación.", link: ["Consultar tus compras", "/mis-ordenes"] },
+      { title: "Problemas con una compra", text: "El comprador puede abrir un reclamo desde el detalle de la orden. La conversación queda disponible para las partes y el equipo de moderación.", link: ["Consultar tus compras", "/cuenta/ordenes"] },
     ],
   },
   privacidad: {
@@ -50,7 +50,7 @@ export function StoreInformation() {
       <CardContent className="space-y-2">
         <h2 className="text-lg font-bold">{section.title}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">{section.text}</p>
-        {"link" in section && section.link && <Link className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
+        {"link" in section && section.link && <Link className="inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline"
           to={section.link[1]}>{section.link[0]} <ArrowRight aria-hidden="true" className="size-4" /></Link>}
       </CardContent>
     </Card>)}

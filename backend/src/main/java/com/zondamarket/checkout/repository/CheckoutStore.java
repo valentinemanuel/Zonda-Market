@@ -1,5 +1,6 @@
 package com.zondamarket.checkout.repository;
 
+import com.zondamarket.checkout.dto.CheckoutDtos.DeliveryAddress;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
@@ -12,7 +13,6 @@ import com.zondamarket.checkout.dto.DisputeDtos.Status;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Carrier;
 import com.zondamarket.checkout.dto.FulfillmentDtos.SellerOrderStatus;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Shipment;
-import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -53,12 +53,13 @@ public class CheckoutStore {
     public record Order(UUID id, String status, BigDecimal total, String currency, Instant expiresAt, String requestHash,
                         UUID directSkuId) {}
 
-    public Optional<AddressResponse> address(UUID buyer, UUID id, boolean lock) {
+    public Optional<DeliveryAddress> address(UUID buyer, UUID id, boolean lock) {
         return sql.sql("""
-                SELECT id, street, city, province_code, postal_code, country FROM zonda_market.account_address
+                SELECT id, street, city, province_code, postal_code, country, recipient, phone, delivery_details
+                FROM zonda_market.account_address
                 WHERE id = :id AND account_id = :buyer AND NOT deleted
                 """ + (lock ? " FOR SHARE" : ""))
-                .param("id", id).param("buyer", buyer).query(AddressResponse.class).optional();
+                .param("id", id).param("buyer", buyer).query(DeliveryAddress.class).optional();
     }
 
     public void saveQuote(UUID id, UUID cart, long version, Snapshot snapshot, Instant now, Instant expiry) {
@@ -321,7 +322,7 @@ public class CheckoutStore {
                     var dispute = disputeId == null ? null : new Reference(
                             disputeId, Status.valueOf(rs.getString("dispute_status")));
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
-                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
+                            json.readValue(rs.getString("address_snapshot"), DeliveryAddress.class), group,
                             rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class), dispute);
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");

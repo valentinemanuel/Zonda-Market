@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
@@ -203,9 +203,10 @@ export function PublicCatalogPage() {
           {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
           <div role="group" aria-label="Condición del producto" className="flex flex-wrap gap-1.5">
             {conditions.map(({ value, label }) => <Button key={value} type="button" variant="outline"
-              aria-pressed={condition === value} onClick={() => filter("condition", value)}
+              aria-pressed={condition === value} onClick={() => filter("condition", condition === value ? "" : value)}
               className="h-10 rounded-full px-3.5 text-sm shadow-none aria-pressed:border-primary/40 aria-pressed:bg-accent aria-pressed:text-primary">
               {label}
+              {value && condition === value && <X aria-hidden="true" className="size-3.5" />}
             </Button>)}
           </div>
           <Field label="Ordenar por">

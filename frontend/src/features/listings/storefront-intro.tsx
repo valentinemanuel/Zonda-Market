@@ -8,7 +8,7 @@ import { StorefrontCarousel } from "./storefront-carousel";
 
 const shortcuts = [
   { label: "Mi cuenta", description: "Datos y direcciones", action: "Ver mi perfil", to: "/cuenta", icon: UserRound },
-  { label: "Tus compras", description: "Seguí tus pedidos", action: "Ver pedidos", to: "/mis-ordenes", icon: ClipboardList },
+  { label: "Tus compras", description: "Seguí tus pedidos", action: "Ver pedidos", to: "/cuenta/ordenes", icon: ClipboardList },
   { label: "Hasta $20.000", description: "Buscá por precio", action: "Explorar", to: "/catalogo?max=20000", icon: Tag },
   { label: "Disponibles", description: "Productos con stock", action: "Ver catálogo", to: "/catalogo?inStock=true", icon: PackageCheck },
   { label: "Publicá y vendé", description: "Tus publicaciones", action: "Abrir herramientas", to: "/vendedor", icon: Store },
@@ -29,7 +29,7 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
           <span className="mb-1.5 grid size-8 place-items-center rounded-full bg-accent text-foreground"><Icon aria-hidden="true" className="size-4" /></span>
           <span className="block text-xs font-bold">{label}</span>
           <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
-          <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary">{action} <ChevronRight aria-hidden="true" className="size-3" /></span>
+          <span className="mt-1.5 inline-flex items-center justify-center gap-2 text-xs font-semibold text-primary">{action} <ChevronRight aria-hidden="true" className="size-3" /></span>
         </Link>
       ))}
     </section>

@@ -1,6 +1,5 @@
 package com.zondamarket.checkout.dto;
 
-import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -26,15 +25,18 @@ public final class CheckoutDtos {
     public record Group(UUID sellerId, String sellerName, List<Line> items, String merchandise,
                         String shipping, String commission, String subtotal) {}
 
-    public record Snapshot(AddressResponse address, List<Group> groups, String total, UUID directSkuId) {}
+    public record DeliveryAddress(UUID id, String street, String city, String provinceCode, String postalCode,
+                                  String country, String recipient, String phone, String deliveryDetails) {}
+
+    public record Snapshot(DeliveryAddress address, List<Group> groups, String total, UUID directSkuId) {}
 
     public record QuoteResponse(UUID id, Instant expiresAt, Instant serverNow, long cartVersion,
-                                AddressResponse address, List<Group> groups, String total, String currency,
+                                DeliveryAddress address, List<Group> groups, String total, String currency,
                                 Map<UUID, String> thumbnails) {}
 
     public record DirectPreview(List<Group> groups, Map<UUID, String> thumbnails) {}
 
-    public record SubOrder(UUID id, String status, AddressResponse address, Group group,
+    public record SubOrder(UUID id, String status, DeliveryAddress address, Group group,
                            int version, FulfillmentDtos.Shipment shipment, Boolean reviewed, DisputeDtos.Reference dispute) {}
 
     public record TestPayment(String reference, String result) {}

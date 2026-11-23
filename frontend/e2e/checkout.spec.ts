@@ -16,11 +16,18 @@ test("comprar ahora cotiza una variante, confirma y conserva el carrito", async 
   const { alpha, beta, headers } = await purchaseCartFixture(page, request, origin, "directa", async (_request, email) => {
     await sql(`UPDATE zonda_market.user_account SET email_verified = TRUE WHERE email = '${email}'`);
   });
+  const saved = await request.post("/api/v1/me/addresses", {
+    headers, data: { street: "Calle Ficticia 250", city: "La Plata", provinceCode: "AR-B", postalCode: "1900",
+      country: "AR", recipient: "Ana Ficticia", phone: "+54 221 555 0100", deliveryDetails: "Timbre B", defaultAddress: true },
+  });
+  expect(saved.status()).toBe(201);
+  const address = await saved.json();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/publicaciones/" + alpha.slug);
   await expect(page.getByRole("button", { name: "Agregar al carrito" })).toBeEnabled();
   await page.getByRole("link", { name: "Comprar ahora" }).press("Enter");
   await expect(page).toHaveURL(origin + "/checkout?sku=" + alpha.skuId);
+  await expect(page.getByLabel("Elegí una dirección")).toHaveValue(address.id);
   const summary = page.getByRole("complementary", { name: "Resumen de compra" });
   await expect(summary.getByText(alpha.title)).toBeVisible();
   await expect(summary.getByText(beta.title)).toHaveCount(0);
@@ -42,6 +49,7 @@ test("comprar ahora cotiza una variante, confirma y conserva el carrito", async 
   await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
   await page.getByRole("button", { name: "Simular aprobación" }).press("Enter");
   await expect(page.getByRole("heading", { name: "¡Gracias por tu compra!" })).toBeVisible();
+  await expect(page.getByText(/Ana Ficticia.*Timbre B/)).toBeVisible();
   await expect(summary.getByRole("timer")).toHaveCount(0);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("button", { name: "Copiar número" }).press("Enter");
@@ -50,7 +58,7 @@ test("comprar ahora cotiza una variante, confirma y conserva el carrito", async 
   const stored = await request.get("/api/v1/cart", { headers });
   expect(stored.ok()).toBe(true);
   expect((await stored.json()).itemCount).toBe(2);
-  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/mis-ordenes");
+  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/cuenta/ordenes");
   await expect(page.getByRole("link", { name: "Seguir comprando", exact: true })).toHaveAttribute("href", "/catalogo");
   await page.screenshot({ path: testInfo.outputPath("compra-directa-confirmacion-390.png"), fullPage: true });
 });

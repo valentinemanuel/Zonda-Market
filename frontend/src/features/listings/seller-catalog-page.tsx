@@ -299,7 +299,7 @@ function CatalogWorkspace({ inventory }: { inventory: boolean }) {
       </Dialog.Root>
       {catalog.isSuccess && selectedSkuId && !selectedSku && (
         <p role="alert" className="rounded-xl border bg-card p-4">La opción de stock ya no está disponible.{" "}
-          <Link to={inventoryPath(selectedListingId ?? undefined)} className="inline-flex items-center gap-1 font-medium text-primary underline">
+          <Link to={inventoryPath(selectedListingId ?? undefined)} className="inline-flex items-center justify-center gap-2 font-medium text-primary underline">
             Volver al inventario <ArrowRight size={15} aria-hidden="true" />
           </Link>
         </p>
