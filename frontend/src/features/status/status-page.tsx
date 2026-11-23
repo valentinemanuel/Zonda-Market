@@ -33,7 +33,7 @@ export function StatusPage() {
           <div>
             <Activity size={29} className="mb-5 text-[#ffc564]" aria-hidden="true" />
             <h1 id="status-title" className="text-4xl leading-[1.04] font-semibold tracking-[-0.055em] sm:text-6xl">
-              Estado del sistema
+              Disponibilidad de Zonda Market
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-hero-muted sm:text-lg">
               Consultá la versión de Zonda Market y la disponibilidad de la API y la base de datos.

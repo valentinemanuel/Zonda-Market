@@ -91,7 +91,7 @@ export const router = createBrowserRouter([
         element: (
           <>
             <h1 className="text-2xl font-semibold">Página no encontrada</h1>
-            <Link to="/estado" className="mt-4 inline-block underline underline-offset-4">Volver al estado del sistema</Link>
+            <Link to="/estado" className="mt-4 inline-block underline underline-offset-4">Ver disponibilidad de Zonda Market</Link>
           </>
         ),
       },

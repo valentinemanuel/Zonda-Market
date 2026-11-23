@@ -21,7 +21,7 @@ const sections = [
   ] },
   { title: "Ayuda y Cuenta", links: [
     ["Mi cuenta", "/cuenta"], ["Mis direcciones", "/cuenta/direcciones"], ["Centro de ayuda", "/informacion/ayuda"],
-    ["Estado del sistema", "/estado"],
+    ["Disponibilidad de Zonda Market", "/estado"],
   ] },
 ];
 
