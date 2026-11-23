@@ -5,6 +5,77 @@ info:
   description: Diagnóstico, catálogo, identidad, publicaciones de vendedor, carrito, checkout y reservas.
 security: []
 paths:
+  /api/v1/admin/categories:
+    get:
+      summary: Listar categorías vigentes y archivadas para administración
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista plana con las referencias al padre, el esquema y la tasa.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryAdminRow'
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+    post:
+      summary: Crear una categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryAdminFields' }
+      responses:
+        '201': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
+  /api/v1/admin/categories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CategoryAdminId'
+    patch:
+      summary: Editar los datos completos de una categoría vigente
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CategoryAdminFields'
+                - $ref: '#/components/schemas/CategoryAdminVersion'
+      responses:
+        '200': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/CategoryAdminMissing' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
+  /api/v1/admin/categories/{id}/archive:
+    parameters:
+      - $ref: '#/components/parameters/CategoryAdminId'
+    post:
+      summary: Archivar una categoría sin hijos vigentes ni publicaciones activas
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryAdminVersion' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/CategoryAdminMissing' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
   /api/v1/status:
     get:
       summary: Consultar diagnóstico de la API
@@ -1661,6 +1732,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    CategoryAdminId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
     SellerReportFrom:
       in: query
       name: from
@@ -1742,6 +1818,29 @@ components:
       schema:
         type: string
   responses:
+    AdminRequired:
+      description: La cuenta activa carece del rol ADMIN (ACCESS_DENIED).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    CategoryAdminSaved:
+      description: Categoría guardada.
+      headers:
+        Cache-Control:
+          schema: { type: string, const: no-store }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CategoryAdminRow' }
+    CategoryAdminMissing:
+      description: Categoría inexistente (CATEGORY_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    CategoryAdminConflict:
+      description: VERSION_CONFLICT, CATEGORY_ARCHIVED, CATEGORY_SLUG_IN_USE, CATEGORY_IN_USE, CATEGORY_CYCLE, CATEGORY_DEPTH o CATEGORY_SKUS_INCOMPATIBLE.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
     ShipmentUpdated:
       description: Estado logístico persistido. Repetir el comando original recupera el estado vigente.
       content:
@@ -1937,6 +2036,44 @@ components:
         type: string
         format: uuid
   schemas:
+    CategoryAdminFields:
+      type: object
+      required: [name, slug, commissionBps, attributeSchema]
+      properties:
+        parentId:
+          description: Identificador de la categoría superior vigente. Null u omisión ubican el nodo en la raíz.
+          type: [string, 'null']
+          format: uuid
+        name: { type: string, minLength: 1, maxLength: 120 }
+        slug: { type: string, maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' }
+        commissionBps: { type: integer, minimum: 0, maximum: 10000 }
+        attributeSchema:
+          description: Atributos obligatorios de las variantes. Una categoría sin atributos usa un objeto vacío.
+          type: object
+          maxProperties: 16
+          propertyNames: { minLength: 1, maxLength: 120 }
+          additionalProperties:
+            type: array
+            minItems: 1
+            maxItems: 100
+            uniqueItems: true
+            items: { type: string, minLength: 1, maxLength: 120 }
+    CategoryAdminVersion:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 0 }
+    CategoryAdminRow:
+      allOf:
+        - $ref: '#/components/schemas/CategoryAdminFields'
+        - type: object
+          required: [id, parentId, version, archived, activeListings, hasChildren]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, format: int64, minimum: 0 }
+            archived: { type: boolean }
+            activeListings: { type: integer, format: int64, minimum: 0 }
+            hasChildren: { type: boolean }
     QuoteRequest:
       type: object
       required: [addressId, cartVersion]

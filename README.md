@@ -219,6 +219,10 @@ Volvé a ingresar y abrí **Mi cuenta → Moderación**. En **Publicaciones** bu
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ModerationContractIT"`. Desde `frontend/`, ejecutá `npm run test:e2e -- moderation.spec.ts` con un Compose aislado en perfil `local`, Mailpit y pagos simulados. El smoke crea su propio administrador ficticio y prueba el panel a 390 px con teclado.
 
+Para probar E6-02, ingresá con una cuenta `ADMIN` y abrí **Mi cuenta → Moderación → Categorías**. Creá una categoría raíz de prueba y una subcategoría con un slug nuevo, 1250 puntos básicos (12,5 %) y un atributo con un valor por línea. Revisá la vista previa y guardá. Intentá archivar la raíz mientras tiene una hija. Después mové la hija al nivel raíz, ajustá su tasa y archivala desde el árbol. Podés consultar el registro en **Archivadas**.
+
+Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=CategoryAdminContractIT"` para comprobar permisos, movimientos simultáneos, referencias, vigencias, redondeo y el neto congelado. Desde `frontend/`, ejecutá `npm run test:e2e -- category-admin.spec.ts` con un Compose aislado para reproducir la navegación a 390 px, el conflicto de slug y la recuperación con teclado.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

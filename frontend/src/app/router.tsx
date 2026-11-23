@@ -39,6 +39,9 @@ export const router = createBrowserRouter([
         const { ModerationPage } = await import("@/features/admin/moderation-page");
         return { Component: () => <ModerationPage resource="users" /> };
       } },
+      { path: "admin/categorias", lazy: async () => ({
+        Component: (await import("@/features/admin/category-admin-page")).CategoryAdminPage,
+      }) },
       { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,

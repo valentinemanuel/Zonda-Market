@@ -48,6 +48,8 @@ Las pantallas actuales y futuras de la tienda reutilizan la [cabecera de `SiteLa
 - **Reseñas.** El comprador califica desde la tarjeta de una suborden entregada con cinco opciones de estrella y comentario opcional. Tab y flechas recorren el formulario. Se anuncia el guardado, se conservan los datos ante un fallo y la confirmación recibe el foco. La ficha del producto muestra promedio y cantidad en el bloque Vendedor. El perfil público reutiliza el resumen y muestra las reseñas paginadas con estados de carga, vacío y reintento. En móvil los bloques se apilan.
 - **Ventas del vendedor.** El panel reutiliza la navegación de venta, tarjetas y botones. Las fechas tienen etiquetas y el período usa el horario de Buenos Aires. Las tarjetas muestran el bruto, las comisiones, las devoluciones y el neto estimado de prueba. La serie diaria tiene una tabla con los importes. En móvil el filtro se apila y las tablas se desplazan con teclado conservando los encabezados. Se anuncian carga, rango inválido, vacío y error con reintento.
 
+- **Categorías y comisiones.** La sección reutiliza el encabezado, la navegación, las tarjetas, los botones y el control de acceso de Moderación. Muestra el árbol con listas anidadas y el editor con campos etiquetados, porcentaje equivalente y vista previa de los atributos. Anuncia carga, vacío, error con reintento, conflicto y confirmación. En móvil las acciones se apilan cuando hace falta. Con teclado, Tab recorre el formulario, Enter confirma y Cancelar devuelve el foco al botón que abrió el editor.
+
 ## Formato para una tarjeta de interfaz
 
 1. Indicá en el issue qué pantalla de Stitch guía el diseño, qué bloques se reutilizan o se agregan y cómo se adapta el flujo al objetivo del usuario.

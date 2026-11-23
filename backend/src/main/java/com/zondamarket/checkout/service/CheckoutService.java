@@ -2,6 +2,7 @@ package com.zondamarket.checkout.service;
 
 import com.zondamarket.cart.repository.CartStore;
 import com.zondamarket.cart.service.CartService;
+import com.zondamarket.catalog.repository.CategoryLock;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
@@ -51,15 +52,17 @@ public class CheckoutService {
     private final PaymentCompensationStore compensations;
     private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
+    private final CategoryLock categoryLock;
 
     CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes, PaymentCompensationStore compensations,
-                    ObjectProvider<LocalPaymentPort> localPayment, Clock clock) {
+                    ObjectProvider<LocalPaymentPort> localPayment, Clock clock, CategoryLock categoryLock) {
         this.carts = carts;
         this.store = store;
         this.outcomes = outcomes;
         this.compensations = compensations;
         this.localPayment = localPayment;
         this.clock = clock;
+        this.categoryLock = categoryLock;
     }
 
     @Transactional
@@ -102,6 +105,7 @@ public class CheckoutService {
         var address = address(account.id(), quote.snapshot().address().id(), true);
 
         // Serialize new reservations with moderation and lock listings before SKUs, as catalog writes do.
+        categoryLock.readForWrite();
         store.lockOfferVisibility(cart.id());
         store.lockSkus(cart.id());
         var snapshot = snapshot(account.id(), cart.id(), address);
