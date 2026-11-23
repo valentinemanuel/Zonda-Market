@@ -17,7 +17,7 @@ const shortcuts = [
 export function StorefrontIntro({ categories }: { categories: CatalogCategoryNode[] }) {
   return <div className="store-intro">
     <StorefrontCarousel categories={categories} />
-    <section aria-label="Accesos a la tienda" className="store-shortcuts relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+    <section aria-label="Accesos a la tienda" className="store-frame store-shortcuts relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       {shortcuts.map(({ label, description, action, to, icon: Icon }) => (
         <Link key={label} to={to} className="min-w-0 rounded-panel border bg-card p-3 shadow-panel hover:border-primary/40">
           <span className="mb-1.5 grid size-8 place-items-center rounded-full bg-accent text-foreground"><Icon aria-hidden="true" className="size-4" /></span>
@@ -27,7 +27,7 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
         </Link>
       ))}
     </section>
-    {categories.length > 0 && <section aria-labelledby="categorias-populares" className="mt-8 space-y-3">
+    {categories.length > 0 && <section aria-labelledby="categorias-populares" className="store-frame mt-8 space-y-3">
       <h2 id="categorias-populares" className="store-section-title">Explorá por categorías populares</h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {categories.slice(0, 6).map(({ category }, position) => {

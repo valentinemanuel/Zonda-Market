@@ -1,5 +1,5 @@
-import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { categoryCatalogPath, type CatalogCategoryNode } from "./storefront-categories";
@@ -16,27 +16,9 @@ const slides = [
     image: 18946896, feature: "Encontrá tu estilo", name: "Calzado" },
 ];
 
-const motionQuery = "(prefers-reduced-motion: no-preference)";
+const slideDuration = 4500;
+const heroStyle = { "--store-slide-duration": `${slideDuration}ms` } as CSSProperties;
 const slideControl = "grid size-11 place-items-center rounded-full bg-brand-ink/85 hover:bg-brand-ink focus-visible:outline-brand-gold";
-
-function subscribeToMotion(listener: () => void) {
-  const media = window.matchMedia(motionQuery);
-  media.addEventListener("change", listener);
-  return () => media.removeEventListener("change", listener);
-}
-
-function motionAllowed() {
-  return window.matchMedia(motionQuery).matches;
-}
-
-function subscribeToVisibility(listener: () => void) {
-  document.addEventListener("visibilitychange", listener);
-  return () => document.removeEventListener("visibilitychange", listener);
-}
-
-function pageVisible() {
-  return document.visibilityState === "visible";
-}
 
 type View = { index: number; previous?: number; direction: 1 | -1 };
 
@@ -46,61 +28,47 @@ function move(view: View, direction: View["direction"]): View {
 
 export function StorefrontCarousel({ categories }: { categories: CatalogCategoryNode[] }) {
   const [view, setView] = useState<View>({ index: 0, direction: 1 });
-  const [playing, setPlaying] = useState(true);
-  const [hovering, setHovering] = useState(false);
-  const canAnimate = useSyncExternalStore(subscribeToMotion, motionAllowed);
-  const visible = useSyncExternalStore(subscribeToVisibility, pageVisible);
-  const rotating = playing && canAnimate && !hovering && visible;
-
-  function step(direction: View["direction"]) {
-    setPlaying(false);
-    setView((current) => move(current, direction));
-  }
+  const track = useRef<HTMLDivElement>(null);
+  const nextControl = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (track.current?.contains(document.activeElement)) nextControl.current?.focus({ preventScroll: true });
+      setView((current) => move(current, 1));
+    }, slideDuration);
+    return () => window.clearTimeout(timer);
+  }, [view.index]);
 
   return <section aria-roledescription="carrusel" aria-label="Explorá Zonda Market"
-    className="store-hero relative isolate flex flex-col text-white" data-rotating={rotating}
-    onPointerEnter={(event) => { if (event.pointerType === "mouse") setHovering(true); }}
-    onPointerLeave={() => setHovering(false)}>
+    className="store-hero relative isolate flex flex-col text-white" style={heroStyle}>
     {slides.map(({ id }, position) => <div key={id} aria-hidden="true" data-theme={id} data-active={position === view.index}
       className="store-hero-glow pointer-events-none absolute inset-0 -z-10" />)}
     <div className="order-last mt-2 flex flex-wrap items-center justify-center gap-1.5">
-      {canAnimate && <button type="button" className={slideControl}
-        aria-label={playing ? "Pausar destacados" : "Reproducir destacados"} onClick={() => setPlaying(!playing)}>
-        {playing ? <Pause aria-hidden="true" className="size-4" /> : <Play aria-hidden="true" className="size-4" />}
-      </button>}
-      <button type="button" className={slideControl} aria-label="Destacado anterior" onFocus={() => setPlaying(false)} onClick={() => step(-1)}>
+      <button type="button" className={slideControl} aria-label="Destacado anterior" onClick={() => setView((current) => move(current, -1))}>
         <ChevronLeft aria-hidden="true" className="size-4" />
       </button>
       {slides.map(({ name }, position) => <button type="button" key={name} aria-label={name}
-        aria-pressed={position === view.index} onFocus={() => setPlaying(false)}
-        onClick={() => {
-          setPlaying(false);
-          setView((current) => position === current.index ? current : {
+        aria-pressed={position === view.index}
+        onClick={() => setView((current) => position === current.index ? current : {
             index: position, previous: current.index, direction: position > current.index ? 1 : -1,
-          });
-        }} className="grid h-10 min-w-8 place-items-center rounded-full px-1 focus-visible:outline-brand-gold">
+        })} className="grid h-10 min-w-8 place-items-center rounded-full px-1 focus-visible:outline-brand-gold">
         {position === view.index
           ? <span aria-hidden="true" className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/35">
-              <span className="store-hero-progress absolute inset-0 bg-brand-gold"
-                onAnimationEnd={() => setView((current) => current.index === position ? move(current, 1) : current)} />
+              <span className="store-hero-progress absolute inset-0 bg-brand-gold" />
             </span>
           : <span aria-hidden="true" className="size-1.5 rounded-full bg-white/55" />}
       </button>)}
-      <button type="button" className={slideControl} aria-label="Siguiente destacado" onFocus={() => setPlaying(false)} onClick={() => step(1)}>
+      <button ref={nextControl} type="button" className={slideControl} aria-label="Siguiente destacado" onClick={() => setView((current) => move(current, 1))}>
         <ChevronRight aria-hidden="true" className="size-4" />
       </button>
     </div>
-    <p className="sr-only" aria-live={rotating ? "off" : "polite"}>
-      {slides[view.index].name} · {view.index + 1} de {slides.length}
-    </p>
-    <div className="grid overflow-x-clip" data-direction={view.direction} onFocus={() => setPlaying(false)}>
+    <div ref={track} className="grid overflow-x-clip" data-direction={view.direction}>
       {slides.map((slide, position) => {
         const active = position === view.index;
         const featured = categories.find(({ category }) => category.name === slide.name);
         const path = featured ? categoryCatalogPath(featured.category.id) : "/catalogo?q=" + encodeURIComponent(slide.name);
         const state = active ? (view.previous === undefined ? "active" : "entering") : position === view.previous ? "leaving" : "inactive";
         return <div key={slide.id} inert={!active} data-state={state}
-          className="store-hero-slide store-frame col-start-1 row-start-1 grid items-center gap-5 py-7 sm:gap-7 md:min-h-[21rem] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:py-8">
+          className="store-hero-slide store-frame col-start-1 row-start-1 grid max-w-[1280px] items-center gap-5 py-7 sm:gap-7 md:min-h-[21rem] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:py-8">
           <div key={active ? slide.id : "inactive"} className="store-hero-copy min-w-0">
             <p className="store-hero-badge inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[0.68rem] font-bold text-brand-gold">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" /> {slide.label}
