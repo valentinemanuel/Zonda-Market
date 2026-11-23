@@ -124,6 +124,88 @@ class PaymentWebhookContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void requeuesAFailedDeliveryOnceAboveTheLimitAndReusesTheVerifiedPayment() throws Exception {
+        var purchase = startBalance();
+        var payment = nextId();
+        pro.payment = balance(purchase, payment, Status.APROBADO);
+        mvc.perform(notification("payment", payment, "42", "pro-fixture-secret")).andExpect(status().isOk());
+        assertTrue(worker.processNextNotification());
+        assertPaid(purchase, payment);
+
+        mvc.perform(notification("payment", payment, "43", "pro-fixture-secret")).andExpect(status().isOk());
+        var incident = sql.sql("UPDATE zonda_market.payment_webhook_inbox SET attempts = 10 WHERE notification_id = '43' RETURNING id")
+                .query(UUID.class).single();
+        assertTrue(worker.processNextNotification());
+        assertEquals("RETRY_LIMIT_REACHED", failure("43", true));
+        var admin = account(true);
+        sql.sql("UPDATE zonda_market.user_account SET role = 'ADMIN' WHERE id = :id").param("id", admin.id()).update();
+        var path = "/api/v1/admin/payment-incidents";
+        var recover = path + "/" + incident + "/reconcile";
+        var key = UUID.randomUUID();
+        var reason = """
+                {"reason":"Verificar la notificación"}
+                """;
+        mvc.perform(auth(get(path), purchase.buyer())).andExpect(status().isForbidden());
+        mvc.perform(auth(post(recover), purchase.buyer()).header("Idempotency-Key", key).content(reason))
+                .andExpect(status().isForbidden());
+        mvc.perform(auth(post(recover), admin).header("Idempotency-Key", key).content("{\"reason\":\" \"}"))
+                .andExpect(status().isBadRequest());
+
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> mvc.perform(auth(post(recover), admin).header("Idempotency-Key", key).content(reason))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            var replay = pool.submit(() -> mvc.perform(auth(post(recover), admin).header("Idempotency-Key", key).content(reason))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            assertEquals(first.get(10, TimeUnit.SECONDS), replay.get(10, TimeUnit.SECONDS));
+        }
+        mvc.perform(auth(post(recover), admin).header("Idempotency-Key", UUID.randomUUID()).content(reason))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("RECOVERY_COOLDOWN"));
+        assertTrue(worker.processNextNotification());
+        assertFalse(worker.processNextNotification());
+        assertEquals(2, pro.reads.get());
+        assertEquals(1, transactions(purchase.attempt()));
+        assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
+        mvc.perform(auth(get(path), admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[?(@.id == '%s' && @.status == 'CONCILIADA' && @.attempts == 12)]", incident)
+                        .isNotEmpty());
+    }
+
+    @Test
+    void recoversACompensationWithoutSubmittingAnotherRefund() throws Exception {
+        var orderId = "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP72";
+        var purchase = startCard(orderId);
+        approveCard(purchase, orderId, "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP72", "44");
+        approveCard(purchase, "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP73", "PAY01JYH1Z1YJN4HZ8J3Q0RB3YP73", "45");
+        var incident = sql.sql("""
+                UPDATE zonda_market.payment_compensation SET status = 'EN_REVISION'
+                WHERE order_id = :order RETURNING id
+                """).param("order", purchase.order()).query(UUID.class).single();
+        var admin = account(true);
+        sql.sql("UPDATE zonda_market.user_account SET role = 'ADMIN' WHERE id = :id").param("id", admin.id()).update();
+        var path = "/api/v1/admin/payment-incidents/" + incident + "/reconcile";
+        var reason = """
+                {"reason":"Consultar devolución"}
+                """;
+        var first = UUID.randomUUID();
+        mvc.perform(auth(post(path), admin).header("Idempotency-Key", first).content(reason)).andExpect(status().isAccepted());
+        assertTrue(compensation.processNext());
+        assertFalse(compensation.processNext());
+        assertTrue(refunds.sent.isEmpty());
+        assertEquals("EN_REVISION", sql.sql("SELECT status FROM zonda_market.payment_compensation WHERE id = :id")
+                .param("id", incident).query(String.class).single());
+
+        clock.set(clock.instant().plusSeconds(60));
+        refunds.history = new PaymentRefundGateway.Observation(PaymentRefundGateway.State.CONFIRMED, "fixture-refund");
+        mvc.perform(auth(post(path), admin).header("Idempotency-Key", UUID.randomUUID()).content(reason))
+                .andExpect(status().isAccepted());
+        assertTrue(compensation.processNext());
+        assertTrue(refunds.sent.isEmpty());
+        assertEquals("CONFIRMADA", sql.sql("SELECT status FROM zonda_market.payment_compensation WHERE id = :id")
+                .param("id", incident).query(String.class).single());
+        assertEquals(1, eventCount(purchase.order(), "CHECKOUT_PAID"));
+    }
+
+    @Test
     void rejectsInvalidSignaturesTopicsBodiesAndOversizeWithoutPersisting() throws Exception {
         var purchase = startBalance();
         var id = nextId();

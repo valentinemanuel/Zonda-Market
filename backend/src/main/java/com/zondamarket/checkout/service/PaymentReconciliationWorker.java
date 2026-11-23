@@ -44,7 +44,7 @@ public class PaymentReconciliationWorker {
         var delivery = inbox.claim(clock.instant()).orElse(null);
         if (delivery == null) return false;
         try {
-            if (delivery.attempts() > MAX_DELIVERY_ATTEMPTS) {
+            if (!delivery.manualRetry() && delivery.attempts() > MAX_DELIVERY_ATTEMPTS) {
                 failure(delivery, "RETRY_LIMIT_REACHED", false);
             } else {
                 process(delivery);
@@ -85,7 +85,7 @@ public class PaymentReconciliationWorker {
 
     private void failure(Delivery delivery, String code, boolean retryable) {
         var now = clock.instant();
-        if (retryable && delivery.attempts() < MAX_DELIVERY_ATTEMPTS) {
+        if (retryable && !delivery.manualRetry() && delivery.attempts() < MAX_DELIVERY_ATTEMPTS) {
             long delay = Math.min(900, 5L << (delivery.attempts() - 1));
             inbox.retry(delivery, now.plusSeconds(delay), code);
             LOG.info("Webhook de Mercado Pago pendiente traceId={} inboxId={} intento={} motivo={}",

@@ -38,7 +38,7 @@ public class PaymentWebhookInbox {
                 UPDATE zonda_market.payment_webhook_inbox AS delivery
                 SET lease_id = :lease, lease_until = :until, attempts = attempts + 1
                 FROM next WHERE delivery.id = next.id
-                RETURNING delivery.id, topic, resource_id, trace_id, lease_id, attempts
+                RETURNING delivery.id, topic, resource_id, trace_id, lease_id, attempts, manual_retry
                 """).param("now", now.atOffset(ZoneOffset.UTC)).param("until", now.plusSeconds(30).atOffset(ZoneOffset.UTC))
                 .param("lease", UUID.randomUUID()).query(Delivery.class).optional();
     }
@@ -46,7 +46,7 @@ public class PaymentWebhookInbox {
     public void finish(Delivery delivery, Instant now, String failure) {
         sql.sql("""
                 UPDATE zonda_market.payment_webhook_inbox
-                SET finished_at = :now, failure_code = :failure, lease_id = NULL, lease_until = NULL
+                SET finished_at = :now, failure_code = :failure, lease_id = NULL, lease_until = NULL, manual_retry = FALSE
                 WHERE id = :id AND lease_id = :lease
                 """).param("now", now.atOffset(ZoneOffset.UTC)).param("failure", failure).param("id", delivery.id())
                 .param("lease", delivery.leaseId()).update();
@@ -61,5 +61,6 @@ public class PaymentWebhookInbox {
                 .param("lease", delivery.leaseId()).update();
     }
 
-    public record Delivery(UUID id, PaymentWebhookTopic topic, String resourceId, UUID traceId, UUID leaseId, int attempts) {}
+    public record Delivery(UUID id, PaymentWebhookTopic topic, String resourceId, UUID traceId, UUID leaseId, int attempts,
+                           boolean manualRetry) {}
 }
