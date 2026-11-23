@@ -2,6 +2,7 @@ package com.zondamarket.checkout.service;
 
 import com.zondamarket.checkout.dto.FulfillmentDtos.*;
 import com.zondamarket.checkout.repository.CheckoutStore;
+import com.zondamarket.checkout.repository.DisputeStore;
 import com.zondamarket.checkout.repository.FulfillmentStore;
 import com.zondamarket.identity.domain.UserAccount.Role;
 import com.zondamarket.identity.dto.AccountResponse;
@@ -19,12 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class FulfillmentService {
     private final CheckoutStore checkout;
     private final FulfillmentStore store;
+    private final DisputeStore disputes;
     private final SellerProfileRepository sellers;
     private final Clock clock;
 
-    FulfillmentService(CheckoutStore checkout, FulfillmentStore store, SellerProfileRepository sellers, Clock clock) {
+    FulfillmentService(CheckoutStore checkout, FulfillmentStore store, DisputeStore disputes,
+                       SellerProfileRepository sellers, Clock clock) {
         this.checkout = checkout;
         this.store = store;
+        this.disputes = disputes;
         this.sellers = sellers;
         this.clock = clock;
     }
@@ -54,6 +58,7 @@ public class FulfillmentService {
             throw conflict("SUB_ORDER_ALREADY_SHIPPED", "La suborden ya tiene un despacho registrado.");
         }
         requireState(order.status(), sub, "PREPARANDO", version);
+        requireNoDispute(id);
 
         var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         store.ship(id, carrier, request.trackingCode(), now);
@@ -68,12 +73,19 @@ public class FulfillmentService {
         int version = request.expectedVersion().intValueExact();
         if ("ENTREGADA".equals(sub.status()) && version == sub.version() - 1) return sub;
         requireState(order.status(), sub, "DESPACHADA", version);
+        requireNoDispute(id);
 
         var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         if (now.isBefore(sub.shipment().shippedAt())) now = sub.shipment().shippedAt();
         store.deliver(id, now);
         store.event(order.id(), id, "DELIVERY_CONFIRMED", buyer, trace, now);
         return store.lockSubOrder(id);
+    }
+
+    private void requireNoDispute(UUID id) {
+        if (disputes.active(id)) {
+            throw conflict("SUB_ORDER_DISPUTED", "La suborden tiene un reclamo activo.");
+        }
     }
 
     private Optional<UUID> sellerId(AccountResponse account) {

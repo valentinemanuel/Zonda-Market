@@ -28,6 +28,7 @@ export function AdminPage({ title, children }: { title: string; children: (revis
             <AdminLink to="/admin/publicaciones">Publicaciones</AdminLink>
             <AdminLink to="/admin/cuentas">Cuentas</AdminLink>
             <AdminLink to="/admin/categorias">Categorías</AdminLink>
+            <AdminLink to="/admin/reclamos">Reclamos</AdminLink>
           </nav>
           {children(revision)}
         </>

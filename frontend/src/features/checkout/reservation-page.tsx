@@ -12,6 +12,8 @@ import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 import { DeliveryAction } from "./delivery-action";
 import { ReviewAction } from "@/features/reviews/review-action";
+import { BuyerDisputeAction } from "@/features/disputes/dispute-order-action";
+import { disputeActive } from "@/features/disputes/dispute-api";
 
 export function ReservationPage() {
   return <OrderCheckout returned={false} />;
@@ -125,8 +127,10 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
     </section>}
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
       actions={(sub) => <>
-        <DeliveryAction sub={sub} orderId={order.id} revision={revision} />
+        {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
         <ReviewAction sub={sub} orderId={order.id} revision={revision} />
+        <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}
+          paid={order.status === "PAGADA" || order.status === "REEMBOLSO_PARCIAL"} serverNow={order.serverNow} />
       </>}>
       {order.status === "PAGADA" && <Button asChild className="w-full">
         <Link to="/mis-ordenes">Seguir mi compra</Link>

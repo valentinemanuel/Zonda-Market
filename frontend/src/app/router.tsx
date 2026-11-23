@@ -18,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "checkout/reserva/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).ReservationPage }) },
       { path: "checkout/resultado/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).CheckoutResultPage }) },
       { path: "mis-ordenes", lazy: async () => ({ Component: (await import("@/features/checkout/orders-page")).OrdersPage }) },
+      { path: "reclamos/:id", lazy: async () => ({ Component: (await import("@/features/disputes/dispute-page")).DisputePage }) },
       { path: "notificaciones", lazy: async () => ({ Component: (await import("@/features/notifications/notifications-page")).NotificationsPage }) },
       { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
       { path: "vendedor/pedidos", lazy: async () => ({ Component: (await import("@/features/checkout/seller-orders-page")).SellerOrdersPage }) },
@@ -41,6 +42,9 @@ export const router = createBrowserRouter([
       } },
       { path: "admin/categorias", lazy: async () => ({
         Component: (await import("@/features/admin/category-admin-page")).CategoryAdminPage,
+      }) },
+      { path: "admin/reclamos", lazy: async () => ({
+        Component: (await import("@/features/disputes/dispute-admin-page")).DisputeAdminPage,
       }) },
       { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {

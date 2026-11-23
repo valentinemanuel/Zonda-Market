@@ -1,24 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import type { Order } from "../src/features/checkout/checkout-api";
-import { credentials, publish } from "./cart-fixtures";
-import { linkFromMail } from "./mailpit";
+import { credentials, publish, verifyByMail } from "./cart-fixtures";
 import { productPhoto } from "./product-photo";
 
-export async function purchaseFixture(page: Page, request: APIRequestContext, origin: string, label = "envio") {
+export async function purchaseFixture(page: Page, request: APIRequestContext, origin: string, label = "envio",
+  verify = verifyByMail) {
   await page.goto("/registro");
   const photo = await productPhoto(page, "#2563eb");
-  const alpha = await publish(request, origin, photo, "Alfa envío", 100);
-  const beta = await publish(request, origin, photo, "Beta envío", 150);
+  const alpha = await publish(request, origin, photo, "Alfa envío", 100, verify);
+  const beta = await publish(request, origin, photo, "Beta envío", 150, verify);
   const buyer = `${label}-${randomUUID().slice(0, 8)}@example.test`;
   const registered = page.waitForResponse("**/api/v1/auth/register");
   await credentials(page, buyer);
   const headers = { Authorization: "Bearer " + (await (await registered).json()).accessToken };
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
-  expect((await request.post("/api/v1/auth/email-verification/request", { data: { email: buyer } })).status()).toBe(202);
-  const verification = await linkFromMail(request, buyer, "/verificar-correo");
-  const token = new URLSearchParams(verification.hash.slice(1)).get("token");
-  expect((await request.post("/api/v1/auth/email-verification/confirm", { data: { token } })).status()).toBe(204);
+  await verify(request, buyer);
   const address = await request.post("/api/v1/me/addresses", {
     headers, data: { street: "Calle Ficticia 200", city: "La Plata", provinceCode: "AR-B", postalCode: "1900", country: "AR" },
   });

@@ -5,6 +5,8 @@ import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
+import com.zondamarket.checkout.dto.DisputeDtos.Reference;
+import com.zondamarket.checkout.dto.DisputeDtos.Status;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Carrier;
 import com.zondamarket.checkout.dto.FulfillmentDtos.SellerOrderStatus;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Shipment;
@@ -232,10 +234,12 @@ public class CheckoutStore {
                 SELECT sub.id AS sub_id, sub.status, sub.address_snapshot, sub.seller_id, sub.seller_name,
                        sub.fulfillment_version, sub.carrier, sub.tracking_code, sub.shipped_at, sub.delivered_at,
                        %s AS reviewed,
+                       dispute.id AS dispute_id, dispute.status AS dispute_status,
                        sub.merchandise, sub.shipping, sub.commission AS sub_commission, line.sku_id, line.sku_code,
                        line.title, line.attributes, line.quantity, line.unit_price, line.commission_bps, line.commission
                 FROM zonda_market.checkout_sub_order sub
                 JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                LEFT JOIN zonda_market.dispute dispute ON dispute.sub_order_id = sub.id
                 WHERE %s
                 ORDER BY %s, line.sku_id
                 """.formatted(reviewed, condition, sort));
@@ -249,9 +253,12 @@ public class CheckoutStore {
                     var group = new Group(rs.getObject("seller_id", UUID.class), rs.getString("seller_name"), items,
                             merchandise.toPlainString(), shipping.toPlainString(), rs.getBigDecimal("sub_commission").toPlainString(),
                             merchandise.add(shipping).toPlainString());
+                    var disputeId = rs.getObject("dispute_id", UUID.class);
+                    var dispute = disputeId == null ? null : new Reference(
+                            disputeId, Status.valueOf(rs.getString("dispute_status")));
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
                             json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
-                            rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class));
+                            rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class), dispute);
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");
                     var line = new Line(rs.getObject("sku_id", UUID.class), rs.getString("sku_code"), rs.getString("title"),

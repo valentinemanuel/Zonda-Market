@@ -10,7 +10,9 @@ public final class NotificationDtos {
     public enum Type {
         PAYMENT_APPROVED("Pago aprobado", "Se acreditó el pago de tu pedido."),
         SUB_ORDER_SHIPPED("Pedido despachado", "El vendedor registró el despacho de tu pedido."),
-        DELIVERY_CONFIRMED("Entrega confirmada", "El comprador confirmó que recibió el pedido.");
+        DELIVERY_CONFIRMED("Entrega confirmada", "El comprador confirmó que recibió el pedido."),
+        DISPUTE_OPENED("Reclamo abierto", "Se abrió un reclamo sobre una suborden."),
+        DISPUTE_ASSIGNED("Reclamo en mediación", "Administración tomó el reclamo para mediación.");
 
         private final String subject;
         private final String message;
