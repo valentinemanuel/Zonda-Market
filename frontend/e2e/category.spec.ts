@@ -13,6 +13,7 @@ test("muestra la categoría y los problemas REST con su referencia", async ({ pa
   }, { times: 1 });
 
   await page.goto("/estado");
+  await expect(page).toHaveTitle("Zonda Market Argentina");
   await page.getByRole("link", { name: "Explorar categoría Tecnología" }).click();
   try {
     await expect(page.getByRole("status")).toContainText("Cargando categoría");
@@ -41,9 +42,9 @@ test("muestra la categoría y los problemas REST con su referencia", async ({ pa
     await page.setViewportSize({ width: 360, height: 800 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`categoria-${scenario.status}.png`), fullPage: true });
-    await page.getByRole("link", { name: "Volver al estado del sistema" }).focus();
+    await page.getByRole("link", { name: "Ver disponibilidad de Zonda Market" }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Estado del sistema" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Disponibilidad de Zonda Market" })).toBeVisible();
   }
 
   await page.goto("/swagger-ui/index.html");
