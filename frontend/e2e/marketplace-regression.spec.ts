@@ -31,9 +31,9 @@ test("mantiene una compra de dos vendedores desde checkout hasta una devolución
     const address = buyer.getByLabel("Elegí una dirección");
     await address.selectOption(addressId);
     await address.press("Tab");
-    await expect(buyer.getByRole("button", { name: "Cotizar compra" })).toBeFocused();
+    await expect(buyer.getByRole("button", { name: "Calcular envío" })).toBeFocused();
     await buyer.keyboard.press("Enter");
-    await expect(buyer.getByText("Cotización lista. El total es $ 250,00.")).toBeVisible();
+    await expect(buyer.getByText("Envío calculado. El total es $ 250,00.")).toBeVisible();
     await expect(buyer.getByRole("heading", { name: alpha.seller })).toBeVisible();
     await expect(buyer.getByRole("heading", { name: beta.seller })).toBeVisible();
     await buyer.getByRole("button", { name: "Confirmar reserva" }).press("Enter");

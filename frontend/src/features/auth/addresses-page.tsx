@@ -155,7 +155,7 @@ function AddressEditor({ editor, first, onClose, onSaved }: {
       return address ? "Dirección actualizada." : "Dirección agregada.";
     },
     onSuccess: async (message) => {
-      dialog.current?.close();
+      closeEditor();
       await onSaved(message);
     },
   });
@@ -167,15 +167,21 @@ function AddressEditor({ editor, first, onClose, onSaved }: {
     return () => element?.close();
   }, []);
 
+  function closeEditor() {
+    dialog.current?.close();
+    onClose();
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     mutation.mutate(new FormData(event.currentTarget));
   }
 
   return (
-    <dialog ref={dialog} aria-labelledby="address-dialog-title" onClose={(event) => {
-      if (!event.currentTarget.open) onClose();
-    }} onCancel={(event) => { if (mutation.isPending) event.preventDefault(); }}
+    <dialog ref={dialog} aria-labelledby="address-dialog-title" onCancel={(event) => {
+      event.preventDefault();
+      if (!mutation.isPending) closeEditor();
+    }}
       className="address-dialog fixed inset-0 m-auto max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-xl overflow-y-auto rounded-2xl border bg-card p-5 text-foreground shadow-float backdrop:bg-brand-ink/55 sm:p-6">
       <h2 id="address-dialog-title" className="font-wordmark text-2xl font-bold tracking-tight">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -217,7 +223,7 @@ function AddressEditor({ editor, first, onClose, onSaved }: {
         </p>}
         <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" className="min-h-11" disabled={mutation.isPending} data-initial-focus={deleting || undefined}
-            onClick={() => dialog.current?.close()}>Cancelar</Button>
+            onClick={closeEditor}>Cancelar</Button>
           <Button type="submit" variant={deleting ? "destructive" : "default"} className="min-h-11" disabled={mutation.isPending}>
             {deleting ? mutation.isPending ? "Eliminando…" : "Confirmar eliminación"
               : mutation.isPending ? "Guardando…" : "Guardar dirección"}

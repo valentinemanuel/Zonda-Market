@@ -8,7 +8,7 @@ const topics = {
     sections: [
       { title: "Seguí tus compras", text: "Abrí el detalle de una orden para consultar el estado del pago, ver el seguimiento o registrar un problema con la compra.", link: ["Ir a Mis órdenes", "/cuenta/ordenes"] },
       { title: "Entrá a tu cuenta", text: "Si olvidaste la contraseña, solicitá un enlace al correo de tu cuenta.", link: ["Recuperar el acceso", "/recuperar-acceso"] },
-      { title: "Actualizá tus direcciones", text: "Elegí una dirección vigente antes de cotizar el envío.", link: ["Administrar direcciones", "/cuenta/direcciones"] },
+      { title: "Actualizá tus direcciones", text: "Elegí una dirección vigente para calcular el envío.", link: ["Administrar direcciones", "/cuenta/direcciones"] },
     ],
   },
   "guia-vendedores": {

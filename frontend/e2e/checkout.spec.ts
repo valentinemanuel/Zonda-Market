@@ -11,9 +11,9 @@ const confirmPath = "/api/v1/checkout/confirm";
 
 test.use({ viewport: { width: 390, height: 844 }, actionTimeout: 12_000 });
 
-test("comprar ahora cotiza una variante, confirma y conserva el carrito", async ({ page, request, baseURL, context }, testInfo) => {
+test("comprar ahora calcula el envío de una variante, confirma y conserva el carrito", async ({ page, request, baseURL, context }, testInfo) => {
   const origin = new URL(baseURL!).origin;
-  const { alpha, beta, headers } = await purchaseCartFixture(page, request, origin, "directa", async (_request, email) => {
+  const { alpha, beta, headers, addressId } = await purchaseCartFixture(page, request, origin, "directa", async (_request, email) => {
     await sql(`UPDATE zonda_market.user_account SET email_verified = TRUE WHERE email = '${email}'`);
   });
   const saved = await request.post("/api/v1/me/addresses", {
@@ -34,8 +34,19 @@ test("comprar ahora cotiza una variante, confirma y conserva el carrito", async 
   await expect(summary).toHaveCSS("position", "sticky");
   await expect(summary).toHaveCSS("top", "24px");
   await expect(summary.locator("img")).toHaveCount(1);
-  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
-  await expect(summary.getByText("Total a pagar").locator("..")).toContainText("$ 100,00");
+  const total = summary.getByText("Total a pagar", { exact: true }).locator("..").locator("dd");
+  const calculate = page.getByRole("button", { name: "Calcular envío" });
+  await expect(summary.getByText("Se calcula con tu dirección")).toBeVisible();
+  await expect(total).toHaveText("$ 100,00 + envío");
+  await calculate.press("Enter");
+  await expect(total).toHaveText("$ 100,00");
+  await page.getByLabel("Elegí una dirección").selectOption(addressId);
+  await expect(calculate).toBeEnabled();
+  await expect(total).toHaveText("$ 100,00 + envío");
+  await expect(page.getByRole("button", { name: "Confirmar reserva" })).toHaveCount(0);
+  await page.getByLabel("Elegí una dirección").selectOption(address.id);
+  await calculate.press("Enter");
+  await expect(total).toHaveText("$ 100,00");
   await page.screenshot({ path: testInfo.outputPath("compra-directa-envio-1440.png"), fullPage: true });
   await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
   await expect(summary.getByRole("timer")).toBeVisible();
@@ -45,7 +56,7 @@ test("comprar ahora cotiza una variante, confirma y conserva el carrito", async 
   await page.getByRole("link", { name: "Volver a Envío" }).press("Enter");
   await page.getByRole("button", { name: "Cancelar reserva y volver" }).press("Enter");
   await expect(page).toHaveURL(origin + "/checkout?sku=" + alpha.skuId);
-  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+  await page.getByRole("button", { name: "Calcular envío" }).press("Enter");
   await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
   await page.getByRole("button", { name: "Simular aprobación" }).press("Enter");
   await expect(page.getByRole("heading", { name: "¡Gracias por tu compra!" })).toBeVisible();
@@ -70,7 +81,7 @@ test("volver a Envío confirma la liberación y permite reservar de nuevo", asyn
   });
   await page.goto("/checkout");
   async function reserve() {
-    await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+    await page.getByRole("button", { name: "Calcular envío" }).press("Enter");
     await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
     await expect(page.getByRole("timer")).toBeVisible();
     return page.url();
@@ -93,7 +104,7 @@ test("volver a Envío confirma la liberación y permite reservar de nuevo", asyn
   expect(await reserve()).not.toBe(original);
 });
 
-test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", async ({ page, request, baseURL }, testInfo) => {
+test("calcula el envío de dos vendedores y recupera la reserva tras perder la respuesta", async ({ page, request, baseURL }, testInfo) => {
   const origin = new URL(baseURL!).origin;
   await page.goto("/registro");
   const photo = await productPhoto(page, "#2563eb");
@@ -129,12 +140,16 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await page.goto("/carrito");
   await page.getByRole("link", { name: "Continuar al checkout" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Confirmar compra" })).toBeVisible();
+  const summary = page.getByRole("complementary", { name: "Resumen de compra" });
+  await expect(summary.getByText("Se calcula con tu dirección")).toBeVisible();
+  await expect(summary.getByText("$ 351,15 + envío", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("checkout-envio-pendiente-movil.png"), fullPage: true });
 
   const address = page.getByLabel("Elegí una dirección");
   await address.press("End");
   await expect(address.locator("option:checked")).toHaveText(/Calle Reserva 200/);
   await address.press("Tab");
-  await expect(page.getByRole("button", { name: "Cotizar compra" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Calcular envío" })).toBeFocused();
 
   let release!: () => void;
   const hold = new Promise<void>((resolve) => { release = resolve; });
@@ -144,11 +159,11 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   }, { times: 1 });
   await page.keyboard.press("Enter");
   try {
-    await expect(page.getByRole("status")).toHaveText("Consultando importe y stock vigentes…");
+    await expect(page.getByRole("status")).toHaveText("Calculando el envío y verificando la disponibilidad…");
   } finally {
     release();
   }
-  await expect(page.getByText("Cotización lista. El total es $ 351,15.")).toBeVisible();
+  await expect(page.getByText("Envío calculado. El total es $ 351,15.")).toBeVisible();
   await expect(page.getByRole("heading", { name: first.seller })).toBeVisible();
   await expect(page.getByRole("heading", { name: second.seller })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
@@ -159,10 +174,10 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   })).status()).toBe(200);
   const confirmation = page.getByRole("button", { name: "Confirmar reserva" });
   await confirmation.press("Enter");
-  await expect(page.getByRole("alert")).toContainText("Cambió el precio o la dirección.");
-  await page.screenshot({ path: testInfo.outputPath("checkout-recotizar-movil.png"), fullPage: true });
-  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
-  await expect(page.getByText("Cotización lista. El total es $ 371,15.")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Volvé a calcular el envío para actualizar el resumen de compra.");
+  await page.screenshot({ path: testInfo.outputPath("checkout-envio-actualizar-movil.png"), fullPage: true });
+  await page.getByRole("button", { name: "Calcular envío" }).press("Enter");
+  await expect(page.getByText("Envío calculado. El total es $ 371,15.")).toBeVisible();
 
   let originalId: string | undefined;
   let originalKey: string | undefined;
@@ -257,9 +272,9 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await page.screenshot({ path: testInfo.outputPath("checkout-historial-movil.png"), fullPage: true });
   await page.getByRole("article", { name: "Orden #" + originalId!.slice(0, 8) })
     .getByRole("link", { name: "Ver detalle" }).press("Enter");
-  await page.getByRole("link", { name: "Volver a cotizar" }).press("Enter");
-  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
-  await expect(page.getByText("Cotización lista. El total es $ 371,15.")).toBeVisible();
+  await page.getByRole("link", { name: "Volver a Envío" }).press("Enter");
+  await page.getByRole("button", { name: "Calcular envío" }).press("Enter");
+  await expect(page.getByText("Envío calculado. El total es $ 371,15.")).toBeVisible();
   await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
   const approve = page.getByRole("button", { name: "Simular aprobación" });
   await expect(approve).toBeVisible();

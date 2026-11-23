@@ -64,7 +64,7 @@ export function ReturnToShipping({ order, revision }: { order: Order; revision: 
       <h2 id="return-shipping-title" className="text-xl font-bold">¿Volver a Envío?</h2>
       <p id="return-shipping-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Se cancelará el tiempo de pago y se liberará la reserva. {order.directSkuId ? "Tu carrito se conservará." : "Tus productos seguirán en el carrito."}
-        Tendrás que cotizar y reservar de nuevo para pagar.
+        Tendrás que calcular el envío y confirmar la compra de nuevo para pagar.
       </p>
       {mutation.isError && <p role="alert" className="mt-3 rounded-lg bg-destructive-soft p-3 text-sm text-destructive">
         {mutation.error instanceof ApiError && mutation.error.status === 409

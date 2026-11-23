@@ -220,15 +220,16 @@ export async function simulateAttemptOutcome(id: string, attemptId: string,
 export function checkoutError(error: unknown) {
   if (error instanceof ApiError) {
     switch (error.code) {
-      case "ADDRESS_NOT_FOUND": return "La dirección cambió. Elegí una dirección vigente y volvé a cotizar.";
-      case "CART_VERSION_CONFLICT": return "El carrito cambió. Revisalo y volvé a cotizar.";
-      case "QUOTE_CHANGED": return "Cambió el precio o la dirección. Revisá la nueva cotización.";
-      case "QUOTE_EXPIRED": return "La cotización venció. Volvé a cotizar.";
+      case "ADDRESS_NOT_FOUND": return "La dirección cambió. Elegí otra dirección para calcular el envío.";
+      case "CART_VERSION_CONFLICT": return "El carrito cambió. Revisalo y volvé a calcular el envío.";
+      case "QUOTE_CHANGED": return "Cambió el precio o la dirección. Volvé a calcular el envío para actualizar el resumen de compra.";
+      case "QUOTE_NOT_FOUND": return "Volvé a calcular el envío para actualizar el resumen de compra.";
+      case "QUOTE_EXPIRED": return "Venció el cálculo del envío. Volvé a calcularlo para continuar.";
       case "STOCK_CHANGED": return "Cambió la disponibilidad. Revisá el carrito antes de continuar.";
-      case "CART_EMPTY": return "Agregá productos al carrito para cotizar.";
+      case "CART_EMPTY": return "Agregá productos al carrito para continuar con la compra.";
       case "ORDER_ALREADY_ACTIVE": return "Ya tenés una reserva para esta cuenta.";
       case "CHECKOUT_EXPIRED": return "Tu reserva anterior venció.";
-      case "QUOTE_ALREADY_CONFIRMED": return "Esta cotización ya generó una orden.";
+      case "QUOTE_ALREADY_CONFIRMED": return "Ya se creó una orden para esta compra. Podés verla en Mis órdenes.";
       case "EMAIL_NOT_VERIFIED": return "Verificá tu correo desde Mi cuenta.";
       case "CHECKOUT_TOTAL_LIMIT": return "El importe supera el máximo de una orden. Revisá el carrito.";
     }

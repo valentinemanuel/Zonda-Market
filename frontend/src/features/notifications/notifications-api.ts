@@ -36,24 +36,25 @@ export function useMarkNotificationRead(revision: number) {
   const client = useQueryClient();
   const queryKey = key(revision);
   return useMutation({
-    mutationFn: async (id: string): Promise<Notification> => {
-      if (revision !== getSessionRevision()) throw new DOMException("La sesión cambió.", "AbortError");
-      return (await authenticatedRequest(`${path}/${encodeURIComponent(id)}/read`, { method: "PATCH" })).json();
-    },
-    onMutate: async (id) => {
+    scope: { id: `read-notifications:${revision}` },
+    mutationFn: async (id: string) => {
       await client.cancelQueries({ queryKey });
-      if (revision !== getSessionRevision()) return;
+      if (revision !== getSessionRevision()) throw new DOMException("La sesión cambió.", "AbortError");
       const previous = client.getQueriesData<NotificationPage>({ queryKey });
+      if (previous.some(([, page]) => page?.content.some((entry) => entry.id === id && entry.read))) return;
       client.setQueriesData<NotificationPage>({ queryKey }, (page) => page && ({
         ...page,
         content: page.content.map((entry) => entry.id === id ? { ...entry, read: true } : entry),
         unreadCount: Math.max(0, page.unreadCount - 1),
       }));
-      return previous;
-    },
-    onError: (_error, _id, previous) => {
-      if (revision !== getSessionRevision()) return;
-      for (const [pageKey, page] of previous ?? []) client.setQueryData(pageKey, page);
+      try {
+        await authenticatedRequest(`${path}/${encodeURIComponent(id)}/read`, { method: "PATCH" });
+      } catch (error) {
+        if (revision === getSessionRevision()) {
+          for (const [pageKey, page] of previous) client.setQueryData(pageKey, page);
+        }
+        throw error;
+      }
     },
     onSettled: () => {
       if (revision === getSessionRevision()) void client.invalidateQueries({ queryKey });

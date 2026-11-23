@@ -85,6 +85,16 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("notificaciones-compra-y-despacho.png"), fullPage: true });
 
+  const payment = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Pago aprobado" }) });
+  const readOnOpen = page.waitForResponse((response) =>
+    response.url().endsWith("/read") && response.request().method() === "PATCH");
+  await payment.getByRole("link", { name: /Ver compra/ }).press("Enter");
+  await expect(page).toHaveURL(origin + "/checkout/reserva/" + order.id);
+  expect((await readOnOpen).ok()).toBe(true);
+  await expect(page.getByRole("button", { name: "Notificaciones", exact: true })).toBeVisible();
+  await page.goto("/notificaciones");
+  await expect(payment.getByRole("button", { name: "Leída Pago aprobado" })).toBeVisible();
+
   await follow.press("Enter");
   await expect(page).toHaveURL(origin + target);
   await expect(page.locator("#suborden-" + first.id)).toBeFocused();
@@ -118,12 +128,23 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
     await credentials(seller, alpha.email);
     await expect(seller).toHaveURL(sellerTarget);
     await expect(seller.getByText("Entregada", { exact: true })).toBeVisible();
+    await seller.goto("/catalogo");
     await seller.getByRole("button", { name: "Notificaciones, 2 sin leer" }).press("Enter");
     const sellerPanel = seller.getByRole("dialog", { name: "Notificaciones recientes" });
     await expect(sellerPanel.getByRole("link", { name: /Entrega confirmada/ })).toBeVisible();
     await expect(sellerPanel.getByRole("link", { name: /Pago aprobado/ })).toBeVisible();
     await expect(sellerPanel.getByRole("link", { name: /Pedido despachado/ })).toHaveCount(0);
-    expect((await request.get(inbox, { headers })).status()).toBe(200);
+    const readFromBell = seller.waitForResponse((response) =>
+      response.url().endsWith("/read") && response.request().method() === "PATCH");
+    await sellerPanel.getByRole("link", { name: /Entrega confirmada/ }).click();
+    await expect(seller).toHaveURL(sellerTarget);
+    await expect(sellerPanel).toBeHidden();
+    expect((await readFromBell).ok()).toBe(true);
+    await seller.reload();
+    await expect(seller.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeVisible();
+    const persisted = await request.get(inbox, { headers });
+    expect(persisted.status()).toBe(200);
+    expect((await persisted.json()).unreadCount).toBe(0);
   } finally {
     await seller.close();
   }

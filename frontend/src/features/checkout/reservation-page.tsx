@@ -72,7 +72,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
       {returned && (data === undefined || !settled(data.status)) && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
       </Link>}
-      {data && !settled(data.status) && <ReturnToShipping key={data.id} order={data} revision={revision} />}
+      {data && running(data.status) && <ReturnToShipping key={data.id} order={data} revision={revision} />}
       {data && settled(data.status) && (paymentReview
         ? <Button asChild variant="outline"><Link to={"/checkout/resultado/" + encodeURIComponent(id)}>Ver confirmación <ArrowRight aria-hidden="true" /></Link></Button>
         : <Button asChild variant="outline"><Link to={"/checkout/reserva/" + encodeURIComponent(id) + "?paso=pago"}><ArrowLeft aria-hidden="true" />Volver a Pago</Link></Button>)}
@@ -148,8 +148,8 @@ function Reservation({ order, revision, returned, paymentReview, heading }: {
         </a>)}
       </div>}
       {(expired || cancelled || order.status === "FALLIDA") && <div className="mt-4 space-y-2">
-        <p className="text-sm">{order.directSkuId ? "Podés volver a cotizar el producto." : "Tus productos siguen en el carrito."}</p>
-        <Button asChild><Link to={checkoutPath(order.directSkuId)}>Volver a cotizar</Link></Button>
+        <p className="text-sm">{order.directSkuId ? "Volvé a Envío para iniciar la compra de nuevo." : "Tus productos siguen en el carrito."}</p>
+        <Button asChild><Link to={checkoutPath(order.directSkuId)}>Volver a Envío</Link></Button>
       </div>}
     </section>
     <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />

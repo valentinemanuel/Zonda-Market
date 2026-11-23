@@ -79,7 +79,8 @@ function Notifications({ revision }: { revision: number }) {
                   </time>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link to={entry.href} className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold text-primary hover:underline">
+                    <Link to={entry.href} onClick={() => { if (!entry.read) mark.mutate(entry.id); }}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold text-primary hover:underline">
                       {entry.href.startsWith("/reclamos/") ? "Ver reclamo"
                         : entry.href.startsWith("/vendedor/") ? "Ver pedido" : "Ver compra"}
                       <span className="sr-only"> {entry.resourceId.slice(0, 8)}</span>
