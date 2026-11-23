@@ -1,5 +1,5 @@
 import "@fontsource-variable/inter";
-import "@/index.css";
+import "./portfolio.css";
 import { Package, ShoppingCart } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -247,11 +247,11 @@ function App() {
     <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:z-10 focus:bg-card focus:p-3">Saltar al contenido</a>
     <header className="store-header text-brand-ink">
       <nav aria-label="Principal" className="store-frame flex min-h-16 max-w-6xl items-center justify-between gap-2">
-        <Link to="/" className="flex items-center gap-2 rounded px-1 font-wordmark text-xl font-extrabold sm:text-2xl">
+        <Link to="/" className="flex items-center gap-2 rounded px-1 font-wordmark text-lg font-extrabold whitespace-nowrap sm:text-2xl">
           <img src={logo} alt="" width="32" height="32" /> Zonda Market
           <span className="hidden rounded bg-white/70 px-2 py-1 font-sans text-xs font-bold min-[360px]:inline">Demo</span>
         </Link>
-        <Link to="/carrito" aria-current={pathname === "/carrito" ? "page" : undefined} className="store-header-link text-sm hover:bg-white/25">
+        <Link to="/carrito" aria-current={pathname === "/carrito" ? "page" : undefined} className="store-header-link text-sm whitespace-nowrap hover:bg-white/25">
           <ShoppingCart className="size-5" aria-hidden="true" /> Carrito ({units})
         </Link>
       </nav>

@@ -6,6 +6,7 @@ test("navega y conserva el carrito sin API", async ({ page }) => {
     if (new URL(request.url()).pathname.startsWith("/api/")) apiRequests.push(request.url());
   });
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "Aplicar filtros" })).toHaveCSS("background-color", "rgb(188, 61, 8)");
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Saltar al contenido" })).toBeFocused();
   const search = page.getByRole("searchbox", { name: "Buscar productos" });
