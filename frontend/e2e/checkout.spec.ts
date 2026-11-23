@@ -11,6 +11,50 @@ const confirmPath = "/api/v1/checkout/confirm";
 
 test.use({ viewport: { width: 390, height: 844 }, actionTimeout: 12_000 });
 
+test("comprar ahora cotiza una variante, confirma y conserva el carrito", async ({ page, request, baseURL, context }, testInfo) => {
+  const origin = new URL(baseURL!).origin;
+  const { alpha, beta, headers } = await purchaseCartFixture(page, request, origin, "directa", async (_request, email) => {
+    await sql(`UPDATE zonda_market.user_account SET email_verified = TRUE WHERE email = '${email}'`);
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/publicaciones/" + alpha.slug);
+  await expect(page.getByRole("button", { name: "Agregar al carrito" })).toBeEnabled();
+  await page.getByRole("link", { name: "Comprar ahora" }).press("Enter");
+  await expect(page).toHaveURL(origin + "/checkout?sku=" + alpha.skuId);
+  const summary = page.getByRole("complementary", { name: "Resumen de compra" });
+  await expect(summary.getByText(alpha.title)).toBeVisible();
+  await expect(summary.getByText(beta.title)).toHaveCount(0);
+  await expect(summary).toHaveCSS("position", "sticky");
+  await expect(summary).toHaveCSS("top", "24px");
+  await expect(summary.locator("img")).toHaveCount(1);
+  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+  await expect(summary.getByText("Total a pagar").locator("..")).toContainText("$ 100,00");
+  await page.screenshot({ path: testInfo.outputPath("compra-directa-envio-1440.png"), fullPage: true });
+  await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
+  await expect(summary.getByRole("timer")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(summary).toHaveCSS("position", "static");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.getByRole("link", { name: "Volver a Envío" }).press("Enter");
+  await page.getByRole("button", { name: "Cancelar reserva y volver" }).press("Enter");
+  await expect(page).toHaveURL(origin + "/checkout?sku=" + alpha.skuId);
+  await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
+  await page.getByRole("button", { name: "Confirmar reserva" }).press("Enter");
+  await page.getByRole("button", { name: "Simular aprobación" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "¡Gracias por tu compra!" })).toBeVisible();
+  await expect(summary.getByRole("timer")).toHaveCount(0);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copiar número" }).press("Enter");
+  await expect(page.getByText("Número de orden copiado.")).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url().split("/").at(-1));
+  const stored = await request.get("/api/v1/cart", { headers });
+  expect(stored.ok()).toBe(true);
+  expect((await stored.json()).itemCount).toBe(2);
+  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/mis-ordenes");
+  await expect(page.getByRole("link", { name: "Seguir comprando", exact: true })).toHaveAttribute("href", "/catalogo");
+  await page.screenshot({ path: testInfo.outputPath("compra-directa-confirmacion-390.png"), fullPage: true });
+});
+
 test("volver a Envío confirma la liberación y permite reservar de nuevo", async ({ page, request, baseURL }, testInfo) => {
   const origin = new URL(baseURL!).origin;
   await purchaseCartFixture(page, request, origin, "regreso", async (_request, email) => {
@@ -137,8 +181,8 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(timer).not.toHaveText(firstTick);
   await page.screenshot({ path: testInfo.outputPath("checkout-reserva-movil.png"), fullPage: true });
 
-  const chooseCard = page.getByRole("button", { name: "Elegir Card Payment" });
-  const choosePro = page.getByRole("button", { name: "Elegir Checkout Pro" });
+  const chooseCard = page.getByRole("button", { name: "Pago con tarjeta de crédito o débito" });
+  const choosePro = page.getByRole("button", { name: "Elegir saldo de Mercado Pago (simulado)" });
   await expect(chooseCard).toBeEnabled();
   await chooseCard.focus();
   await page.keyboard.press("Tab");
@@ -240,7 +284,8 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByText("Total pagado", { exact: true }).locator("..")).toContainText("$ 371,15");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("checkout-pago-aprobado-movil.png"), fullPage: true });
-  await page.getByRole("link", { name: "Seguir mi compra" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "¡Gracias por tu compra!" })).toBeVisible();
+  await page.getByRole("link", { name: "Ver en Mis órdenes" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
   await expect(page.getByText("Pagada", { exact: true })).toBeVisible();
 });

@@ -47,6 +47,8 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
     ? state.listingSlug : null;
   const cartListingSlug = typeof state?.cartListingSlug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.cartListingSlug)
     ? state.cartListingSlug : null;
+  const checkoutSku = typeof state?.checkoutSku === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(state.checkoutSku)
+    ? state.checkoutSku : null;
   const google = useGoogleOptions();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(createAccount ? registration : credentials),
@@ -68,7 +70,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         : state?.returnToNotifications === true ? "/notificaciones"
         : state?.returnToSellerSales === true ? "/vendedor/ventas"
         : state?.returnToOrders === true ? "/mis-ordenes"
-        : state?.returnToCheckout === true ? "/checkout"
+        : state?.returnToCheckout === true ? (checkoutSku ? "/checkout?sku=" + encodeURIComponent(checkoutSku) : "/checkout")
         : state?.returnToCart === true ? "/carrito"
         : createAccount ? "/cuenta" : "/catalogo";
       navigate(returnPath, {

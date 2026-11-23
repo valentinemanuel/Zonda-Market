@@ -1,5 +1,6 @@
 package com.zondamarket.checkout.repository;
 
+import com.zondamarket.checkout.dto.CheckoutDtos.ReceiptPayment;
 import com.zondamarket.checkout.dto.PaymentDtos.Method;
 import com.zondamarket.checkout.dto.PaymentDtos.Provider;
 import com.zondamarket.checkout.dto.PaymentDtos.Status;
@@ -50,6 +51,14 @@ public class PaymentAttemptStore {
         return sql.sql(SELECT + """
                  ORDER BY sequence DESC LIMIT 1
                 """).param("order", order).query(Attempt.class).optional();
+    }
+
+    public Optional<ReceiptPayment> receipt(UUID order, String reference) {
+        return sql.sql("""
+                SELECT method, card_last_four AS last_four, provider = 'LOCAL' AS simulated
+                FROM zonda_market.payment_attempt
+                WHERE order_id = :order AND external_reference = :reference AND status = 'APROBADO'
+                """).param("order", order).param("reference", reference).query(ReceiptPayment.class).optional();
     }
 
     public Optional<ReconciliationTarget> forExternalReference(Method method, String reference) {
@@ -104,12 +113,12 @@ public class PaymentAttemptStore {
                 .param("trace", trace).param("now", now.atOffset(ZoneOffset.UTC)).update();
     }
 
-    public void claimCard(UUID order, UUID id, String key, UUID trace, Instant now) {
+    public void claimCard(UUID order, UUID id, String key, String lastFour, UUID trace, Instant now) {
         sql.sql("""
                 UPDATE zonda_market.payment_attempt
-                SET status = 'ENVIADO', card_request_key = :key, trace_id = :trace, updated_at = :now
+                SET status = 'ENVIADO', card_request_key = :key, card_last_four = :lastFour, trace_id = :trace, updated_at = :now
                 WHERE order_id = :order AND id = :id
-                """).param("order", order).param("id", id).param("key", key).param("trace", trace)
+                """).param("order", order).param("id", id).param("key", key).param("lastFour", lastFour).param("trace", trace)
                 .param("now", now.atOffset(ZoneOffset.UTC)).update();
     }
 

@@ -1,6 +1,7 @@
 package com.zondamarket.cart.repository;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,6 +97,25 @@ public class CartStore {
     public Optional<Offer> offer(UUID skuId) {
         return sql.sql(OFFER_COLUMNS + " FROM zonda_market.listing_sku sku " + OFFER_JOINS + " WHERE sku.id = :sku")
                 .param("sku", skuId).query((rs, row) -> readOffer(rs)).optional();
+    }
+
+    public Map<UUID, String> thumbnails(List<UUID> skus) {
+        if (skus.isEmpty()) return Map.of();
+        return sql.sql("""
+                SELECT sku.id, cover.thumbnail_url
+                FROM zonda_market.listing_sku sku
+                JOIN zonda_market.public_listing listing ON listing.id = sku.listing_id
+                JOIN LATERAL (
+                    SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                    WHERE image.listing_id = listing.id AND NOT image.deleted
+                    ORDER BY image.position, image.id LIMIT 1
+                ) cover ON true
+                WHERE sku.id IN (:skus) AND cover.thumbnail_url IS NOT NULL
+                """).param("skus", skus).query(result -> {
+                    Map<UUID, String> images = new HashMap<>();
+                    while (result.next()) images.put(result.getObject("id", UUID.class), result.getString("thumbnail_url"));
+                    return images;
+                });
     }
 
     public List<Line> lines(UUID cartId) {

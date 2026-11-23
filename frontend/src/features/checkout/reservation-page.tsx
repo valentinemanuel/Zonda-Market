@@ -8,9 +8,10 @@ import { signInRequired } from "@/features/cart/cart-api";
 import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
-import { addressText, CheckoutHeading, CheckoutSummary } from "./checkout-summary";
+import { activeOrderKey, checkoutPath, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
+import { addressText, CheckoutHeading, CheckoutSummary, checkoutSurface } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
+import { PurchaseReceipt } from "./purchase-receipt";
 import { DeliveryAction } from "./delivery-action";
 import { ReviewAction } from "@/features/reviews/review-action";
 import { BuyerDisputeAction } from "@/features/disputes/dispute-order-action";
@@ -38,6 +39,9 @@ function OrderCheckout({ returned }: { returned: boolean }) {
   });
   const { data, refetch } = order;
   const paymentReview = settled(data?.status) && new URLSearchParams(search).get("paso") === "pago";
+  const heading = <CheckoutHeading title={paymentReview ? "Detalle del pago" : returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
+    step={!paymentReview && settled(data?.status) ? "Confirmación" : "Pago"}
+    quietTitle={data?.status === "PAGADA" && !paymentReview} />;
   const loadedId = data?.id;
   useEffect(() => {
     if (loadedId && /^#suborden-[0-9a-f-]{36}$/i.test(hash)) {
@@ -73,8 +77,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
         ? <Button asChild variant="outline"><Link to={"/checkout/resultado/" + encodeURIComponent(id)}>Ver confirmación <ArrowRight aria-hidden="true" /></Link></Button>
         : <Button asChild variant="outline"><Link to={"/checkout/reserva/" + encodeURIComponent(id) + "?paso=pago"}><ArrowLeft aria-hidden="true" />Volver a Pago</Link></Button>)}
     </div>
-    <CheckoutHeading title={paymentReview ? "Detalle del pago" : returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
-      step={!paymentReview && (returned || settled(data?.status)) ? "Confirmación" : "Pago"} />
+    {!data && heading}
     {order.isPending ? <p role="status">Cargando reserva…</p>
       : signInRequired(order.error) ? <Button asChild>
           <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned, orderHash: hash }}>Iniciar sesión para ver la reserva</Link>
@@ -84,11 +87,14 @@ function OrderCheckout({ returned }: { returned: boolean }) {
             ? "No encontramos esa reserva." : "No pudimos cargar la reserva."}</p>
           <Button variant="outline" onClick={() => void order.refetch()}>Reintentar</Button>
         </div>
-      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} returned={returned} paymentReview={paymentReview} />}
+      : <Reservation key={revision + ":" + order.data.id} order={order.data} revision={revision} returned={returned}
+          paymentReview={paymentReview} heading={heading} />}
   </div>;
 }
 
-function Reservation({ order, revision, returned, paymentReview }: { order: Order; revision: number; returned: boolean; paymentReview: boolean }) {
+function Reservation({ order, revision, returned, paymentReview, heading }: {
+  order: Order; revision: number; returned: boolean; paymentReview: boolean; heading: React.ReactNode;
+}) {
   const [seconds, setSeconds] = useState(() => secondsLeft(order));
   useEffect(() => {
     if (!running(order.status)) return;
@@ -99,12 +105,24 @@ function Reservation({ order, revision, returned, paymentReview }: { order: Orde
   const active = running(order.status);
   const cancelled = order.status === "CANCELADA";
   const paid = settled(order.status);
+  const receipt = order.status === "PAGADA" && !paymentReview;
   const remaining = Math.min(seconds, secondsLeft(order));
   const time = Math.floor(remaining / 60) + ":" + String(remaining % 60).padStart(2, "0");
   const address = order.subOrders[0]?.address;
 
-  return <div className="space-y-5">
-    <section aria-label="Estado de tu pedido" className="rounded-panel border bg-card p-4 shadow-panel sm:p-6">
+  return <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
+    totalLabel={order.status === "PAGADA" ? "Total pagado" : active ? undefined : "Total original"}
+    thumbnails={order.thumbnails} time={active && remaining > 0 ? time : undefined}
+    actions={paymentReview ? undefined : (sub) => <>
+      {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
+      <ReviewAction sub={sub} orderId={order.id} revision={revision} />
+      <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}
+        paid={order.status === "PAGADA" || order.status === "REEMBOLSO_PARCIAL"} serverNow={order.serverNow} />
+    </>}
+    beforeGroups={<>
+    {heading}
+    {receipt && <PurchaseReceipt order={order} />}
+    <section aria-label="Estado de tu pedido" className={checkoutSurface + " rounded-panel border p-4 sm:p-6"}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
           {paid ? <CheckCircle2 aria-hidden="true" className="size-11 shrink-0 rounded-xl bg-emerald-50 p-2.5 text-success" />
@@ -118,9 +136,6 @@ function Reservation({ order, revision, returned, paymentReview }: { order: Orde
             <p className="break-words text-sm text-muted-foreground">Orden {order.id}</p>
           </div>
         </div>
-        {active && remaining > 0 && <p className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
-          Tiempo restante <span role="timer" className="ml-1 font-bold tabular-nums">{time}</span>
-        </p>}
       </div>
       {paid && !paymentReview && <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {order.subOrders.map((sub) => <a key={sub.id} href={"#suborden-" + sub.id}
@@ -133,8 +148,8 @@ function Reservation({ order, revision, returned, paymentReview }: { order: Orde
         </a>)}
       </div>}
       {(expired || cancelled || order.status === "FALLIDA") && <div className="mt-4 space-y-2">
-        <p className="text-sm">Tus productos siguen en el carrito.</p>
-        <Button asChild><Link to="/checkout">Volver a cotizar</Link></Button>
+        <p className="text-sm">{order.directSkuId ? "Podés volver a cotizar el producto." : "Tus productos siguen en el carrito."}</p>
+        <Button asChild><Link to={checkoutPath(order.directSkuId)}>Volver a cotizar</Link></Button>
       </div>}
     </section>
     <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />
@@ -151,23 +166,11 @@ function Reservation({ order, revision, returned, paymentReview }: { order: Orde
         </li>)}
       </ul>
     </section>}
-    {address && <section aria-label="Dirección de entrega" className="space-y-1 rounded-lg border bg-card p-4">
+    {address && !receipt && <section aria-label="Dirección de entrega" className={checkoutSurface + " space-y-1 rounded-panel border p-4"}>
       <h2 className="text-lg font-semibold">Dirección de entrega</h2>
       <p className="break-words">{addressText(address)}</p>
     </section>}
-    <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
-      totalLabel={order.status === "PAGADA" ? "Total pagado" : active ? undefined : "Total original"}
-      actions={paymentReview ? undefined : (sub) => <>
-        {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
-        <ReviewAction sub={sub} orderId={order.id} revision={revision} />
-        <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}
-          paid={order.status === "PAGADA" || order.status === "REEMBOLSO_PARCIAL"} serverNow={order.serverNow} />
-      </>}>
-      {settled(order.status) && <Button asChild className="w-full">
-        <Link to="/mis-ordenes">Seguir mi compra</Link>
-      </Button>}
-    </CheckoutSummary>
-  </div>;
+    </>} />;
 }
 
 const refundStatus: Record<Refund["status"], string> = {

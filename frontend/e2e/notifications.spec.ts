@@ -22,7 +22,7 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
   const origin = new URL(baseURL!).origin;
   await page.goto("/notificaciones");
   await expect(page.getByRole("link", { name: "Iniciar sesión para ver tus notificaciones" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Notificaciones/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Notificaciones/ })).toHaveCount(0);
   const { order, alpha, beta, buyer, headers, approve } = await purchaseFixture(page, request, origin, "notificaciones");
   const [first] = order.subOrders;
   const target = `/checkout/reserva/${order.id}#suborden-${first.id}`;
@@ -38,9 +38,21 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
     } })).status()).toBe(200);
   }
   await page.goto("/catalogo");
-  const bell = page.getByRole("link", { name: "Notificaciones, 2 sin leer" });
+  const bell = page.getByRole("button", { name: "Notificaciones, 2 sin leer" });
   await expect(bell).toBeVisible({ timeout: 15_000 });
   await bell.press("Enter");
+  const panel = page.getByRole("dialog", { name: "Notificaciones recientes" });
+  await expect(panel.getByRole("link", { name: /Pedido despachado/ })).toBeVisible();
+  await expect(page).toHaveURL(origin + "/catalogo");
+  await page.screenshot({ path: testInfo.outputPath("notificaciones-en-catalogo.png") });
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(bell).toBeFocused();
+  await bell.click();
+  await page.getByRole("searchbox", { name: "Buscar en la tienda" }).click();
+  await expect(panel).toBeHidden();
+  await bell.press("Enter");
+  await panel.getByRole("link", { name: "Ver todas mis notificaciones" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Notificaciones", exact: true })).toBeVisible();
   const shipped = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Pedido despachado" }) });
   const mark = shipped.getByRole("button", { name: /Marcar como leída/ });
@@ -57,7 +69,7 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
   try {
     await page.keyboard.press("Enter");
     await expect(shipped.getByRole("button", { name: /Guardando/ })).toBeFocused();
-    await expect(page.getByRole("link", { name: "Notificaciones, 1 sin leer" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeVisible();
   } finally {
     release();
   }
@@ -67,7 +79,7 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
   await page.screenshot({ path: testInfo.outputPath("notificaciones-lectura-reintento.png"), fullPage: true });
   await page.keyboard.press("Enter");
   await expect(shipped.getByRole("button", { name: "Leída Pedido despachado" })).toBeFocused();
-  await expect(page.getByRole("link", { name: "Notificaciones, 1 sin leer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeVisible();
   await page.reload();
   await expect(shipped.getByRole("button", { name: "Leída Pedido despachado" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
@@ -106,10 +118,11 @@ test("notifica por destinatario, conserva la lectura ante un fallo y abre el hit
     await credentials(seller, alpha.email);
     await expect(seller).toHaveURL(sellerTarget);
     await expect(seller.getByText("Entregada", { exact: true })).toBeVisible();
-    await seller.getByRole("link", { name: "Notificaciones, 2 sin leer" }).press("Enter");
-    await expect(seller.getByRole("heading", { name: "Entrega confirmada" })).toBeVisible();
-    await expect(seller.getByRole("heading", { name: "Pago aprobado" })).toBeVisible();
-    await expect(seller.getByRole("heading", { name: "Pedido despachado" })).toHaveCount(0);
+    await seller.getByRole("button", { name: "Notificaciones, 2 sin leer" }).press("Enter");
+    const sellerPanel = seller.getByRole("dialog", { name: "Notificaciones recientes" });
+    await expect(sellerPanel.getByRole("link", { name: /Entrega confirmada/ })).toBeVisible();
+    await expect(sellerPanel.getByRole("link", { name: /Pago aprobado/ })).toBeVisible();
+    await expect(sellerPanel.getByRole("link", { name: /Pedido despachado/ })).toHaveCount(0);
     expect((await request.get(inbox, { headers })).status()).toBe(200);
   } finally {
     await seller.close();

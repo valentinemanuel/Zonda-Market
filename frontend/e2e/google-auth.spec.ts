@@ -71,7 +71,7 @@ test("retorno de Google limpia el fragmento, anuncia carga y abre el catálogo e
 
   await expect(page).toHaveURL(/\/catalogo$/);
   await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Notificaciones", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Notificaciones", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
   await expect(page.getByText("Google vinculado")).toBeVisible();

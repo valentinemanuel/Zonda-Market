@@ -16,7 +16,8 @@ public record CardPaymentRequest(
         @NotNull @Pattern(regexp = "[a-z0-9_]{1,40}") String paymentMethodId,
         @NotNull @Pattern(regexp = "credit_card|debit_card") String paymentType,
         @NotNull @Min(1) @Max(48) Integer installments,
-        @NotNull @Valid Payer payer) {
+        @NotNull @Valid Payer payer,
+        @Pattern(regexp = "[0-9]{4}") String lastFour) {
 
     public record Payer(@NotBlank @Email @Size(max = 254) String email, @Valid Identification identification) {
         @Override

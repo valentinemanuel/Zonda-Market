@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, Bell, BellOff, Check, CircleAlert, CreditCard, MessageSquare, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bell, BellOff, Check, CircleAlert } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { profileLink } from "@/features/auth/profile-fields";
@@ -6,19 +6,9 @@ import { getSessionRevision, subscribeToSession } from "@/features/auth/session-
 import { signInRequired } from "@/features/cart/cart-api";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { useMarkNotificationRead, useNotifications, type Notification } from "./notifications-api";
+import { useMarkNotificationRead, useNotifications } from "./notifications-api";
+import { notificationDate, notificationStyles } from "./notification-presentation";
 
-const notificationStyles = {
-  PAYMENT_APPROVED: { title: "Pago aprobado", icon: CreditCard, category: "Pago", color: "bg-emerald-50 text-emerald-800" },
-  SUB_ORDER_SHIPPED: { title: "Pedido despachado", icon: Truck, category: "Envío", color: "bg-sky-50 text-sky-800" },
-  DELIVERY_CONFIRMED: { title: "Entrega confirmada", icon: PackageCheck, category: "Entrega", color: "bg-emerald-50 text-emerald-800" },
-  DISPUTE_OPENED: { title: "Reclamo abierto", icon: MessageSquare, category: "Reclamo", color: "bg-orange-50 text-orange-900" },
-  DISPUTE_ASSIGNED: { title: "Reclamo en mediación", icon: MessageSquare, category: "Reclamo", color: "bg-orange-50 text-orange-900" },
-  DISPUTE_RESOLVED: { title: "Reclamo resuelto", icon: ShieldCheck, category: "Reclamo", color: "bg-emerald-50 text-emerald-800" },
-} satisfies Record<Notification["type"], { title: string; icon: typeof Bell; category: string; color: string }>;
-const dateFormat = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "medium", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires",
-});
 
 export function NotificationsPage() {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
@@ -85,7 +75,7 @@ function Notifications({ revision }: { revision: number }) {
                   <p className="text-xs font-semibold text-muted-foreground">{category}</p>
                   <h3 className="font-bold sm:text-lg" id={titleId}>{title}</h3>
                   <time dateTime={entry.createdAt} className="text-xs text-muted-foreground sm:text-sm">
-                    {dateFormat.format(new Date(entry.createdAt))}
+                    {notificationDate.format(new Date(entry.createdAt))}
                   </time>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

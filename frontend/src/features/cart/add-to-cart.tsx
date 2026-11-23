@@ -1,6 +1,7 @@
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
+import { checkoutPath } from "@/features/checkout/checkout-api";
 import { profileLink } from "@/features/auth/profile-fields";
 import { cartEditError, signInRequired, useCart, useCartEdit, type Cart } from "./cart-api";
 
@@ -8,9 +9,14 @@ export function AddToCart({ skuId, slug, available, catalogSearch }: {
   skuId: string; slug: string; available: boolean; catalogSearch: string;
 }) {
   const { query, revision } = useCart();
-  return <AddAction key={revision + ":" + skuId} skuId={skuId} slug={slug}
-    available={available} catalogSearch={catalogSearch} revision={revision} cart={query.data}
-    loading={query.isPending} error={query.error} retry={() => void query.refetch()} />;
+  return <div className="space-y-2">
+    {available ? <Button asChild className="min-h-11 w-full">
+      <Link to={checkoutPath(skuId)}><Zap aria-hidden="true" />Comprar ahora</Link>
+    </Button> : <Button type="button" className="min-h-11 w-full" disabled>Comprar ahora</Button>}
+    <AddAction key={revision + ":" + skuId} skuId={skuId} slug={slug}
+      available={available} catalogSearch={catalogSearch} revision={revision} cart={query.data}
+      loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
+  </div>;
 }
 
 function AddAction({ skuId, slug, available, catalogSearch, revision, cart, loading, error, retry }: {
@@ -18,9 +24,9 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
   cart?: Cart; loading: boolean; error: unknown; retry: () => void;
 }) {
   const edit = useCartEdit(revision);
-  if (!available) return <Button type="button" className="min-h-11 w-full" disabled>Agregar al carrito</Button>;
+  if (!available) return <Button type="button" variant="outline" className="min-h-11 w-full" disabled>Agregar al carrito</Button>;
   if (signInRequired(error) || signInRequired(edit.error)) {
-    return <Button asChild className="min-h-11 w-full">
+    return <Button asChild variant="outline" className="min-h-11 w-full">
       <Link to="/ingresar" state={{ cartListingSlug: slug, catalogSearch }}>Ingresá para agregar al carrito</Link>
     </Button>;
   }
@@ -34,7 +40,7 @@ function AddAction({ skuId, slug, available, catalogSearch, revision, cart, load
     ?? cart.unavailable.find((item) => item.skuId === skuId);
   const quantity = item?.quantity ?? 0;
   return <div className="space-y-2">
-    <Button type="button" className="min-h-11 w-full" disabled={edit.isPending || item?.reserved || quantity >= 99}
+    <Button type="button" variant="outline" className="min-h-11 w-full" disabled={edit.isPending || item?.reserved || quantity >= 99}
       onClick={() => edit.mutate({ kind: "put", skuId, quantity: quantity + 1, expectedVersion: cart.version })}>
       {edit.isPending ? "Agregando…" : "Agregar al carrito"}
       <ShoppingCart aria-hidden="true" />

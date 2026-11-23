@@ -30,13 +30,14 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
             const field = document.createElement('input');
             field.setAttribute('aria-label', 'Documento de prueba');
             const pay = document.createElement('button');
-            pay.textContent = 'Enviar pago ficticio';
+            pay.textContent = settings.customization.visual.texts.formSubmit;
+            field.addEventListener('input', () => settings.callbacks.onBinChange('450995'));
             pay.addEventListener('click', () => {
               const data = {
                 token: 'token_ficticio_tarjeta', payment_method_id: 'debvisa', issuer_id: '33',
                 transaction_amount: 1, installments: 1, payer: { identification: { type: 'DNI', number: field.value } },
               };
-              const additional = { paymentTypeId: 'debit_card' };
+              const additional = { paymentTypeId: 'debit_card', lastFourDigits: '1234', cardholderName: 'Titular ficticio' };
               void Promise.all([settings.callbacks.onSubmit(data, additional), settings.callbacks.onSubmit(data, additional)]);
             });
             container.append(field, pay);
@@ -50,6 +51,7 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
   await page.route("**" + orderPath, (route) => route.fulfill({ json: {
     id: orderId, status: attempt?.status === "APROBADO" ? "PAGADA" : "RESERVADA",
     serverNow: new Date().toISOString(), expiresAt: expiry, total: "19.25", subOrders: [], testPayment: null,
+    payment: attempt?.status === "APROBADO" ? { method: "CARD", lastFour: "1234", simulated: false } : null,
   } }));
   await page.route("**" + orderPath + "/payment-options", (route) => {
     const options: PaymentOptions = {
@@ -72,7 +74,7 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
     expect(await route.request().headerValue("Idempotency-Key")).toBe(attempt?.id);
     expect(route.request().postDataJSON()).toEqual({
       attemptId: attempt?.id, token: "token_ficticio_tarjeta", paymentMethodId: "debvisa", paymentType: "debit_card",
-      installments: 1, payer: { email, identification: { type: "DNI", number: "12345678" } },
+      installments: 1, lastFour: "1234", payer: { email, identification: { type: "DNI", number: "12345678" } },
     });
     if (submissions === 1) {
       attempt = { ...attempt!, status: "RESULTADO_DESCONOCIDO", nextAction: "CONSULTAR" };
@@ -97,11 +99,12 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
   await credentials(page, email);
   await expect(page.getByRole("heading", { name: "Mi cuenta" })).toBeVisible();
   await page.goto("/checkout/reserva/" + orderId);
-  const chooseCard = page.getByRole("button", { name: "Pagar con tarjeta" });
+  const chooseCard = page.getByRole("button", { name: "Pago con tarjeta de crédito o débito" });
   const document = page.getByRole("textbox", { name: "Documento de prueba" });
-  const send = page.getByRole("button", { name: "Enviar pago ficticio" });
+  const send = page.getByRole("button", { name: "Pagar $ 19,25" });
   await chooseCard.press("Enter");
   await document.fill("12345678");
+  await expect(page.locator("[data-card-preview=number]")).toHaveText("4509 •••• •••• ••••");
   await document.press("Tab");
   await expect(send).toBeFocused();
   await page.keyboard.press("Enter");
@@ -137,6 +140,7 @@ test("recupera un envío de tarjeta sin respuesta y solo vuelve a ofrecer el for
   await expect(send).toBeDisabled();
   await expect(send).toBeVisible();
   await expect(page.getByText("Pago aprobado.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tarjeta terminada en •••• 1234", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   expect(submissions).toBe(2);
   await page.screenshot({ path: testInfo.outputPath("tarjeta-aprobada-movil.png"), fullPage: true });

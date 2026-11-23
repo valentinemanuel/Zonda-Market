@@ -15,7 +15,8 @@ public final class CheckoutDtos {
     private CheckoutDtos() {}
 
     public record QuoteRequest(@NotNull UUID addressId,
-            @NotNull @Min(0) @Max(Long.MAX_VALUE) @Digits(integer = 19, fraction = 0) BigDecimal cartVersion) {}
+            @NotNull @Min(0) @Max(Long.MAX_VALUE) @Digits(integer = 19, fraction = 0) BigDecimal cartVersion,
+            UUID directSkuId) {}
 
     public record ConfirmRequest(@NotNull UUID quoteId) {}
 
@@ -25,19 +26,24 @@ public final class CheckoutDtos {
     public record Group(UUID sellerId, String sellerName, List<Line> items, String merchandise,
                         String shipping, String commission, String subtotal) {}
 
-    public record Snapshot(AddressResponse address, List<Group> groups, String total) {}
+    public record Snapshot(AddressResponse address, List<Group> groups, String total, UUID directSkuId) {}
 
     public record QuoteResponse(UUID id, Instant expiresAt, Instant serverNow, long cartVersion,
-                                AddressResponse address, List<Group> groups, String total, String currency) {}
+                                AddressResponse address, List<Group> groups, String total, String currency,
+                                Map<UUID, String> thumbnails) {}
+
+    public record DirectPreview(List<Group> groups, Map<UUID, String> thumbnails) {}
 
     public record SubOrder(UUID id, String status, AddressResponse address, Group group,
                            int version, FulfillmentDtos.Shipment shipment, Boolean reviewed, DisputeDtos.Reference dispute) {}
 
     public record TestPayment(String reference, String result) {}
+    public record ReceiptPayment(PaymentDtos.Method method, String lastFour, boolean simulated) {}
 
     public record OrderResponse(UUID id, Instant expiresAt, Instant serverNow, String status,
                                 List<SubOrder> subOrders, String total, String currency, TestPayment testPayment,
-                                List<CompensationDtos.Refund> refunds, String refundedAmount) {}
+                                List<CompensationDtos.Refund> refunds, String refundedAmount, UUID directSkuId,
+                                Map<UUID, String> thumbnails, ReceiptPayment payment) {}
 
     public enum HistoryFilter { PAGADAS, PREPARANDO, ENTREGADAS }
 
