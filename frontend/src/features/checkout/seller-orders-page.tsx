@@ -73,6 +73,7 @@ function SellerOrders({ revision, subOrderId }: { revision: number; subOrderId: 
                 <div className="space-y-1 border-t pt-3">
                   <h3 className="font-semibold">Dirección de entrega</h3>
                   <p className="break-words text-sm">{addressText(sub.address)}</p>
+                  {sub.address.phone && <p className="text-sm text-muted-foreground">Teléfono: {sub.address.phone}</p>}
                 </div>
                 {sub.dispute && <DisputeLink dispute={sub.dispute} />}
                 {sub.status === "PREPARANDO" && !disputeActive(sub.dispute?.status) && <ShipDialog sub={sub} reload={() => void orders.refetch()}

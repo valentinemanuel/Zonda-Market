@@ -8,7 +8,7 @@ import { currentAccount, getSessionRevision, logout, subscribeToSession } from "
 import { GoogleSecurity } from "./google-security";
 import { EmailVerificationAction } from "./email-verification-action";
 import { AccountProfile, AccountSeller } from "./account-profile";
-import { AccountLayout, AccountSection } from "./account-layout";
+import { AccountView, AccountSection } from "./account-layout";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export function AccountPage() {
     return <Navigate to="/ingresar" replace />;
   }
   return (
-    <AccountLayout title="Mi cuenta" description="Gestioná tus datos y encontrá tus direcciones y órdenes."
+    <AccountView title="Mi cuenta" description="Gestioná tus datos y encontrá tus direcciones y órdenes."
       action={account.isSuccess && <div className="flex flex-wrap gap-2">
         {account.data.roles.includes("ADMIN") && (
           <Button asChild className="min-h-11"><Link to="/admin">Moderación</Link></Button>
@@ -79,6 +79,6 @@ export function AccountPage() {
           <AccountSeller key={revision} account={account.data} revision={revision} />
         </div>
       )}
-    </AccountLayout>
+    </AccountView>
   );
 }

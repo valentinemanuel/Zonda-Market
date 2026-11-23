@@ -1,6 +1,7 @@
 package com.zondamarket.cart.repository;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,9 +42,34 @@ public class CartStore {
                         UUID sellerAccountId, boolean visible, String code, int commissionBps, BigDecimal shipping) {}
 
     public record Line(Offer offer, int quantity, BigDecimal referencePrice, String referenceTitle,
-                       Map<String, String> referenceAttributes) {}
+                       Map<String, String> referenceAttributes, String thumbnailUrl) {}
 
     public record ReservedLine(UUID orderId, UUID skuId) {}
+
+    public record ReorderLine(UUID skuId, int purchasedQuantity, int cartQuantity) {}
+
+    public List<ReorderLine> reorderLines(UUID buyer, UUID cart, UUID order) {
+        return sql.sql("""
+                SELECT line.sku_id, line.quantity AS purchased_quantity, coalesce(item.quantity, 0) AS cart_quantity
+                FROM zonda_market.checkout_order purchase
+                JOIN zonda_market.checkout_sub_order sub ON sub.order_id = purchase.id
+                JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                LEFT JOIN zonda_market.cart_item item ON item.cart_id = :cart AND item.sku_id = line.sku_id AND NOT item.deleted
+                WHERE purchase.buyer_id = :buyer AND purchase.id = :order
+                    AND purchase.status IN ('PAGADA', 'REEMBOLSO_PARCIAL', 'REEMBOLSADA')
+                ORDER BY line.sku_id
+                """).param("buyer", buyer).param("cart", cart).param("order", order).query(ReorderLine.class).list();
+    }
+
+    public Optional<UUID> reordered(UUID cart, UUID key) {
+        return sql.sql("SELECT order_id FROM zonda_market.cart_reorder WHERE cart_id = :cart AND request_key = :key")
+                .param("cart", cart).param("key", key).query(UUID.class).optional();
+    }
+
+    public void recordReorder(UUID cart, UUID key, UUID order) {
+        sql.sql("INSERT INTO zonda_market.cart_reorder (cart_id, request_key, order_id) VALUES (:cart, :key, :order)")
+                .param("cart", cart).param("key", key).param("order", order).update();
+    }
 
     public List<ReservedLine> reserved(UUID cart) {
         return sql.sql("""
@@ -73,17 +99,43 @@ public class CartStore {
                 .param("sku", skuId).query((rs, row) -> readOffer(rs)).optional();
     }
 
+    public Map<UUID, String> thumbnails(List<UUID> skus) {
+        if (skus.isEmpty()) return Map.of();
+        return sql.sql("""
+                SELECT sku.id, cover.thumbnail_url
+                FROM zonda_market.listing_sku sku
+                JOIN zonda_market.public_listing listing ON listing.id = sku.listing_id
+                JOIN LATERAL (
+                    SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                    WHERE image.listing_id = listing.id AND NOT image.deleted
+                    ORDER BY image.position, image.id LIMIT 1
+                ) cover ON true
+                WHERE sku.id IN (:skus) AND cover.thumbnail_url IS NOT NULL
+                """).param("skus", skus).query(result -> {
+                    Map<UUID, String> images = new HashMap<>();
+                    while (result.next()) images.put(result.getObject("id", UUID.class), result.getString("thumbnail_url"));
+                    return images;
+                });
+    }
+
     public List<Line> lines(UUID cartId) {
         return sql.sql(OFFER_COLUMNS + """
                 , item.quantity, item.reference_price, item.reference_title, item.reference_attributes
+                , cover.thumbnail_url
                 FROM zonda_market.cart_item item
                 JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
                 """ + OFFER_JOINS + """
+                LEFT JOIN LATERAL (
+                    SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                    WHERE image.listing_id = listing.id AND NOT image.deleted
+                    ORDER BY image.position, image.id LIMIT 1
+                ) cover ON public_listing.id IS NOT NULL
                 WHERE item.cart_id = :cart AND NOT item.deleted
                 ORDER BY seller.display_name, seller.id, item.created_at, item.id
                 """).param("cart", cartId)
                 .query((rs, row) -> new Line(readOffer(rs), rs.getInt("quantity"), rs.getBigDecimal("reference_price"),
-                        rs.getString("reference_title"), json.readValue(rs.getString("reference_attributes"), ATTRIBUTES)))
+                        rs.getString("reference_title"), json.readValue(rs.getString("reference_attributes"), ATTRIBUTES),
+                        rs.getString("thumbnail_url")))
                 .list();
     }
 

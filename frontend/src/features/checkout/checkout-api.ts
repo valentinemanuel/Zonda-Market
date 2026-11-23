@@ -1,5 +1,5 @@
 import { authenticatedRequest } from "@/features/auth/session-api";
-import type { Address } from "@/features/auth/profile-api";
+import type { DeliveryAddress } from "@/features/auth/profile-api";
 import { ApiError } from "@/shared/api/http-client";
 
 type Timed = { expiresAt: string; serverNow: string };
@@ -15,8 +15,11 @@ export type Group = {
 };
 
 export type Quote = Received<Timed & {
-  id: string; cartVersion: number; address: Address; groups: Group[]; total: string;
+  id: string; cartVersion: number; address: DeliveryAddress; groups: Group[]; total: string;
+  thumbnails?: Record<string, string>;
 }>;
+
+export type DirectPreview = { groups: Group[]; thumbnails: Record<string, string> };
 
 export type Refund = {
   id: string; reason: "TARDIO" | "DUPLICADO"; status: "PENDIENTE" | "CONFIRMADA" | "EN_REVISION"; amount: string;
@@ -27,6 +30,9 @@ export type Order = Received<Timed & {
   testPayment: { reference: string; result: PaymentResult | null } | null;
   refunds?: Refund[];
   refundedAmount?: string;
+  directSkuId?: string | null;
+  thumbnails?: Record<string, string>;
+  payment?: { method: PaymentMethod | null; lastFour: string | null; simulated: boolean } | null;
 }>;
 
 export type Carrier = "ANDREANI" | "CORREO_ARGENTINO";
@@ -34,7 +40,7 @@ export type ShipmentResponse = {
   id: string; status: string; version: number;
   shipment: { carrier: Carrier; trackingCode: string; trackingUrl: string; shippedAt: string; deliveredAt: string | null } | null;
 };
-export type SubOrder = ShipmentResponse & { address: Address; group: Group; reviewed: boolean | null;
+export type SubOrder = ShipmentResponse & { address: DeliveryAddress; group: Group; reviewed: boolean | null;
   dispute: import("@/features/disputes/dispute-api").Reference | null };
 export type SellerOrderStatus = "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | "REEMBOLSADA";
 type SellerOrderPage = { content: SubOrder[]; page: number; size: number; hasNext: boolean };
@@ -60,6 +66,7 @@ export type CardData = {
   paymentMethodId: string;
   paymentType: "credit_card" | "debit_card";
   installments: number;
+  lastFour?: string;
   payer: { email: string; identification?: { type?: string; number?: string } };
 };
 
@@ -69,9 +76,28 @@ export const ordersKey = (revision: number) => ["private", "orders", revision] a
 export const sellerOrdersKey = (revision: number) => ["private", "seller-orders", revision] as const;
 export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
+export function checkoutPath(skuId?: string | null, quantity = 1) {
+  if (!skuId) return "/checkout";
+  return "/checkout?sku=" + encodeURIComponent(skuId) + (quantity > 1 ? "&cantidad=" + quantity : "");
+}
+
+export function directOrderQuantity(order: Order) {
+  return order.directSkuId ? order.subOrders.flatMap(({ group }) => group.items)
+    .find(({ skuId }) => skuId === order.directSkuId)?.quantity ?? 1 : 1;
+}
+
+export type OrderHistoryFilter = "PAGADAS" | "PREPARANDO" | "ENTREGADAS";
+
+export type OrderSummary = {
+  id: string; createdAt: string; expiresAt: string; status: string; total: string; currency: "ARS";
+  previews: { title: string; thumbnailUrl: string | null }[];
+  lineCount: number;
+  units: number;
+  fulfillment: "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | null;
+};
 
 export type OrderPage = {
-  content: { id: string; createdAt: string; expiresAt: string; status: string; total: string; currency: "ARS" }[];
+  content: OrderSummary[];
   page: number;
   size: number;
   hasNext: boolean;
@@ -82,6 +108,7 @@ export function orderStatus(status: string) {
     case "RESERVADA": return "Reservada";
     case "PAGO_PENDIENTE": return "Pago pendiente";
     case "EXPIRADA": return "Vencida";
+    case "CANCELADA": return "Reserva cancelada";
     case "PAGADA": return "Pagada";
     case "REEMBOLSO_PARCIAL": return "Con devolución parcial";
     case "REEMBOLSADA": return "Reembolsada";
@@ -90,8 +117,11 @@ export function orderStatus(status: string) {
   }
 }
 
-export async function fetchOrders(page: number, signal: AbortSignal): Promise<OrderPage> {
-  return (await authenticatedRequest("/api/v1/orders?page=" + page, { signal })).json();
+export async function fetchOrders(page: number, term: string, filter: OrderHistoryFilter | "", signal: AbortSignal): Promise<OrderPage> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (term) params.set("q", term);
+  if (filter) params.set("filter", filter);
+  return (await authenticatedRequest("/api/v1/orders?" + params, { signal })).json();
 }
 
 async function timed<T>(response: Response): Promise<T & { receivedAt: number }> {
@@ -107,8 +137,13 @@ function post(body: object, key?: string): RequestInit {
   };
 }
 
-export async function quoteCheckout(addressId: string, cartVersion: number): Promise<Quote> {
-  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion })));
+export async function fetchDirectPreview(skuId: string, quantity: number, signal: AbortSignal): Promise<DirectPreview> {
+  const path = "/api/v1/checkout/items/" + encodeURIComponent(skuId);
+  return (await authenticatedRequest(quantity > 1 ? path + "?quantity=" + quantity : path, { signal })).json();
+}
+
+export async function quoteCheckout(addressId: string, cartVersion: number, directSkuId?: string, quantity?: number): Promise<Quote> {
+  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion, directSkuId, quantity })));
 }
 
 export async function confirmCheckout(quoteId: string): Promise<Order> {
@@ -122,6 +157,10 @@ export async function activeOrder(signal: AbortSignal): Promise<Order | null> {
 
 export async function fetchOrder(id: string, signal: AbortSignal): Promise<Order> {
   return timed(await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id), { signal }));
+}
+
+export async function cancelReservation(id: string): Promise<void> {
+  await authenticatedRequest("/api/v1/orders/" + encodeURIComponent(id) + "/cancel-reservation", { method: "POST" });
 }
 
 export async function fetchSellerOrders(page: number, status: SellerOrderStatus | "", subOrderId: string | null,
@@ -190,15 +229,16 @@ export async function simulateAttemptOutcome(id: string, attemptId: string,
 export function checkoutError(error: unknown) {
   if (error instanceof ApiError) {
     switch (error.code) {
-      case "ADDRESS_NOT_FOUND": return "La dirección cambió. Elegí una dirección vigente y volvé a cotizar.";
-      case "CART_VERSION_CONFLICT": return "El carrito cambió. Revisalo y volvé a cotizar.";
-      case "QUOTE_CHANGED": return "Cambió el precio o la dirección. Revisá la nueva cotización.";
-      case "QUOTE_EXPIRED": return "La cotización venció. Volvé a cotizar.";
+      case "ADDRESS_NOT_FOUND": return "La dirección cambió. Elegí otra dirección para calcular el envío.";
+      case "CART_VERSION_CONFLICT": return "El carrito cambió. Revisalo y volvé a calcular el envío.";
+      case "QUOTE_CHANGED": return "Cambió el precio o la dirección. Volvé a calcular el envío para actualizar el resumen de compra.";
+      case "QUOTE_NOT_FOUND": return "Volvé a calcular el envío para actualizar el resumen de compra.";
+      case "QUOTE_EXPIRED": return "Venció el cálculo del envío. Volvé a calcularlo para continuar.";
       case "STOCK_CHANGED": return "Cambió la disponibilidad. Revisá el carrito antes de continuar.";
-      case "CART_EMPTY": return "Agregá productos al carrito para cotizar.";
+      case "CART_EMPTY": return "Agregá productos al carrito para continuar con la compra.";
       case "ORDER_ALREADY_ACTIVE": return "Ya tenés una reserva para esta cuenta.";
       case "CHECKOUT_EXPIRED": return "Tu reserva anterior venció.";
-      case "QUOTE_ALREADY_CONFIRMED": return "Esta cotización ya generó una orden.";
+      case "QUOTE_ALREADY_CONFIRMED": return "Ya se creó una orden para esta compra. Podés verla en Mis órdenes.";
       case "EMAIL_NOT_VERIFIED": return "Verificá tu correo desde Mi cuenta.";
       case "CHECKOUT_TOTAL_LIMIT": return "El importe supera el máximo de una orden. Revisá el carrito.";
     }

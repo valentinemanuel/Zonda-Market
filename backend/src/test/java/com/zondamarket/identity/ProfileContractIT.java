@@ -101,6 +101,39 @@ class ProfileContractIT {
     }
 
     @Test
+    void persistsDeliveryDetailsAndKeepsOneDefaultAddress() throws Exception {
+        var owner = register();
+        var stranger = register();
+        var first = mvc.perform(auth(post(ADDRESSES), owner).content(ADDRESS))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.defaultAddress").value(true)).andReturn();
+        String firstId = JsonPath.read(first.getResponse().getContentAsString(), "$.id");
+        mvc.perform(auth(post(ADDRESSES), owner).content("""
+                {"street":"Belgrano 50","city":"Mendoza","provinceCode":"AR-M","postalCode":"5500","country":"AR","phone":"abcdef"}
+                """)).andExpect(status().isBadRequest());
+        var second = mvc.perform(auth(post(ADDRESSES), owner).content("""
+                {"street":"Belgrano 50","city":"Mendoza","provinceCode":"AR-M","postalCode":"5500","country":"AR",
+                 "recipient":" Ana Ficticia ","phone":"+54 261 555 0100","deliveryDetails":"Piso 2",
+                 "defaultAddress":true}
+                """)).andExpect(status().isCreated()).andExpect(jsonPath("$.recipient").value("Ana Ficticia"))
+                .andExpect(jsonPath("$.phone").value("+54 261 555 0100"))
+                .andExpect(jsonPath("$.deliveryDetails").value("Piso 2"))
+                .andExpect(jsonPath("$.defaultAddress").value(true)).andReturn();
+        String secondId = JsonPath.read(second.getResponse().getContentAsString(), "$.id");
+        mvc.perform(auth(patch(ADDRESSES + "/" + secondId), stranger).content("{\"defaultAddress\":true}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(auth(get(ADDRESSES), owner)).andExpect(jsonPath("$[0].defaultAddress").value(false))
+                .andExpect(jsonPath("$[1].defaultAddress").value(true));
+        mvc.perform(auth(patch(ADDRESSES + "/" + firstId), owner).content("{\"defaultAddress\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultAddress").value(true));
+        mvc.perform(auth(patch(ADDRESSES + "/" + secondId), owner).content("{\"deliveryDetails\":\"\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deliveryDetails").value(""))
+                .andExpect(jsonPath("$.phone").value("+54 261 555 0100"));
+        mvc.perform(auth(delete(ADDRESSES + "/" + firstId), owner)).andExpect(status().isNoContent());
+        mvc.perform(auth(get(ADDRESSES), owner)).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(secondId)).andExpect(jsonPath("$[0].defaultAddress").value(true));
+    }
+
+    @Test
     void requiresVerificationAndPromotesExactlyOnceUnderConcurrentActivation() throws Exception {
         var owner = register();
         String slug = "taller-" + UUID.randomUUID();

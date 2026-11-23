@@ -132,10 +132,12 @@ public class PaymentConfirmationService {
             result = approval ? Result.LATE_APPROVAL : Result.EXPIRED;
         } else if (approval) {
             int consumed = reservations.settle(orderId, true, "PAGADA", "PREPARANDO", "CHECKOUT_PAID", trace, now);
-            if (carts.subtractPurchased(cart.id(), orderId) != consumed) {
-                throw new IllegalStateException("Las líneas compradas no coinciden con las reservas de la orden.");
+            if (order.directSkuId() == null) {
+                if (carts.subtractPurchased(cart.id(), orderId) != consumed) {
+                    throw new IllegalStateException("Las líneas compradas no coinciden con las reservas de la orden.");
+                }
+                carts.advance(cart.id());
             }
-            carts.advance(cart.id());
             orders.recordSubOrderSettlements(orderId, order.currency(), now);
             result = Result.APPROVED;
         } else {

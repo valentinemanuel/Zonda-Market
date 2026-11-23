@@ -11,8 +11,10 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -295,6 +297,43 @@ class CheckoutContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void cancelsExactlyOnceAndAllowsAReplacementWithTheSameCart() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var address = address(buyer);
+        var sku = product("Reserva voluntaria", "10.05", "0.00", 3);
+        add(buyer, sku, 2, 0);
+        var original = uuid(quote(buyer, address, 1).andExpect(status().isOk()).andReturn());
+        var order = uuid(confirm(buyer, original, "original").andExpect(status().isOk()).andReturn());
+        String path = ORDERS + order + "/cancel-reservation";
+        mvc.perform(post(path)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(post(path), outsider)).andExpect(status().isNotFound());
+        assertStock(sku, 1, 2);
+
+        var start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var cancellation = (java.util.concurrent.Callable<MvcResult>) () -> {
+                start.await(5, TimeUnit.SECONDS);
+                return mvc.perform(auth(post(path), buyer)).andExpect(status().isNoContent()).andReturn();
+            };
+            var first = pool.submit(cancellation);
+            var second = pool.submit(cancellation);
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+        }
+        assertStock(sku, 3, 0);
+        assertEquals(1, eventCount(order, "CHECKOUT_CANCELLED"));
+        mvc.perform(auth(get(ORDERS + order), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELADA"));
+        mvc.perform(auth(get(ORDERS + "active"), buyer)).andExpect(status().isNoContent());
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.itemCount").value(2));
+        var next = uuid(quote(buyer, address, 1).andExpect(status().isOk()).andReturn());
+        confirm(buyer, next, "new-reservation").andExpect(status().isOk());
+        assertStock(sku, 1, 2);
+    }
+
+    @Test
     void expiresExactlyOnceAtTheDeadlineAndKeepsTheCart() throws Exception {
         var buyer = account(true);
         var outsider = account(true);
@@ -387,6 +426,127 @@ class CheckoutContractIT extends CheckoutContractFixtures {
         assertStock(sku, 0, 1);
         mvc.perform(auth(get(ORDERS + order), login(first))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("EXPIRADA"));
+    }
+
+    @Test
+    void buysOnlyTheSelectedSkuWithoutRemovingItFromTheExistingCart() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var direct = product("Directa", "18.25", "1.00", 6);
+        var other = product("Carrito", "35.00", "2.00", 6);
+        UUID address = address(buyer);
+        add(buyer, direct, 2, 0);
+        add(buyer, other, 1, 1);
+        String preview = "/api/v1/checkout/items/" + direct;
+        mvc.perform(get(preview)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(get(preview), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[0].items[0].quantity").value(1))
+                .andExpect(jsonPath("$.thumbnails['" + direct + "']").value("/fixture"));
+        mvc.perform(auth(get(preview).param("quantity", "100"), buyer)).andExpect(status().isBadRequest());
+        mvc.perform(auth(get(preview).param("quantity", "7"), buyer)).andExpect(status().isConflict());
+        mvc.perform(auth(get(preview).param("quantity", "3"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[0].items[0].quantity").value(3));
+        String body = """
+                {"addressId":"%s","cartVersion":2,"directSkuId":"%s","quantity":3}
+                """.formatted(address, direct);
+        mvc.perform(auth(post(QUOTE), buyer).content(body.replace("\"quantity\":3", "\"quantity\":1.5")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(auth(post(QUOTE), buyer).content(body.replace("\"quantity\":3", "\"quantity\":7")))
+                .andExpect(status().isConflict());
+        UUID quote = uuid(mvc.perform(auth(post(QUOTE), buyer).content(body)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups.length()").value(1))
+                .andExpect(jsonPath("$.total").value("55.75")).andReturn());
+        confirm(outsider, quote, "directa").andExpect(status().isNotFound());
+        UUID order = uuid(confirm(buyer, quote, "directa").andExpect(status().isOk())
+                .andExpect(jsonPath("$.directSkuId").value(direct.toString()))
+                .andExpect(jsonPath("$.subOrders[0].group.items[0].quantity").value(3)).andReturn());
+        confirm(buyer, quote, "directa").andExpect(status().isOk()).andExpect(jsonPath("$.id").value(order.toString()));
+        assertStock(direct, 3, 3);
+        assertStock(other, 6, 0);
+        for (int replay = 0; replay < 2; replay++) {
+            outcome(buyer, order, LocalPaymentPort.reference(order), "APPROVED").andExpect(status().isOk())
+                    .andExpect(jsonPath("$.payment.simulated").value(true));
+        }
+        assertStock(direct, 3, 0);
+        assertStock(other, 6, 0);
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.itemCount").value(3));
+    }
+
+    @Test
+    void searchesAndFiltersHistoryBeforePaginationAndReordersAtomically() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var first = product("Lámpara", "10.00", "0.00", 15);
+        var second = product("Cuenco", "20.00", "0.00", 15);
+        var third = product("Reloj", "50.00", "0.00", 15);
+        var fourth = product("Vaso", "30.00", "0.00", 15);
+        UUID address = address(buyer);
+        add(buyer, first, 2, 0);
+        add(buyer, second, 1, 1);
+        add(buyer, third, 1, 2);
+        add(buyer, fourth, 1, 3);
+        UUID quote = uuid(quote(buyer, address, 4).andExpect(status().isOk()).andReturn());
+        UUID paid = uuid(confirm(buyer, quote, "historial").andExpect(status().isOk()).andReturn());
+        outcome(buyer, paid, LocalPaymentPort.reference(paid), "APPROVED").andExpect(status().isOk());
+        add(buyer, first, 1, 5);
+        clock.set(clock.instant().plusSeconds(1));
+        UUID next = uuid(quote(buyer, address, 6).andExpect(status().isOk()).andReturn());
+        UUID reserved = uuid(confirm(buyer, next, "posterior").andExpect(status().isOk()).andReturn());
+
+        String history = "/api/v1/orders";
+        mvc.perform(auth(get(history).param("size", "1"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(reserved.toString()))
+                .andExpect(jsonPath("$.hasNext").value(true));
+        mvc.perform(auth(get(history).param("size", "1").param("q", "cuenco").param("filter", "PREPARANDO"), buyer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(paid.toString()))
+                .andExpect(jsonPath("$.content[0].previews.length()").value(3))
+                .andExpect(jsonPath("$.content[0].previews[0].thumbnailUrl").value("/fixture"))
+                .andExpect(jsonPath("$.content[0].lineCount").value(4))
+                .andExpect(jsonPath("$.content[0].units").value(5))
+                .andExpect(jsonPath("$.hasNext").value(false));
+        mvc.perform(auth(get(history).param("q", "lampara").param("filter", "PAGADAS"), buyer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
+        mvc.perform(auth(get(history).param("q", "#" + paid.toString().substring(0, 8)), buyer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(paid.toString()));
+        mvc.perform(auth(get(history).param("q", paid.toString()), outsider)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        String reorder = "/api/v1/cart/reorders/" + paid;
+        UUID key = UUID.randomUUID();
+        mvc.perform(post(reorder).header("Idempotency-Key", key)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(post(reorder).header("Idempotency-Key", key), outsider)).andExpect(status().isNotFound());
+        mvc.perform(auth(post(reorder).header("Idempotency-Key", key), buyer)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CART_ITEM_RESERVED"));
+        mvc.perform(auth(post(ORDERS + reserved + "/cancel-reservation"), buyer)).andExpect(status().isNoContent());
+
+        UUID last = List.of(first, second, third, fourth).stream()
+                .max(Comparator.comparing(UUID::toString)).orElseThrow();
+        var available = sql.sql("SELECT available_stock FROM zonda_market.listing_sku WHERE id = :id")
+                .param("id", last).query(Integer.class).single();
+        sql.sql("UPDATE zonda_market.listing_sku SET available_stock = 0 WHERE id = :id").param("id", last).update();
+        mvc.perform(auth(post(reorder).header("Idempotency-Key", key), buyer)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk()).andExpect(jsonPath("$.itemCount").value(1));
+        sql.sql("UPDATE zonda_market.listing_sku SET available_stock = :available WHERE id = :id")
+                .param("available", available).param("id", last).update();
+
+        var start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            Callable<Void> retry = () -> {
+                start.await(5, TimeUnit.SECONDS);
+                mvc.perform(auth(post(reorder).header("Idempotency-Key", key), buyer)).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.itemCount").value(6));
+                return null;
+            };
+            var accepted = pool.submit(retry);
+            var replay = pool.submit(retry);
+            accepted.get(15, TimeUnit.SECONDS);
+            replay.get(15, TimeUnit.SECONDS);
+        }
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk()).andExpect(jsonPath("$.itemCount").value(6));
+        assertStock(first, 13, 0);
+        assertStock(second, 14, 0);
     }
 
     @Test
@@ -542,6 +702,9 @@ class CheckoutContractIT extends CheckoutContractFixtures {
         var winnerKey = cardWon ? "card" : "pro";
         var otherMethod = cardWon ? "CHECKOUT_PRO" : "CARD";
         assertEquals("RESULTADO_DESCONOCIDO", field(winner, "status"));
+        mvc.perform(auth(post(path + "/cancel-reservation"), buyer)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAYMENT_IN_PROGRESS"));
+        assertStock(sku, 1, 1);
         mvc.perform(auth(get(path + "/payment-options"), buyer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.methods").isEmpty())
                 .andExpect(jsonPath("$.latestAttempt.id").value(attempt.toString()));

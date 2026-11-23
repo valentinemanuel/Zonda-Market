@@ -3,21 +3,28 @@ package com.zondamarket.checkout.service;
 import com.zondamarket.cart.repository.CartStore;
 import com.zondamarket.cart.service.CartService;
 import com.zondamarket.catalog.repository.CategoryLock;
+import com.zondamarket.checkout.dto.CheckoutDtos.DeliveryAddress;
+import com.zondamarket.checkout.dto.CheckoutDtos.DirectPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
+import com.zondamarket.checkout.dto.CheckoutDtos.ReceiptPayment;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
 import com.zondamarket.checkout.dto.CheckoutDtos.TestPayment;
 import com.zondamarket.checkout.dto.CompensationDtos.Status;
+import com.zondamarket.checkout.dto.PaymentDtos;
 import com.zondamarket.checkout.repository.CheckoutStore;
 import com.zondamarket.checkout.repository.CheckoutStore.Order;
 import com.zondamarket.checkout.repository.PaymentOutcomeStore;
+import com.zondamarket.checkout.repository.PaymentOutcomeStore.Result;
+import com.zondamarket.checkout.repository.PaymentAttemptStore;
 import com.zondamarket.checkout.repository.PaymentCompensationStore;
+import com.zondamarket.checkout.repository.ReservationStore;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import com.zondamarket.shared.errors.ApiProblemException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -32,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -50,34 +58,46 @@ public class CheckoutService {
     private final CheckoutStore store;
     private final PaymentOutcomeStore outcomes;
     private final PaymentCompensationStore compensations;
+    private final PaymentAttemptStore attempts;
+    private final ReservationStore reservations;
     private final ObjectProvider<LocalPaymentPort> localPayment;
     private final Clock clock;
     private final CategoryLock categoryLock;
 
     CheckoutService(CartStore carts, CheckoutStore store, PaymentOutcomeStore outcomes, PaymentCompensationStore compensations,
+                    PaymentAttemptStore attempts, ReservationStore reservations,
                     ObjectProvider<LocalPaymentPort> localPayment, Clock clock, CategoryLock categoryLock) {
         this.carts = carts;
         this.store = store;
         this.outcomes = outcomes;
         this.compensations = compensations;
+        this.attempts = attempts;
+        this.reservations = reservations;
         this.localPayment = localPayment;
         this.clock = clock;
         this.categoryLock = categoryLock;
     }
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public DirectPreview directPreview(UUID buyer, UUID skuId, int quantity) {
+        var snapshot = snapshot(buyer, null, null, skuId, quantity);
+        return new DirectPreview(snapshot.groups(), thumbnails(snapshot.groups()));
+    }
+
     @Transactional
-    public QuoteResponse quote(AccountResponse account, UUID addressId, long version) {
+    public QuoteResponse quote(AccountResponse account, UUID addressId, long version, UUID directSkuId, int quantity) {
         requireVerified(account);
         var cart = carts.lock(account.id());
         requireNoActiveOrder(account.id());
         requireVersion(cart.version(), version);
         var address = address(account.id(), addressId, false);
-        var snapshot = snapshot(account.id(), cart.id(), address);
+        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId, quantity);
         var id = UUID.randomUUID();
         var now = now();
         var expiry = now.plus(QUOTE_TTL);
         store.saveQuote(id, cart.id(), version, snapshot, now, expiry);
-        return new QuoteResponse(id, expiry, now, version, address, snapshot.groups(), snapshot.total(), "ARS");
+        return new QuoteResponse(id, expiry, now, version, address, snapshot.groups(), snapshot.total(), "ARS",
+                thumbnails(snapshot.groups()));
     }
 
     @Transactional
@@ -106,16 +126,19 @@ public class CheckoutService {
 
         // Serialize new reservations with moderation and lock listings before SKUs, as catalog writes do.
         categoryLock.readForWrite();
-        store.lockOfferVisibility(cart.id());
-        store.lockSkus(cart.id());
-        var snapshot = snapshot(account.id(), cart.id(), address);
+        var directSkuId = quote.snapshot().directSkuId();
+        UUID sourceCart = directSkuId == null ? cart.id() : null;
+        store.lockOfferVisibility(sourceCart, directSkuId);
+        store.lockSkus(sourceCart, directSkuId);
+        int quantity = directSkuId == null ? 1 : quote.snapshot().groups().getFirst().items().getFirst().quantity();
+        var snapshot = snapshot(account.id(), cart.id(), address, directSkuId, quantity);
         var now = now();
         requireCurrentQuote(quote.expiresAt(), now);
         if (!quote.snapshot().equals(snapshot)) {
             throw conflict("QUOTE_CHANGED", "Cambiaron los datos de la cotización. Volvé a cotizar.");
         }
         var order = new Order(UUID.randomUUID(), "RESERVADA", new BigDecimal(snapshot.total()), "ARS",
-                now.plus(RESERVATION_TTL), hash);
+                now.plus(RESERVATION_TTL), hash, directSkuId);
         store.insertOrder(order, account.id(), cart.id(), quoteId, key, trace, now);
         for (var group : snapshot.groups()) {
             var sub = new SubOrder(UUID.randomUUID(), "ESPERA_PAGO", address, group, 0, null, false, null);
@@ -135,31 +158,65 @@ public class CheckoutService {
                 new ApiProblemException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "No encontramos esa orden."));
     }
 
+    @Transactional(timeout = 5)
+    public void cancelReservation(UUID buyer, UUID id, UUID trace) {
+        var order = store.lock(buyer, id).orElseThrow(() ->
+                new ApiProblemException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "No encontramos esa orden."));
+        if (List.of("CANCELADA", "EXPIRADA", "FALLIDA").contains(order.status())) return;
+        if (!List.of("RESERVADA", "PAGO_PENDIENTE").contains(order.status())) {
+            throw conflict("ORDER_ALREADY_SETTLED", "Esta orden ya tiene un resultado definitivo.");
+        }
+        var attempt = attempts.latest(id).orElse(null);
+        var now = now();
+        if (attempt != null) {
+            switch (attempt.status()) {
+                case CREADO -> attempts.update(id, attempt.id(), PaymentDtos.Status.RECHAZADO, trace, now);
+                case RECHAZADO -> { }
+                default -> throw conflict("PAYMENT_IN_PROGRESS",
+                        "El pago está en proceso. Consultá su estado antes de volver a Envío.");
+            }
+        }
+        reservations.lockResources(id);
+        reservations.settle(id, false, "CANCELADA", "CANCELADA", "CHECKOUT_CANCELLED", trace, now);
+    }
+
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Optional<OrderResponse> active(UUID buyer) {
         return store.active(buyer).map(this::response);
     }
 
     @Transactional(readOnly = true)
-    public OrderPage history(UUID buyer, int page, int size) {
-        var orders = store.history(buyer, page, size);
+    public OrderPage history(UUID buyer, int page, int size, String term, HistoryFilter filter) {
+        var orders = store.history(buyer, page, size, term, filter);
         return new OrderPage(orders.subList(0, Math.min(size, orders.size())), page, size, orders.size() > size);
     }
 
     private OrderResponse response(Order order) {
         var subOrders = store.subOrders(order.id());
+        var recorded = outcomes.find(order.id());
         TestPayment fixture = localPayment.getIfAvailable() == null ? null
                 : new TestPayment(LocalPaymentPort.reference(order.id()),
-                    outcomes.find(order.id()).map(saved -> saved.result().name()).orElse(null));
+                    recorded.map(saved -> saved.result().name()).orElse(null));
+        var receipt = recorded.filter(saved -> saved.result() == Result.APPROVED)
+                .map(saved -> attempts.receipt(order.id(), saved.reference()).orElseGet(() ->
+                    new ReceiptPayment(saved.paymentMethod(), null, saved.paymentMethod() == null)))
+                .orElse(null);
         var refunds = compensations.forOrder(order.id());
         var refunded = refunds.stream().filter(refund -> refund.status() == Status.CONFIRMADA)
                 .map(refund -> new BigDecimal(refund.amount())).reduce(ZERO, BigDecimal::add);
         return new OrderResponse(order.id(), order.expiresAt(), now(), order.status(),
-                subOrders, order.total().toPlainString(), order.currency(), fixture, refunds, refunded.toPlainString());
+                subOrders, order.total().toPlainString(), order.currency(), fixture, refunds, refunded.toPlainString(),
+                order.directSkuId(), thumbnails(subOrders.stream().map(SubOrder::group).toList()), receipt);
     }
 
-    private Snapshot snapshot(UUID buyer, UUID cart, AddressResponse address) {
-        var lines = carts.lines(cart);
+    private Map<UUID, String> thumbnails(List<Group> groups) {
+        return carts.thumbnails(groups.stream().flatMap(group -> group.items().stream()).map(Line::skuId).toList());
+    }
+
+    private Snapshot snapshot(UUID buyer, UUID cart, DeliveryAddress address, UUID directSkuId, int quantity) {
+        var lines = directSkuId == null
+                ? carts.lines(cart).stream().map(line -> new PurchaseLine(line.offer(), line.quantity())).toList()
+                : List.of(new PurchaseLine(carts.offer(directSkuId).orElseThrow(CheckoutService::stockChanged), quantity));
         if (lines.isEmpty()) throw conflict("CART_EMPTY", "Agregá productos para cotizar la compra.");
 
         var groups = new LinkedHashMap<UUID, GroupAmounts>();
@@ -178,10 +235,12 @@ public class CheckoutService {
         }
         var total = groups.values().stream().map(GroupAmounts::subtotal).reduce(ZERO, BigDecimal::add);
         if (total.precision() > 19) throw conflict("CHECKOUT_TOTAL_LIMIT", "El importe supera el máximo de una orden.");
-        return new Snapshot(address, groups.values().stream().map(GroupAmounts::group).toList(), total.toPlainString());
+        return new Snapshot(address, groups.values().stream().map(GroupAmounts::group).toList(), total.toPlainString(), directSkuId);
     }
 
-    private AddressResponse address(UUID buyer, UUID id, boolean lock) {
+    private record PurchaseLine(CartStore.Offer offer, int quantity) {}
+
+    private DeliveryAddress address(UUID buyer, UUID id, boolean lock) {
         return store.address(buyer, id, lock).orElseThrow(() ->
                 new ApiProblemException(HttpStatus.NOT_FOUND, "ADDRESS_NOT_FOUND", "Elegí una dirección vigente de tu cuenta."));
     }

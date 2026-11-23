@@ -1,7 +1,10 @@
 package com.zondamarket.checkout.repository;
 
+import com.zondamarket.checkout.dto.CheckoutDtos.DeliveryAddress;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
+import com.zondamarket.checkout.dto.CheckoutDtos.OrderPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
@@ -10,7 +13,6 @@ import com.zondamarket.checkout.dto.DisputeDtos.Status;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Carrier;
 import com.zondamarket.checkout.dto.FulfillmentDtos.SellerOrderStatus;
 import com.zondamarket.checkout.dto.FulfillmentDtos.Shipment;
-import com.zondamarket.identity.dto.ProfileDtos.AddressResponse;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -31,8 +33,12 @@ import tools.jackson.databind.ObjectMapper;
 @Repository
 public class CheckoutStore {
     private static final TypeReference<Map<String, String>> ATTRIBUTES = new TypeReference<>() {};
+    private static final TypeReference<List<OrderPreview>> ORDER_PREVIEWS = new TypeReference<>() {};
     private static final String ORDER_COLUMNS = """
-            SELECT id, status, total, currency, expires_at, request_hash FROM zonda_market.checkout_order
+            SELECT id, status, total, currency, expires_at, request_hash, direct_sku_id FROM zonda_market.checkout_order
+            """;
+    private static final String SELECTED_SKUS = """
+            SELECT item.sku_id FROM zonda_market.cart_item item WHERE item.cart_id = :cart AND NOT item.deleted
             """;
     private final JdbcClient sql;
     private final ObjectMapper json;
@@ -44,14 +50,16 @@ public class CheckoutStore {
 
     public record Quote(UUID id, long cartVersion, Instant expiresAt, Snapshot snapshot) {}
 
-    public record Order(UUID id, String status, BigDecimal total, String currency, Instant expiresAt, String requestHash) {}
+    public record Order(UUID id, String status, BigDecimal total, String currency, Instant expiresAt, String requestHash,
+                        UUID directSkuId) {}
 
-    public Optional<AddressResponse> address(UUID buyer, UUID id, boolean lock) {
+    public Optional<DeliveryAddress> address(UUID buyer, UUID id, boolean lock) {
         return sql.sql("""
-                SELECT id, street, city, province_code, postal_code, country FROM zonda_market.account_address
+                SELECT id, street, city, province_code, postal_code, country, recipient, phone, delivery_details
+                FROM zonda_market.account_address
                 WHERE id = :id AND account_id = :buyer AND NOT deleted
                 """ + (lock ? " FOR SHARE" : ""))
-                .param("id", id).param("buyer", buyer).query(AddressResponse.class).optional();
+                .param("id", id).param("buyer", buyer).query(DeliveryAddress.class).optional();
     }
 
     public void saveQuote(UUID id, UUID cart, long version, Snapshot snapshot, Instant now, Instant expiry) {
@@ -98,15 +106,64 @@ public class CheckoutStore {
                 .param("buyer", buyer).param("quote", quote).query(String.class).optional();
     }
 
-    public List<OrderSummary> history(UUID buyer, int page, int size) {
+    public List<OrderSummary> history(UUID buyer, int page, int size, String term, HistoryFilter filter) {
+        String orderNumber = term.startsWith("#") ? term.substring(1).strip() : term;
         return sql.sql("""
-                SELECT id, created_at, expires_at, status, total, currency FROM zonda_market.checkout_order
-                WHERE buyer_id = :buyer ORDER BY created_at DESC, id DESC OFFSET :offset LIMIT :limit
+                WITH orders AS (
+                    SELECT purchase.*, delivery.fulfillment
+                    FROM zonda_market.checkout_order purchase
+                    CROSS JOIN LATERAL (
+                        SELECT CASE
+                            WHEN bool_or(sub.status = 'PREPARANDO') THEN 'PREPARANDO'
+                            WHEN bool_or(sub.status = 'DESPACHADA') THEN 'DESPACHADA'
+                            WHEN bool_or(sub.status = 'ENTREGADA') AND
+                                 bool_and(sub.status IN ('ENTREGADA', 'REEMBOLSADA')) THEN 'ENTREGADA'
+                        END AS fulfillment
+                        FROM zonda_market.checkout_sub_order sub WHERE sub.order_id = purchase.id
+                    ) delivery
+                    WHERE purchase.buyer_id = :buyer
+                        AND (:filter = '' OR (:filter = 'PAGADAS' AND purchase.status = 'PAGADA')
+                            OR (:filter = 'PREPARANDO' AND delivery.fulfillment = 'PREPARANDO')
+                            OR (:filter = 'ENTREGADAS' AND delivery.fulfillment = 'ENTREGADA'))
+                        AND (:term = '' OR (:number <> '' AND starts_with(purchase.id::text, lower(:number))) OR EXISTS (
+                            SELECT 1 FROM zonda_market.checkout_sub_order sub
+                            JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                            WHERE sub.order_id = purchase.id AND strpos(
+                                translate(lower(line.title), 'áéíóúü', 'aeiouu'),
+                                translate(lower(:term), 'áéíóúü', 'aeiouu')) > 0
+                        ))
+                    ORDER BY purchase.created_at DESC, purchase.id DESC OFFSET :offset LIMIT :limit
+                )
+                SELECT orders.*, preview.line_count, preview.units, preview.items
+                FROM orders
+                CROSS JOIN LATERAL (
+                    SELECT count(*) AS line_count, coalesce(sum(items.quantity), 0) AS units,
+                        coalesce(jsonb_agg(jsonb_build_object('title', items.title, 'thumbnailUrl', cover.thumbnail_url)
+                            ORDER BY items.position) FILTER (WHERE items.position <= 3), '[]'::jsonb) AS items
+                    FROM (
+                        SELECT line.title, line.quantity, line.sku_id,
+                            row_number() OVER (ORDER BY sub.seller_name, sub.id, line.created_at, line.id) AS position
+                        FROM zonda_market.checkout_sub_order sub
+                        JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                        WHERE sub.order_id = orders.id
+                    ) items
+                    LEFT JOIN zonda_market.listing_sku sku ON items.position <= 3 AND sku.id = items.sku_id
+                    LEFT JOIN LATERAL (
+                        SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                        JOIN zonda_market.public_listing listing ON listing.id = image.listing_id
+                        WHERE image.listing_id = sku.listing_id AND NOT image.deleted
+                        ORDER BY image.position, image.id LIMIT 1
+                    ) cover ON true
+                ) preview
+                ORDER BY orders.created_at DESC, orders.id DESC
                 """).param("buyer", buyer).param("offset", (long) page * size).param("limit", size + 1)
+                .param("term", term).param("number", orderNumber).param("filter", filter == null ? "" : filter.name())
                 .query((rs, row) -> new OrderSummary(rs.getObject("id", UUID.class),
                         rs.getObject("created_at", OffsetDateTime.class).toInstant(),
                         rs.getObject("expires_at", OffsetDateTime.class).toInstant(),
-                        rs.getString("status"), rs.getBigDecimal("total").toPlainString(), rs.getString("currency")))
+                        rs.getString("status"), rs.getBigDecimal("total").toPlainString(), rs.getString("currency"),
+                        json.readValue(rs.getString("items"), ORDER_PREVIEWS), rs.getLong("line_count"),
+                        rs.getLong("units"), rs.getString("fulfillment")))
                 .list();
     }
 
@@ -115,48 +172,51 @@ public class CheckoutStore {
                 .param("buyer", buyer).param("key", key).query((rs, row) -> readOrder(rs)).optional();
     }
 
-    public void lockSkus(UUID cart) {
+    public void lockSkus(UUID cart, UUID directSku) {
         sql.sql("""
-                SELECT sku.id FROM zonda_market.cart_item item
-                JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
-                WHERE item.cart_id = :cart AND NOT item.deleted
+                SELECT sku.id FROM zonda_market.listing_sku sku
+                WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                )
                 ORDER BY sku.id FOR UPDATE OF sku
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
     }
 
-    public void lockOfferVisibility(UUID cart) {
+    public void lockOfferVisibility(UUID cart, UUID directSku) {
         sql.sql("""
                 SELECT listing.id FROM zonda_market.listing listing
                 WHERE listing.id IN (
-                    SELECT sku.listing_id FROM zonda_market.cart_item item
-                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
-                    WHERE item.cart_id = :cart AND NOT item.deleted
+                    SELECT sku.listing_id FROM zonda_market.listing_sku sku
+                    WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                    )
                 )
                 ORDER BY listing.id FOR SHARE
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
         sql.sql("""
                 SELECT account.id FROM zonda_market.user_account account
                 WHERE account.id IN (
-                    SELECT seller.account_id FROM zonda_market.cart_item item
-                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    SELECT seller.account_id FROM zonda_market.listing_sku sku
                     JOIN zonda_market.listing listing ON listing.id = sku.listing_id
                     JOIN zonda_market.seller_profile seller ON seller.id = listing.seller_id
-                    WHERE item.cart_id = :cart AND NOT item.deleted
+                    WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                    )
                 )
                 ORDER BY account.id FOR SHARE
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
     }
 
     public void insertOrder(Order order, UUID buyer, UUID cart, UUID quote, String key, UUID trace, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.checkout_order
                     (id, buyer_id, cart_id, quote_id, status, total, currency, idempotency_key, request_hash,
-                     trace_id, created_at, updated_at, expires_at)
-                VALUES (:id, :buyer, :cart, :quote, :status, :total, :currency, :key, :hash, :trace, :now, :now, :expiry)
+                     trace_id, created_at, updated_at, expires_at, direct_sku_id)
+                VALUES (:id, :buyer, :cart, :quote, :status, :total, :currency, :key, :hash, :trace, :now, :now, :expiry, :directSku)
                 """).param("id", order.id()).param("buyer", buyer).param("cart", cart).param("quote", quote)
                 .param("status", order.status()).param("total", order.total()).param("currency", order.currency())
                 .param("key", key).param("hash", order.requestHash()).param("trace", trace).param("now", utc(now))
-                .param("expiry", utc(order.expiresAt())).update();
+                .param("expiry", utc(order.expiresAt())).param("directSku", order.directSkuId()).update();
     }
 
     public void insertSubOrder(UUID order, SubOrder sub, Instant now) {
@@ -262,7 +322,7 @@ public class CheckoutStore {
                     var dispute = disputeId == null ? null : new Reference(
                             disputeId, Status.valueOf(rs.getString("dispute_status")));
                     var sub = new SubOrder(rs.getObject("sub_id", UUID.class), rs.getString("status"),
-                            json.readValue(rs.getString("address_snapshot"), AddressResponse.class), group,
+                            json.readValue(rs.getString("address_snapshot"), DeliveryAddress.class), group,
                             rs.getInt("fulfillment_version"), readShipment(rs), rs.getObject("reviewed", Boolean.class), dispute);
                     int quantity = rs.getInt("quantity");
                     var price = rs.getBigDecimal("unit_price");
@@ -301,7 +361,8 @@ public class CheckoutStore {
 
     private static Order readOrder(ResultSet rs) throws SQLException {
         return new Order(rs.getObject("id", UUID.class), rs.getString("status"), rs.getBigDecimal("total"), rs.getString("currency"),
-                rs.getObject("expires_at", OffsetDateTime.class).toInstant(), rs.getString("request_hash"));
+                rs.getObject("expires_at", OffsetDateTime.class).toInstant(), rs.getString("request_hash"),
+                rs.getObject("direct_sku_id", UUID.class));
     }
 
     private static OffsetDateTime utc(Instant value) {

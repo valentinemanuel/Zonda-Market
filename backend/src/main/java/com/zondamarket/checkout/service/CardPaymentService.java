@@ -45,7 +45,7 @@ public class CardPaymentService {
 
     public PaymentAttemptResponse submit(UUID buyer, UUID order, String key, CardPaymentRequest request, UUID trace) {
         var id = request.attemptId();
-        var claim = claim(buyer, order, id, key, trace);
+        var claim = claim(buyer, order, id, key, request.lastFour(), trace);
         if (claim == null) return payments.get(buyer, order, id);
 
         var claimed = claim.attempt();
@@ -74,7 +74,7 @@ public class CardPaymentService {
         return payments.get(buyer, order, id);
     }
 
-    private ClaimedCard claim(UUID buyer, UUID order, UUID id, String key, UUID trace) {
+    private ClaimedCard claim(UUID buyer, UUID order, UUID id, String key, String lastFour, UUID trace) {
         return transaction.execute(tx -> {
             var savedOrder = payments.lockOrder(buyer, order);
             var attempt = requireCard(order, id);
@@ -88,7 +88,7 @@ public class CardPaymentService {
             var now = clock.instant();
             if (!payments.eligible(savedOrder, now)) throw PaymentErrors.ineligible();
             if (attempts.cardKeyInUse(order, key)) throw reusedKey();
-            attempts.claimCard(order, id, key, trace, now);
+            attempts.claimCard(order, id, key, lastFour, trace, now);
             return new ClaimedCard(attempt, orders.frozenProvince(order));
         });
     }

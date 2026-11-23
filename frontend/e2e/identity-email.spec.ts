@@ -24,6 +24,7 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await expect(page.getByRole("status")).toHaveText("Revisá tu correo para continuar con la verificación.");
 
   const verification = await linkFromMail(request, email, "/verificar-correo");
+  expect(verification.origin, "El enlace de verificación debe conservar el origen de la sesión").toBe(new URL(page.url()).origin);
   await page.goto(verification.href);
   await expect(page.getByRole("heading", { name: "Verificar correo" })).toBeVisible();
   await page.getByRole("button", { name: "Confirmar correo" }).focus();
@@ -36,7 +37,7 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await page.screenshot({ path: testInfo.outputPath("correo-verificado-movil.png") });
 
   await page.goto("/ingresar");
-  await page.getByRole("link", { name: "Olvidé mi contraseña" }).press("Enter");
+  await page.getByRole("link", { name: "¿Olvidaste tu contraseña?" }).press("Enter");
   const recoveryEmail = page.getByLabel("Correo electrónico");
   const sendRecovery = page.getByRole("button", { name: "Enviar enlace de recuperación" });
   await sendRecovery.press("Enter");
@@ -88,6 +89,6 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await page.getByLabel("Contraseña").fill(newPassword);
   await page.getByLabel("Contraseña").press("Enter");
   await expect(page).toHaveURL(/\/catalogo$/);
-  await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
+  await page.getByRole("banner").getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByText("Verificado", { exact: true })).toBeVisible();
 });

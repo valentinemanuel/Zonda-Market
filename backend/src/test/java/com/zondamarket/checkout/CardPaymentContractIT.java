@@ -79,6 +79,8 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
                 assertTrue(gateway.entered.await(5, TimeUnit.SECONDS));
                 card(purchase.buyer(), purchase.order(), attempt, "master", "submit").andExpect(status().isOk())
                         .andExpect(jsonPath("$.status").value("ENVIADO"));
+                mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.payment").doesNotExist());
                 card(purchase.buyer(), purchase.order(), attempt, "master", "other").andExpect(status().isConflict())
                         .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
                 assertStock(purchase.sku(), 1, 1);
@@ -90,6 +92,11 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
 
         card(purchase.buyer(), purchase.order(), attempt, "master", "submit").andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APROBADO"));
+        mvc.perform(auth(get(ORDERS + purchase.order()), purchase.buyer())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.payment.method").value("CARD"))
+                .andExpect(jsonPath("$.payment.lastFour").value("1234"))
+                .andExpect(jsonPath("$.payment.simulated").value(false));
+        mvc.perform(auth(get(ORDERS + purchase.order()), outsider)).andExpect(status().isNotFound());
         assertEquals(new BigDecimal("19.25"), gateway.lastCharge.amount());
         assertEquals("AR-B", gateway.lastCharge.provinceCode());
         var persistedKey = sql.sql("SELECT provider_key FROM zonda_market.payment_attempt WHERE id = :id")
@@ -203,7 +210,7 @@ class CardPaymentContractIT extends CheckoutContractFixtures {
                 .content("""
                         {"attemptId":"%s","token":"token_ficticio_tarjeta","paymentMethodId":"%s","paymentType":"%s",
                          "installments":1,"payer":{"email":"comprador@example.test","identification":{"type":"DNI","number":"12345678"}},
-                         "transactionAmount":1.00}
+                         "transactionAmount":1.00,"lastFour":"1234"}
                         """.formatted(attempt, method, "debvisa".equals(method) ? "debit_card" : "credit_card")));
     }
 

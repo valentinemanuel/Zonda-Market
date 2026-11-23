@@ -52,9 +52,12 @@ class DiscoveryContractIT {
         sql.sql("UPDATE zonda_market.category SET parent_id = :parent WHERE id = :id")
                 .param("id", CLOTHING).param("parent", parent).update();
 
-        UUID first = listing(seller.id(), "Remeras naranjas");
+        UUID first = listing(seller.id(), "Remeras naranjas · segunda mano");
         UUID second = listing(seller.id(), "Remeras violetas");
         try {
+            sql.sql("""
+                    UPDATE zonda_market.listing SET specs = '{"Condición": " Nuevo "}'::jsonb WHERE id = :id
+                    """).param("id", second).update();
             sku(first, "Azul", "S", 50, 0);
             sku(first, "Rojo", "M", 120, 4);
             sku(second, "Azul", "M", 90, 3);
@@ -67,7 +70,16 @@ class DiscoveryContractIT {
                     .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2))
                     .andExpect(jsonPath("$.totalPages").value(2))
                     .andExpect(jsonPath("$.content[0].id").value(second.toString()))
-                    .andExpect(jsonPath("$.content[0].price").value("90.00"));
+                    .andExpect(jsonPath("$.content[0].price").value("90.00"))
+                    .andExpect(jsonPath("$.content[0].quickSkuId").isNotEmpty());
+            mvc.perform(get(LISTINGS).param("seller", seller.slug()).param("condition", "usado").param("size", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.totalPages").value(1))
+                    .andExpect(jsonPath("$.content[0].condition").value("segunda mano"));
+            mvc.perform(get(LISTINGS).param("seller", seller.slug()).param("condition", "nuevo"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].condition").value("nuevo"));
+            mvc.perform(get(LISTINGS).param("condition", "desconocido")).andExpect(status().isBadRequest());
             mvc.perform(get(LISTINGS).param("q", "remera").param("seller", seller.slug())
                             .param("page", "1").param("size", "1").param("sort", "price_asc"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(first.toString()));
