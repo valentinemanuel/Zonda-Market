@@ -93,6 +93,7 @@ Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 
 ## Históricos y eventos
 
 - Las entidades persistidas usan UUID, timestamps UTC y baja lógica. Las bajas conservan snapshots y registros financieros. Las transiciones relevantes guardan actor, instante y correlación.
+- La carga de demostración requiere una activación explícita en `local` o `demo`. El historial ficticio se registra una vez por versión, en una transacción, con fechas relativas al primer arranque. Las fotos de referencia conservan sus URL externas y se pueden retirar de la ficha sin encolar una eliminación en el proveedor.
 - Registrar el evento de outbox en la transacción del cambio de negocio. Los consumidores reintentan con espera progresiva y registran la confirmación. El estado visible en la UI se apoya en datos de negocio ya persistidos.
 - Desde V22, cada pago aprobado avisa al comprador y a los vendedores de la orden. Un despacho avisa al comprador y una recepción confirmada avisa a su vendedor. Los hitos anteriores conservan su historial original.
 - La apertura de un reclamo avisa al vendedor de la suborden. Cuando administración toma el caso, se avisa al comprador y al vendedor. El aviso contiene el hito y un enlace al historial privado.

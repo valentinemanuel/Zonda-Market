@@ -271,6 +271,28 @@ Corré `npm run test:e2e` desde `frontend/` para ejecutar la suite completa. Us�
 
 GitHub Actions ejecuta `backend-contract`, `frontend-quality` y `smoke` en los PR hacia `develop` y `main`. El artifact `evidencia-smoke` incluye capturas y trazas de los escenarios fallidos.
 
+### E7-02 · Datos de demostración
+
+Configurá `DEMO_SEED_ENABLED=true`, `DEMO_SEED_PASSWORD` y `DEMO_SEED_ADMIN_PASSWORD` en el entorno de Compose. Usá claves distintas de al menos 12 caracteres y hasta 72 bytes. Cada base recibe una sola carga transaccional después de Flyway. Conservá el volumen al reiniciar para mantener órdenes, cambios de stock y contraseñas. Podés rotar las contraseñas con **Olvidé mi contraseña** mientras tengas acceso a la bandeja de Mailpit del entorno de prueba.
+
+| Cuenta | Correo | Clave |
+| --- | --- | --- |
+| Comprador | `comprador@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Taller Puerto | `taller-puerto@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Casa Jarilla | `casa-jarilla@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Ropero del Sur | `ropero-sur@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Estación Norte | `estacion-norte@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Segunda Vuelta | `segunda-vuelta@demo.zonda.test` | `DEMO_SEED_PASSWORD` |
+| Administración | `admin@demo.zonda.test` | `DEMO_SEED_ADMIN_PASSWORD` |
+
+1. Abrí **Catálogo** y filtrá por **Hogar y decoración** o **Calzado**. Buscá **Auriculares de estudio**, elegí una variante y abrí el perfil de **Taller Puerto** para ver la reseña.
+2. Ingresá como comprador y abrí **Mis órdenes**. La compra dividida tiene auriculares entregados y una taza en preparación. Otra orden muestra la devolución parcial de la lámpara. La orden vencida deja la botella en el carrito para volver a cotizar.
+3. Ingresá como **Estación Norte** y abrí **Panel vendedor → Pedidos recibidos** para despachar la taza. Como comprador podés confirmar esa recepción sin modificar los auriculares.
+4. Ingresá como administración. En **Moderación → Reclamos** abrí el caso de los auriculares o la devolución confirmada de la lámpara. En **Operación global** y su CSV verificá el ajuste de ARS 12.000 y las dos órdenes pagadas.
+5. En perfil `local`, podés crear otra compra con dos vendedores usando **Simular aprobación**. El perfil `demo` permite recorrer el historial, con el simulador deshabilitado. `prod` y `production` rechazan activar la carga.
+
+Las fotos ilustrativas se muestran desde su URL remota. Consultá las [fuentes de las fotos](docs/diseno.md#fotos-de-la-demostración). Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=DemoSeedContractIT"` para verificar los totales, el segundo arranque, los permisos y el bloqueo en producción.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.
