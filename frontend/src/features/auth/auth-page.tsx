@@ -45,6 +45,8 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
           ? (state.checkoutResult === true ? "/checkout/resultado/" : "/checkout/reserva/") + state.returnToOrder + orderHash
         : typeof state?.returnToSellerSubOrder === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToSellerSubOrder)
           ? "/vendedor/pedidos?suborden=" + state.returnToSellerSubOrder
+        : typeof state?.returnToDispute === "string" && /^[0-9a-f-]{36}$/i.test(state.returnToDispute)
+          ? "/reclamos/" + state.returnToDispute
         : state?.returnToNotifications === true ? "/notificaciones"
         : state?.returnToSellerSales === true ? "/vendedor/ventas"
         : state?.returnToOrders === true ? "/mis-ordenes"

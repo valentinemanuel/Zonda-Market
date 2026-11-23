@@ -139,7 +139,7 @@ public class ModerationStore {
                 JOIN zonda_market.user_account buyer ON buyer.id = purchase.buyer_id
                 JOIN zonda_market.user_account seller_account ON seller_account.id = seller.account_id
                 WHERE (%s) AND (purchase.status IN ('RESERVADA', 'PAGO_PENDIENTE')
-                    OR (purchase.status = 'PAGADA' AND sub.status IN ('PREPARANDO', 'DESPACHADA')))
+                    OR (purchase.status IN ('PAGADA', 'REEMBOLSO_PARCIAL') AND sub.status IN ('PREPARANDO', 'DESPACHADA')))
                 ORDER BY sub.created_at DESC, sub.id LIMIT :limit OFFSET :offset
                 """.formatted(match)).param("id", id).param("offset", offset).param("limit", limit)
                 .query(OrderCase.class).list();

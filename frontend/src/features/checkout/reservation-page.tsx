@@ -12,6 +12,8 @@ import { addressText, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 import { DeliveryAction } from "./delivery-action";
 import { ReviewAction } from "@/features/reviews/review-action";
+import { BuyerDisputeAction } from "@/features/disputes/dispute-order-action";
+import { disputeActive } from "@/features/disputes/dispute-api";
 
 export function ReservationPage() {
   return <OrderCheckout returned={false} />;
@@ -39,7 +41,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     }
   }, [hash, loadedId]);
   useEffect(() => {
-    if (data?.status === "EXPIRADA" || data?.status === "PAGADA") {
+    if (data?.status === "EXPIRADA" || settled(data?.status)) {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
@@ -60,7 +62,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
       <h1 className="text-3xl font-semibold">
-        {returned ? "Resultado del pago" : data?.status === "PAGADA" ? "Detalle de la orden" : "Tu reserva"}
+        {returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
       </h1>
       {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
@@ -125,10 +127,12 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
     </section>}
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
       actions={(sub) => <>
-        <DeliveryAction sub={sub} orderId={order.id} revision={revision} />
+        {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
         <ReviewAction sub={sub} orderId={order.id} revision={revision} />
+        <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}
+          paid={order.status === "PAGADA" || order.status === "REEMBOLSO_PARCIAL"} serverNow={order.serverNow} />
       </>}>
-      {order.status === "PAGADA" && <Button asChild className="w-full">
+      {settled(order.status) && <Button asChild className="w-full">
         <Link to="/mis-ordenes">Seguir mi compra</Link>
       </Button>}
     </CheckoutSummary>
@@ -147,4 +151,8 @@ function secondsLeft(order: Order) {
 
 function running(status: string) {
   return status === "RESERVADA" || status === "PAGO_PENDIENTE";
+}
+
+function settled(status: string | undefined) {
+  return status === "PAGADA" || status === "REEMBOLSO_PARCIAL" || status === "REEMBOLSADA";
 }

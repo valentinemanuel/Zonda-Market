@@ -9,10 +9,13 @@ import org.springframework.stereotype.Component;
 class PaymentReconciliationSchedule {
     private final PaymentReconciliationWorker worker;
     private final PaymentCompensationWorker compensation;
+    private final DisputeRefundWorker refunds;
 
-    PaymentReconciliationSchedule(PaymentReconciliationWorker worker, PaymentCompensationWorker compensation) {
+    PaymentReconciliationSchedule(PaymentReconciliationWorker worker, PaymentCompensationWorker compensation,
+                                  DisputeRefundWorker refunds) {
         this.worker = worker;
         this.compensation = compensation;
+        this.refunds = refunds;
     }
 
     @Scheduled(fixedDelayString = "${zonda.checkout.reconciliation.delay-ms:3000}")
@@ -24,5 +27,6 @@ class PaymentReconciliationSchedule {
             // Give pending attempts time even when the inbox is busy.
         }
         compensation.processNext();
+        refunds.processNext();
     }
 }

@@ -5,6 +5,77 @@ info:
   description: Diagnóstico, catálogo, identidad, publicaciones de vendedor, carrito, checkout y reservas.
 security: []
 paths:
+  /api/v1/admin/categories:
+    get:
+      summary: Listar categorías vigentes y archivadas para administración
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista plana con las referencias al padre, el esquema y la tasa.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryAdminRow'
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+    post:
+      summary: Crear una categoría
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryAdminFields' }
+      responses:
+        '201': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
+  /api/v1/admin/categories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CategoryAdminId'
+    patch:
+      summary: Editar los datos completos de una categoría vigente
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CategoryAdminFields'
+                - $ref: '#/components/schemas/CategoryAdminVersion'
+      responses:
+        '200': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/CategoryAdminMissing' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
+  /api/v1/admin/categories/{id}/archive:
+    parameters:
+      - $ref: '#/components/parameters/CategoryAdminId'
+    post:
+      summary: Archivar una categoría sin hijos vigentes ni publicaciones activas
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryAdminVersion' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryAdminSaved' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/CategoryAdminMissing' }
+        '409': { $ref: '#/components/responses/CategoryAdminConflict' }
   /api/v1/status:
     get:
       summary: Consultar diagnóstico de la API
@@ -1654,6 +1725,184 @@ paths:
           $ref: '#/components/responses/SubOrderNotFound'
         '409':
           $ref: '#/components/responses/FulfillmentConflict'
+  /api/v1/me/sub-orders/{id}/disputes:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    post:
+      summary: Abrir el reclamo de una suborden propia
+      description: Repetir motivo y descripción devuelve el reclamo persistido. El id de la ruta identifica la suborden.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, description]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, minLength: 1, maxLength: 2000 }
+                expectedVersion:
+                  description: Versión logística observada. Si se indica, debe coincidir al abrir el reclamo.
+                  type: integer
+                  minimum: 0
+                  maximum: 2147483647
+      responses:
+        '201': { $ref: '#/components/responses/DisputeReferenceResponse' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '404': { $ref: '#/components/responses/SubOrderNotFound' }
+        '409': { $ref: '#/components/responses/DisputeConflict' }
+  /api/v1/disputes/{id}:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    get:
+      summary: Consultar el reclamo y una página de mensajes
+      description: El comprador titular, el vendedor de la suborden y el rol ADMIN pueden acceder.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DisputePageNumber'
+        - $ref: '#/components/parameters/DisputePageSize'
+      responses:
+        '200':
+          description: Detalle privado. Los mensajes se ordenan del más reciente al más antiguo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeDetail' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+  /api/v1/disputes/{id}/messages:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    post:
+      summary: Enviar un mensaje en un reclamo activo
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: UUID opcional. Repetirlo con el mismo texto recupera el mensaje del autor.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '201':
+          description: Mensaje persistido como texto plano.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeMessage' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+        '409': { $ref: '#/components/responses/DisputeConflict' }
+  /api/v1/admin/disputes:
+    get:
+      summary: Listar la bandeja de mediación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DisputePageNumber'
+        - $ref: '#/components/parameters/DisputePageSize'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/DisputeStatus' }
+        - name: maxAgeDays
+          in: query
+          description: Antigüedad máxima en días corridos. Si se omite, se incluyen todas las fechas.
+          schema: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        '200':
+          description: Página privada ordenada por fecha de apertura ascendente.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/DisputePage'
+                  - type: object
+                    required: [content]
+                    properties:
+                      content:
+                        type: array
+                        items: { $ref: '#/components/schemas/DisputeSummary' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+  /api/v1/admin/disputes/{id}/assign:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    post:
+      summary: Tomar el reclamo para mediación
+      description: La cuenta ADMIN que lo toma queda registrada como mediadora.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/DisputeReferenceResponse' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+        '409': { $ref: '#/components/responses/DisputeConflict' }
+  /api/v1/admin/disputes/{id}/resolution-balance:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    get:
+      summary: Consultar el saldo que puede devolverse
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Saldos calculados con los reembolsos confirmados y las reservas activas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subOrderAvailable, paymentAvailable, available, currency]
+                properties:
+                  subOrderAvailable: { $ref: '#/components/schemas/CartAmount' }
+                  paymentAvailable: { $ref: '#/components/schemas/CartAmount' }
+                  available: { $ref: '#/components/schemas/CartAmount' }
+                  currency: { type: string, const: ARS }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+  /api/v1/admin/disputes/{id}/resolve:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    post:
+      summary: Resolver un reclamo en mediación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Repetir la misma clave y los mismos datos recupera el resultado persistido.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, reason, expectedVersion]
+              properties:
+                outcome: { $ref: '#/components/schemas/DisputeResolutionOutcome' }
+                amount:
+                  description: Importe positivo en ARS con hasta dos decimales. Se omite o envía nulo para el cierre sin devolución.
+                  oneOf:
+                    - { type: number, minimum: 0.01, multipleOf: 0.01 }
+                    - { type: string, pattern: '^[0-9]{1,17}(\.[0-9]{1,2})?$' }
+                    - { type: 'null' }
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+                expectedVersion: { type: integer, minimum: 0, maximum: 2147483647 }
+      responses:
+        '200':
+          description: Resolución guardada. Una devolución se encola para conciliación.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeResolution' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+        '409': { $ref: '#/components/responses/DisputeConflict' }
 components:
   securitySchemes:
     bearerAuth:
@@ -1661,6 +1910,24 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    DisputePathId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DisputePageNumber:
+      name: page
+      in: query
+      schema: { type: integer, default: 0, minimum: 0 }
+    DisputePageSize:
+      name: size
+      in: query
+      schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    CategoryAdminId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
     SellerReportFrom:
       in: query
       name: from
@@ -1742,6 +2009,44 @@ components:
       schema:
         type: string
   responses:
+    DisputeReferenceResponse:
+      description: Referencia del reclamo y estado vigente.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/DisputeReference' }
+    DisputeNotFound:
+      description: Reclamo ausente o ajeno (DISPUTE_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    DisputeConflict:
+      description: DISPUTE_INELIGIBLE, SUB_ORDER_VERSION_CONFLICT, DISPUTE_ALREADY_EXISTS, DISPUTE_CLOSED, DISPUTE_ASSIGNMENT_CONFLICT, DISPUTE_VERSION_CONFLICT, DISPUTE_RESOLUTION_CONFLICT, REFUND_CAPTURE_UNAVAILABLE, REFUND_BALANCE_EXCEEDED o IDEMPOTENCY_KEY_REUSED.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    AdminRequired:
+      description: La cuenta activa carece del rol ADMIN (ACCESS_DENIED).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    CategoryAdminSaved:
+      description: Categoría guardada.
+      headers:
+        Cache-Control:
+          schema: { type: string, const: no-store }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CategoryAdminRow' }
+    CategoryAdminMissing:
+      description: Categoría inexistente (CATEGORY_NOT_FOUND).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
+    CategoryAdminConflict:
+      description: VERSION_CONFLICT, CATEGORY_ARCHIVED, CATEGORY_SLUG_IN_USE, CATEGORY_IN_USE, CATEGORY_CYCLE, CATEGORY_DEPTH o CATEGORY_SKUS_INCOMPATIBLE.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemResponse' }
     ShipmentUpdated:
       description: Estado logístico persistido. Repetir el comando original recupera el estado vigente.
       content:
@@ -1755,7 +2060,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemResponse'
     FulfillmentConflict:
-      description: SUB_ORDER_STATE_CONFLICT, SUB_ORDER_VERSION_CONFLICT o SUB_ORDER_ALREADY_SHIPPED.
+      description: SUB_ORDER_STATE_CONFLICT, SUB_ORDER_VERSION_CONFLICT, SUB_ORDER_ALREADY_SHIPPED o SUB_ORDER_DISPUTED.
       content:
         application/problem+json:
           schema:
@@ -1937,6 +2242,121 @@ components:
         type: string
         format: uuid
   schemas:
+    DisputeResolutionOutcome:
+      type: string
+      enum: [SIN_REEMBOLSO, REEMBOLSO]
+    DisputeResolution:
+      type: object
+      required: [id, outcome, status, amount, reason, providerRefundId, simulated, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        outcome: { $ref: '#/components/schemas/DisputeResolutionOutcome' }
+        status: { type: string, enum: [CERRADA, PENDIENTE, EN_REVISION, CONFIRMADA, RECHAZADA] }
+        amount: { type: [string, 'null'] }
+        reason: { type: string }
+        providerRefundId: { type: [string, 'null'] }
+        simulated: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    DisputeStatus:
+      type: string
+      enum: [ABIERTA, EN_MEDIACION, REEMBOLSO_PENDIENTE, CERRADA_SIN_REEMBOLSO, CERRADA_REEMBOLSADA]
+    DisputeReference:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/DisputeStatus' }
+    DisputePage:
+      type: object
+      required: [page, size, hasNext]
+      properties:
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 50 }
+        hasNext: { type: boolean }
+    DisputeSummary:
+      allOf:
+        - $ref: '#/components/schemas/DisputeReference'
+        - type: object
+          required: [subOrderId, reason, openedAt, assignedAt]
+          properties:
+            subOrderId: { type: string, format: uuid }
+            reason: { type: string }
+            openedAt: { type: string, format: date-time }
+            assignedAt: { type: [string, 'null'], format: date-time }
+    DisputeMessage:
+      type: object
+      required: [id, authorRole, body, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        authorRole: { $ref: '#/components/schemas/DisputeParticipantRole' }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    DisputeParticipantRole:
+      type: string
+      enum: [BUYER, SELLER, ADMIN]
+    DisputeDetail:
+      allOf:
+        - $ref: '#/components/schemas/DisputeSummary'
+        - $ref: '#/components/schemas/DisputePage'
+        - type: object
+          required: [orderId, description, participants, viewer, messages, version, resolution]
+          properties:
+            orderId: { type: string, format: uuid }
+            description: { type: string }
+            version: { type: integer, minimum: 0 }
+            resolution:
+              oneOf:
+                - $ref: '#/components/schemas/DisputeResolution'
+                - type: 'null'
+            viewer: { $ref: '#/components/schemas/DisputeParticipantRole' }
+            participants:
+              type: object
+              required: [buyerId, sellerId, mediatorId]
+              properties:
+                buyerId: { type: string, format: uuid }
+                sellerId: { type: string, format: uuid }
+                mediatorId: { type: [string, 'null'], format: uuid }
+            messages:
+              type: array
+              items: { $ref: '#/components/schemas/DisputeMessage' }
+    CategoryAdminFields:
+      type: object
+      required: [name, slug, commissionBps, attributeSchema]
+      properties:
+        parentId:
+          description: Identificador de la categoría superior vigente. Null u omisión ubican el nodo en la raíz.
+          type: [string, 'null']
+          format: uuid
+        name: { type: string, minLength: 1, maxLength: 120 }
+        slug: { type: string, maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' }
+        commissionBps: { type: integer, minimum: 0, maximum: 10000 }
+        attributeSchema:
+          description: Atributos obligatorios de las variantes. Una categoría sin atributos usa un objeto vacío.
+          type: object
+          maxProperties: 16
+          propertyNames: { minLength: 1, maxLength: 120 }
+          additionalProperties:
+            type: array
+            minItems: 1
+            maxItems: 100
+            uniqueItems: true
+            items: { type: string, minLength: 1, maxLength: 120 }
+    CategoryAdminVersion:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, format: int64, minimum: 0 }
+    CategoryAdminRow:
+      allOf:
+        - $ref: '#/components/schemas/CategoryAdminFields'
+        - type: object
+          required: [id, parentId, version, archived, activeListings, hasChildren]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, format: int64, minimum: 0 }
+            archived: { type: boolean }
+            activeListings: { type: integer, format: int64, minimum: 0 }
+            hasChildren: { type: boolean }
     QuoteRequest:
       type: object
       required: [addressId, cartVersion]
@@ -1972,7 +2392,7 @@ components:
         id: { type: string, format: uuid }
         expiresAt: { type: string, format: date-time }
         serverNow: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA, REEMBOLSO_PARCIAL, REEMBOLSADA] }
         subOrders:
           type: array
           items:
@@ -2007,7 +2427,7 @@ components:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA, REEMBOLSO_PARCIAL, REEMBOLSADA] }
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
@@ -2016,11 +2436,11 @@ components:
       required: [id, type, createdAt, read, resourceId, href]
       properties:
         id: { type: string, format: uuid }
-        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED] }
+        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED, DISPUTE_OPENED, DISPUTE_ASSIGNED, DISPUTE_RESOLVED] }
         createdAt: { type: string, format: date-time }
         read: { type: boolean }
         resourceId:
-          description: UUID de la orden de compra o la suborden correspondiente al aviso.
+          description: UUID de la orden, la suborden o el reclamo correspondiente al aviso.
           type: string
           format: uuid
         href:
@@ -2200,7 +2620,7 @@ components:
           $ref: '#/components/schemas/SellerReputationResponse'
     CheckoutSubOrder:
       type: object
-      required: [id, status, address, group, version, shipment, reviewed]
+      required: [id, status, address, group, version, shipment, reviewed, dispute]
       properties:
         id: { type: string, format: uuid }
         status: { type: string, enum: [ESPERA_PAGO, CANCELADA, PREPARANDO, DESPACHADA, ENTREGADA, REEMBOLSADA] }
@@ -2209,6 +2629,11 @@ components:
         reviewed:
           description: Indica al comprador si ya publicó una reseña. En la bandeja del vendedor es nulo.
           type: [boolean, 'null']
+        dispute:
+          description: Referencia privada cuando la suborden tiene un reclamo.
+          oneOf:
+            - $ref: '#/components/schemas/DisputeReference'
+            - type: 'null'
         shipment:
           oneOf:
             - $ref: '#/components/schemas/Shipment'

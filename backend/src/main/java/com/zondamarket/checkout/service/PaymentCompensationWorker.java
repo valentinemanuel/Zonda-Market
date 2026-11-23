@@ -44,7 +44,8 @@ public class PaymentCompensationWorker {
                     work.externalReference(), work.amount(), work.currency());
             // Always read the provider's history first, including after a lost POST response.
             var seen = gateway.inspect(charge);
-            if (seen.state() == State.AVAILABLE && work.providerRefundId() == null && retryWindowOpen(work)) {
+            if (seen.state() == State.AVAILABLE && work.providerRefundId() == null
+                    && !work.reconcileOnly() && retryWindowOpen(work)) {
                 seen = gateway.refund(charge);
             }
             apply(work, seen);
@@ -77,11 +78,12 @@ public class PaymentCompensationWorker {
 
     private void save(Work work, String providerId, String failure, boolean retryable) {
         var now = clock.instant();
-        if (retryable && retryWindowOpen(work)) {
+        if (retryable && !work.reconcileOnly() && retryWindowOpen(work)) {
             long delay = Math.min(900, 5L << Math.min(work.attempts() - 1, 8));
             store.save(work, Status.PENDIENTE, providerId, failure, now, now.plusSeconds(delay));
         } else {
-            String reason = failure == null ? "REFUND_RETRY_WINDOW_ELAPSED" : failure;
+            String reason = failure;
+            if (reason == null) reason = work.reconcileOnly() ? "REFUND_NOT_CONFIRMED" : "REFUND_RETRY_WINDOW_ELAPSED";
             store.save(work, Status.EN_REVISION, providerId, reason, now, now);
             LOG.warn("Devolución en revisión traceId={} refundId={} motivo={}", work.traceId(), work.id(), reason);
         }
