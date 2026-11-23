@@ -6,7 +6,7 @@ Marketplace C2C/B2C. El [roadmap](docs/roadmap.md) describe las etapas y las ent
 
 [Abrí la demo de Zonda Market](https://zonda-market-demo.pages.dev/).
 
-La demo de portfolio permite buscar y filtrar productos ficticios, abrir fichas, elegir variantes y editar un carrito que se guarda en el navegador. El recorrido termina en el carrito.
+La demo de portfolio reutiliza la portada, el catálogo, las fichas y el carrito de Zonda Market con las 80 publicaciones ficticias de E7-02. Podés buscar, filtrar, elegir variantes y editar el carrito que se guarda en el navegador. Para probar cuentas, pedidos y pagos de prueba, usá el entorno de Docker Compose.
 
 Para ejecutar la demo estática en local, usá Node.js 24 y corré desde `frontend/`:
 
@@ -18,7 +18,9 @@ npm run preview:portfolio
 
 Para comprobar los recorridos en escritorio y móvil, ejecutá `npx playwright install chromium` y `npm run test:portfolio` desde `frontend/`.
 
-Para publicarla en Cloudflare Pages Free, subí `frontend/portfolio/dist` como proyecto de carga directa. El build incluye `index.html` para que Pages resuelva rutas directas como `/publicaciones/taza`.
+Para publicar una versión en Cloudflare Pages Free, subí `frontend/portfolio/dist` al proyecto `zonda-market-demo`. Pages sirve enlaces directos como `/publicaciones/demo-taza-nuevo`.
+
+Para regenerar el catálogo estático, levantá un Compose aislado y limpio con los datos ficticios de E7-02 y `API_PORT=4318`. Desde `frontend/`, ejecutá `node portfolio/snapshot.mjs`. El script consulta el catálogo y las fichas públicas y valida que el entorno contenga las 80 publicaciones de la demo.
 
 ## Arranque local con Docker Compose
 

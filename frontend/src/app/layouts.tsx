@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -78,7 +78,7 @@ function StoreSearch({ initialTerm }: { initialTerm: string }) {
   </form>;
 }
 
-export function SiteLayout() {
+export function SiteLayout({ demoNotice }: { demoNotice?: ReactNode }) {
   const { pathname, search, state, key } = useLocation();
   // Identity flows manage their own refresh cookie, including the previous session in Google exchange.
   const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
@@ -112,10 +112,11 @@ export function SiteLayout() {
       </div>
       <CategoryNavigation />
     </header>
+    {demoNotice}
     <main id="contenido" tabIndex={-1} className={`min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : "store-frame " + (listing ? "pt-2 pb-7" : "py-5 sm:py-8")}`}>
       <Outlet />
     </main>
-    <StoreFooter />
+    <StoreFooter showAvailability={!demoNotice} />
     <ScrollRestoration getKey={(location) => location.state?.backToHero ? location.key : location.pathname} />
   </>;
 }

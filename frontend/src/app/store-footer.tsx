@@ -44,7 +44,7 @@ function FooterAvailability() {
   </span>;
 }
 
-export function StoreFooter() {
+export function StoreFooter({ showAvailability = true }: { showAvailability?: boolean }) {
   const shareUrl = encodeURIComponent(new URL("/catalogo", window.location.origin).href);
   return <footer className="bg-[#111318] text-white">
     <div className="border-y border-[#e5e7eb] bg-[#f9fafb] text-foreground">
@@ -76,7 +76,7 @@ export function StoreFooter() {
         <ul role="list" className="text-sm">
           {links.map(([label, to]) => <li key={to} className="flex flex-wrap items-center gap-x-2">
             <Link to={to} className={footerLink}>{label}</Link>
-            {to === "/estado" && <FooterAvailability />}
+            {to === "/estado" && showAvailability && <FooterAvailability />}
           </li>)}
         </ul>
       </nav>)}

@@ -14,7 +14,7 @@ import { ListingQuestions } from "./listing-questions";
 import { AddToCart } from "@/features/cart/add-to-cart";
 import { ReputationSummary } from "@/features/reviews/reputation";
 
-export function PublicListingPage() {
+export function PublicListingPage({ readOnlyQuestions = false }: { readOnlyQuestions?: boolean }) {
   const { slug = "" } = useParams();
   const { state } = useLocation();
   const catalogSearch = typeof state?.catalogSearch === "string" ? state.catalogSearch : "";
@@ -46,7 +46,7 @@ export function PublicListingPage() {
       <Link className={profileLink} to={"/categorias/" + detail.data.category.id}>{detail.data.category.name}</Link>
     </nav>
     <ListingDetailView key={slug} detail={detail.data} purchase={{ slug, catalogSearch }} />
-    <ListingQuestions key={detail.data.id} listingId={detail.data.id} />
+    <ListingQuestions key={detail.data.id} listingId={detail.data.id} readOnly={readOnlyQuestions} />
   </div>;
 }
 
