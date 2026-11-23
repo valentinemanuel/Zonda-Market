@@ -17,6 +17,7 @@ import com.zondamarket.catalog.dto.ListingMediaDtos.ImageResponse;
 import com.zondamarket.catalog.dto.ListingMediaDtos.ListingDetailResponse;
 import com.zondamarket.catalog.dto.ListingMediaDtos.PublicSku;
 import com.zondamarket.catalog.repository.CategoryRepository;
+import com.zondamarket.catalog.repository.CategoryLock;
 import com.zondamarket.catalog.repository.ListingImageRepository;
 import com.zondamarket.catalog.repository.ListingMediaStore;
 import com.zondamarket.catalog.repository.ListingRepository;
@@ -46,6 +47,7 @@ public class ListingService {
     private final ListingRepository listings;
     private final ListingSkuRepository skus;
     private final CategoryRepository categories;
+    private final CategoryLock categoryLock;
     private final SellerProfileRepository sellers;
     private final ObjectMapper json;
     private final ListingImageRepository images;
@@ -55,10 +57,11 @@ public class ListingService {
 
     ListingService(ListingRepository listings, ListingSkuRepository skus, CategoryRepository categories,
                    SellerProfileRepository sellers, ObjectMapper json, ListingImageRepository images,
-                   ListingMediaStore media, Clock clock, ReviewService reviews) {
+                   ListingMediaStore media, Clock clock, ReviewService reviews, CategoryLock categoryLock) {
         this.listings = listings;
         this.skus = skus;
         this.categories = categories;
+        this.categoryLock = categoryLock;
         this.sellers = sellers;
         this.json = json;
         this.images = images;
@@ -98,6 +101,7 @@ public class ListingService {
 
     @Transactional
     public ListingResponse create(UUID accountId, PublicationRequest request) {
+        categoryLock.readForWrite();
         UUID seller = sellerId(accountId);
         requireLeaf(request.categoryId());
         validateListing(request.title(), request.description(), request.specs());
@@ -107,6 +111,7 @@ public class ListingService {
 
     @Transactional
     public ListingResponse edit(UUID accountId, UUID id, PublicationPatch request) {
+        categoryLock.readForWrite();
         Listing listing = lockListing(accountId, id);
         requireVersion(request.expectedVersion().longValueExact(), listing.getVersion());
 
@@ -137,6 +142,7 @@ public class ListingService {
 
     @Transactional
     public SkuResponse addSku(UUID accountId, UUID id, SkuRequest request) {
+        categoryLock.readForWrite();
         Listing listing = lockListing(accountId, id);
         Map<String, String> attributes = validateAttributes(listing, request.attributes());
         return saveSku(new ListingSku(id, request.code().toUpperCase(Locale.ROOT),
@@ -145,6 +151,7 @@ public class ListingService {
 
     @Transactional
     public SkuResponse editSku(UUID accountId, UUID id, UUID skuId, SkuPatch request) {
+        categoryLock.readForWrite();
         Listing listing = lockListing(accountId, id);
         ListingSku sku = skus.findByIdAndListingIdAndDeletedFalse(skuId, id)
                 .orElseThrow(() -> new ApiProblemException(HttpStatus.NOT_FOUND, "SKU_NOT_FOUND",
@@ -158,6 +165,7 @@ public class ListingService {
 
     @Transactional
     public ListingResponse publish(UUID account, UUID id, UUID traceId) {
+        categoryLock.readForWrite();
         Listing listing = lockListing(account, id);
         List<ListingSku> variants = listingSkus(id);
         List<ListingImage> gallery = listingImages(id);

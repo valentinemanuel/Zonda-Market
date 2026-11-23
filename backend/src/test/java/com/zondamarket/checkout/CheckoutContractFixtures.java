@@ -91,13 +91,17 @@ abstract class CheckoutContractFixtures {
         var seller = uuidForSeller(owner, name);
         sql.sql("UPDATE zonda_market.seller_profile SET shipping_cost = :shipping WHERE id = :id")
                 .param("shipping", new BigDecimal(shipping)).param("id", seller).update();
+        return listingProduct(owner, CATEGORY, name, price, stock, "{\"color\":\"Azul\",\"talle\":\"M\"}");
+    }
+
+    UUID listingProduct(Account owner, UUID category, String name, String price, int stock, String attributes) throws Exception {
         String listings = "/api/v1/seller/listings";
         UUID listing = uuid(mvc.perform(auth(post(listings), owner).content("""
                 {"categoryId":"%s","title":"Producto %s","description":"Producto ficticio","specs":{}}
-                """.formatted(CATEGORY, name))).andExpect(status().isCreated()).andReturn());
+                """.formatted(category, name))).andExpect(status().isCreated()).andReturn());
         UUID sku = uuid(mvc.perform(auth(post(listings + "/" + listing + "/skus"), owner).content("""
-                {"code":"SKU-%s","attributes":{"color":"Azul","talle":"M"},"price":%s,"initialStock":%d}
-                """.formatted(UUID.randomUUID(), price, stock))).andExpect(status().isCreated()).andReturn());
+                {"code":"SKU-%s","attributes":%s,"price":%s,"initialStock":%d}
+                """.formatted(UUID.randomUUID(), attributes, price, stock))).andExpect(status().isCreated()).andReturn());
         sql.sql("""
                 INSERT INTO zonda_market.listing_image (id, listing_id, provider, public_id, url, thumbnail_url, position, created_at, updated_at)
                 VALUES (:id, :listing, 'local', :id, '/fixture', '/fixture', 0, now(), now())
@@ -106,7 +110,7 @@ abstract class CheckoutContractFixtures {
         return sku;
     }
 
-    private UUID uuidForSeller(Account owner, String name) throws Exception {
+    UUID uuidForSeller(Account owner, String name) throws Exception {
         mvc.perform(auth(post("/api/v1/me/seller-profile"), owner).content("""
                 {"type":"PERSONAL","displayName":"%s","slug":"tienda-%s"}
                 """.formatted(name, UUID.randomUUID()))).andExpect(status().isCreated());

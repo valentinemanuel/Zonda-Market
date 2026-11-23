@@ -113,11 +113,13 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
     expect(await guest.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     await guest.screenshot({ path: testInfo.outputPath("ficha-publicada-movil.png"), fullPage: true });
 
+    await page.bringToFront();
     await page.getByRole("button", { name: "Archivar publicación" }).press("Enter");
     await expect(page.getByRole("status")).toHaveText("Publicación archivada.");
     await expect(page.getByRole("link", { name: "Ver ficha pública" })).toHaveCount(0);
     await guest.reload();
     await expect(guest.getByRole("heading", { name: "Publicación no disponible" })).toBeVisible();
+    await page.bringToFront();
     await imagesTab.press("Enter");
     await expect(page.getByRole("img", { name: "Vista violeta" })).toBeVisible();
     await page.getByRole("button", { name: "Retirar imagen 1" }).press("Enter");
