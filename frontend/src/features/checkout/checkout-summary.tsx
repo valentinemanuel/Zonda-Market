@@ -49,9 +49,9 @@ function amountTotal(amounts: string[]) {
   return formattedPrice(`${cents / 100n}.${String(cents % 100n).padStart(2, "0")}`);
 }
 
-export function CheckoutSummary({ groups, total, children, subOrders, actions, beforeGroups }: {
+export function CheckoutSummary({ groups, total, totalLabel = "Total a pagar", children, subOrders, actions, beforeGroups }: {
   groups: SummaryGroup[]; total?: string; children?: ReactNode; subOrders?: SubOrder[];
-  actions?: (sub: SubOrder) => ReactNode; beforeGroups?: ReactNode;
+  totalLabel?: string; actions?: (sub: SubOrder) => ReactNode; beforeGroups?: ReactNode;
 }) {
   const tracking = new Map(subOrders?.map((sub) => [sub.group.sellerId, sub]));
   const quantity = groups.reduce((sum, group) => sum + group.items.reduce((count, item) => count + item.quantity, 0), 0);
@@ -77,7 +77,7 @@ export function CheckoutSummary({ groups, total, children, subOrders, actions, b
             <dt>Envío total</dt><dd>{total === undefined ? "Por cotizar" : amountTotal(groups.map(({ shipping }) => shipping ?? "0"))}</dd>
           </div>
           {total !== undefined && <div className="flex flex-wrap justify-between gap-x-2 border-t pt-3 font-bold">
-            <dt>Total a pagar</dt><dd>{formattedPrice(total)}</dd>
+            <dt>{totalLabel}</dt><dd>{formattedPrice(total)}</dd>
           </div>}
         </dl>
         {children}

@@ -38,6 +38,8 @@ test("busca, filtra y repite una compra sin duplicar el carrito si se pierde la 
 
   await card.getByRole("link", { name: "Ver detalle" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Detalle de la orden" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Resumen de compra" })).toBeVisible();
+  await expect(page.getByText("Total pagado", { exact: true })).toBeVisible();
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
   await page.goBack();
   await expect(preparing).toHaveAttribute("aria-pressed", "true");

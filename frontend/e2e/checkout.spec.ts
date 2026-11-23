@@ -237,7 +237,7 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
   const references = await page.getByText(/^Suborden /).allTextContents();
   expect(new Set(references).size).toBe(2);
-  await expect(page.getByText("Total a pagar", { exact: true }).locator("..")).toContainText("$ 371,15");
+  await expect(page.getByText("Total pagado", { exact: true }).locator("..")).toContainText("$ 371,15");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("checkout-pago-aprobado-movil.png"), fullPage: true });
   await page.getByRole("link", { name: "Seguir mi compra" }).press("Enter");
