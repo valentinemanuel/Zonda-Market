@@ -94,7 +94,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await expect(page.getByText("No pudimos consultar el pago. Volvé a intentarlo.")).toBeVisible();
   await expect(page.getByText("Pago aprobado.", { exact: true })).toHaveCount(0);
   await expect(page.getByText("En espera de pago", { exact: true })).toHaveCount(2);
-  await expect(page.getByRole("link", { name: "Seguir mi compra" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("saldo-pendiente-movil.png"), fullPage: true });
 
@@ -104,7 +104,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await expect(page.getByText("Pago aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
-  await expect(page.getByRole("link", { name: "Seguir mi compra" })).toHaveAttribute("href", "/mis-ordenes");
+  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/mis-ordenes");
   expect(consultations).toBe(3);
   await page.screenshot({ path: testInfo.outputPath("saldo-aprobado-movil.png"), fullPage: true });
 });

@@ -16,7 +16,10 @@ export type Group = {
 
 export type Quote = Received<Timed & {
   id: string; cartVersion: number; address: Address; groups: Group[]; total: string;
+  thumbnails?: Record<string, string>;
 }>;
+
+export type DirectPreview = { groups: Group[]; thumbnails: Record<string, string> };
 
 export type Refund = {
   id: string; reason: "TARDIO" | "DUPLICADO"; status: "PENDIENTE" | "CONFIRMADA" | "EN_REVISION"; amount: string;
@@ -27,6 +30,9 @@ export type Order = Received<Timed & {
   testPayment: { reference: string; result: PaymentResult | null } | null;
   refunds?: Refund[];
   refundedAmount?: string;
+  directSkuId?: string | null;
+  thumbnails?: Record<string, string>;
+  payment?: { method: PaymentMethod | null; lastFour: string | null; simulated: boolean } | null;
 }>;
 
 export type Carrier = "ANDREANI" | "CORREO_ARGENTINO";
@@ -60,6 +66,7 @@ export type CardData = {
   paymentMethodId: string;
   paymentType: "credit_card" | "debit_card";
   installments: number;
+  lastFour?: string;
   payer: { email: string; identification?: { type?: string; number?: string } };
 };
 
@@ -69,6 +76,7 @@ export const ordersKey = (revision: number) => ["private", "orders", revision] a
 export const sellerOrdersKey = (revision: number) => ["private", "seller-orders", revision] as const;
 export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
+export const checkoutPath = (skuId?: string | null) => skuId ? "/checkout?sku=" + encodeURIComponent(skuId) : "/checkout";
 
 export type OrderHistoryFilter = "PAGADAS" | "PREPARANDO" | "ENTREGADAS";
 
@@ -121,8 +129,12 @@ function post(body: object, key?: string): RequestInit {
   };
 }
 
-export async function quoteCheckout(addressId: string, cartVersion: number): Promise<Quote> {
-  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion })));
+export async function fetchDirectPreview(skuId: string, signal: AbortSignal): Promise<DirectPreview> {
+  return (await authenticatedRequest("/api/v1/checkout/items/" + encodeURIComponent(skuId), { signal })).json();
+}
+
+export async function quoteCheckout(addressId: string, cartVersion: number, directSkuId?: string): Promise<Quote> {
+  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion, directSkuId })));
 }
 
 export async function confirmCheckout(quoteId: string): Promise<Order> {

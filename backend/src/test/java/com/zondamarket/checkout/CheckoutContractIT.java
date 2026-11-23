@@ -429,6 +429,42 @@ class CheckoutContractIT extends CheckoutContractFixtures {
     }
 
     @Test
+    void buysOnlyTheSelectedSkuWithoutRemovingItFromTheExistingCart() throws Exception {
+        var buyer = account(true);
+        var outsider = account(true);
+        var direct = product("Directa", "18.25", "1.00", 6);
+        var other = product("Carrito", "35.00", "2.00", 6);
+        UUID address = address(buyer);
+        add(buyer, direct, 2, 0);
+        add(buyer, other, 1, 1);
+        String preview = "/api/v1/checkout/items/" + direct;
+        mvc.perform(get(preview)).andExpect(status().isUnauthorized());
+        mvc.perform(auth(get(preview), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[0].items[0].quantity").value(1))
+                .andExpect(jsonPath("$.thumbnails['" + direct + "']").value("/fixture"));
+        String body = """
+                {"addressId":"%s","cartVersion":2,"directSkuId":"%s"}
+                """.formatted(address, direct);
+        UUID quote = uuid(mvc.perform(auth(post(QUOTE), buyer).content(body)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups.length()").value(1))
+                .andExpect(jsonPath("$.total").value("19.25")).andReturn());
+        confirm(outsider, quote, "directa").andExpect(status().isNotFound());
+        UUID order = uuid(confirm(buyer, quote, "directa").andExpect(status().isOk())
+                .andExpect(jsonPath("$.directSkuId").value(direct.toString()))
+                .andExpect(jsonPath("$.subOrders[0].group.items[0].quantity").value(1)).andReturn());
+        assertStock(direct, 5, 1);
+        assertStock(other, 6, 0);
+        for (int replay = 0; replay < 2; replay++) {
+            outcome(buyer, order, LocalPaymentPort.reference(order), "APPROVED").andExpect(status().isOk())
+                    .andExpect(jsonPath("$.payment.simulated").value(true));
+        }
+        assertStock(direct, 5, 0);
+        assertStock(other, 6, 0);
+        mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.itemCount").value(3));
+    }
+
+    @Test
     void searchesAndFiltersHistoryBeforePaginationAndReordersAtomically() throws Exception {
         var buyer = account(true);
         var outsider = account(true);

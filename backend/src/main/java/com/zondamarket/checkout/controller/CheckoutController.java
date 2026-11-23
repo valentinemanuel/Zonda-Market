@@ -1,6 +1,7 @@
 package com.zondamarket.checkout.controller;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.ConfirmRequest;
+import com.zondamarket.checkout.dto.CheckoutDtos.DirectPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
 import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import jakarta.validation.constraints.Size;
@@ -45,12 +46,23 @@ class CheckoutController {
         this.expiry = expiry;
     }
 
+    @GetMapping("/checkout/items/{skuId}")
+    @Operation(summary = "Consultar la variante seleccionada para una compra directa")
+    ResponseEntity<DirectPreview> directPreview(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID skuId, HttpServletResponse response) {
+        expiry.forSku(skuId, trace(response));
+        return privateResponse(checkout.directPreview(account.id(), skuId));
+    }
+
     @PostMapping("/checkout/quote")
     @Operation(summary = "Cotizar el carrito propio para una dirección de la cuenta")
     ResponseEntity<QuoteResponse> quote(@AuthenticationPrincipal AccountResponse account,
             @Valid @RequestBody QuoteRequest request, HttpServletResponse response) {
-        if (account.emailVerified()) expiry.forCheckout(account.id(), trace(response));
-        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact()));
+        if (account.emailVerified()) {
+            if (request.directSkuId() != null) expiry.forSku(request.directSkuId(), trace(response));
+            expiry.forCheckout(account.id(), trace(response));
+        }
+        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact(), request.directSkuId()));
     }
 
     @PostMapping("/checkout/confirm")

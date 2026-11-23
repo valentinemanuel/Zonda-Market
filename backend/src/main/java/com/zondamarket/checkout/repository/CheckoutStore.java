@@ -35,7 +35,10 @@ public class CheckoutStore {
     private static final TypeReference<Map<String, String>> ATTRIBUTES = new TypeReference<>() {};
     private static final TypeReference<List<OrderPreview>> ORDER_PREVIEWS = new TypeReference<>() {};
     private static final String ORDER_COLUMNS = """
-            SELECT id, status, total, currency, expires_at, request_hash FROM zonda_market.checkout_order
+            SELECT id, status, total, currency, expires_at, request_hash, direct_sku_id FROM zonda_market.checkout_order
+            """;
+    private static final String SELECTED_SKUS = """
+            SELECT item.sku_id FROM zonda_market.cart_item item WHERE item.cart_id = :cart AND NOT item.deleted
             """;
     private final JdbcClient sql;
     private final ObjectMapper json;
@@ -47,7 +50,8 @@ public class CheckoutStore {
 
     public record Quote(UUID id, long cartVersion, Instant expiresAt, Snapshot snapshot) {}
 
-    public record Order(UUID id, String status, BigDecimal total, String currency, Instant expiresAt, String requestHash) {}
+    public record Order(UUID id, String status, BigDecimal total, String currency, Instant expiresAt, String requestHash,
+                        UUID directSkuId) {}
 
     public Optional<AddressResponse> address(UUID buyer, UUID id, boolean lock) {
         return sql.sql("""
@@ -167,48 +171,51 @@ public class CheckoutStore {
                 .param("buyer", buyer).param("key", key).query((rs, row) -> readOrder(rs)).optional();
     }
 
-    public void lockSkus(UUID cart) {
+    public void lockSkus(UUID cart, UUID directSku) {
         sql.sql("""
-                SELECT sku.id FROM zonda_market.cart_item item
-                JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
-                WHERE item.cart_id = :cart AND NOT item.deleted
+                SELECT sku.id FROM zonda_market.listing_sku sku
+                WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                )
                 ORDER BY sku.id FOR UPDATE OF sku
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
     }
 
-    public void lockOfferVisibility(UUID cart) {
+    public void lockOfferVisibility(UUID cart, UUID directSku) {
         sql.sql("""
                 SELECT listing.id FROM zonda_market.listing listing
                 WHERE listing.id IN (
-                    SELECT sku.listing_id FROM zonda_market.cart_item item
-                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
-                    WHERE item.cart_id = :cart AND NOT item.deleted
+                    SELECT sku.listing_id FROM zonda_market.listing_sku sku
+                    WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                    )
                 )
                 ORDER BY listing.id FOR SHARE
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
         sql.sql("""
                 SELECT account.id FROM zonda_market.user_account account
                 WHERE account.id IN (
-                    SELECT seller.account_id FROM zonda_market.cart_item item
-                    JOIN zonda_market.listing_sku sku ON sku.id = item.sku_id
+                    SELECT seller.account_id FROM zonda_market.listing_sku sku
                     JOIN zonda_market.listing listing ON listing.id = sku.listing_id
                     JOIN zonda_market.seller_profile seller ON seller.id = listing.seller_id
-                    WHERE item.cart_id = :cart AND NOT item.deleted
+                    WHERE sku.id = :directSku OR sku.id IN (
+                """ + SELECTED_SKUS + """
+                    )
                 )
                 ORDER BY account.id FOR SHARE
-                """).param("cart", cart).query(UUID.class).list();
+                """).param("cart", cart).param("directSku", directSku).query(UUID.class).list();
     }
 
     public void insertOrder(Order order, UUID buyer, UUID cart, UUID quote, String key, UUID trace, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.checkout_order
                     (id, buyer_id, cart_id, quote_id, status, total, currency, idempotency_key, request_hash,
-                     trace_id, created_at, updated_at, expires_at)
-                VALUES (:id, :buyer, :cart, :quote, :status, :total, :currency, :key, :hash, :trace, :now, :now, :expiry)
+                     trace_id, created_at, updated_at, expires_at, direct_sku_id)
+                VALUES (:id, :buyer, :cart, :quote, :status, :total, :currency, :key, :hash, :trace, :now, :now, :expiry, :directSku)
                 """).param("id", order.id()).param("buyer", buyer).param("cart", cart).param("quote", quote)
                 .param("status", order.status()).param("total", order.total()).param("currency", order.currency())
                 .param("key", key).param("hash", order.requestHash()).param("trace", trace).param("now", utc(now))
-                .param("expiry", utc(order.expiresAt())).update();
+                .param("expiry", utc(order.expiresAt())).param("directSku", order.directSkuId()).update();
     }
 
     public void insertSubOrder(UUID order, SubOrder sub, Instant now) {
@@ -353,7 +360,8 @@ public class CheckoutStore {
 
     private static Order readOrder(ResultSet rs) throws SQLException {
         return new Order(rs.getObject("id", UUID.class), rs.getString("status"), rs.getBigDecimal("total"), rs.getString("currency"),
-                rs.getObject("expires_at", OffsetDateTime.class).toInstant(), rs.getString("request_hash"));
+                rs.getObject("expires_at", OffsetDateTime.class).toInstant(), rs.getString("request_hash"),
+                rs.getObject("direct_sku_id", UUID.class));
     }
 
     private static OffsetDateTime utc(Instant value) {

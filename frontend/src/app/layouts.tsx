@@ -64,11 +64,12 @@ export function SiteLayout() {
   const catalogTerm = catalog ? new URLSearchParams(search).get("q") ?? "" : "";
   const storefront = catalog && !search;
   const listing = pathname.startsWith("/publicaciones/");
+  const checkout = /^\/checkout(?:\/|$)/i.test(pathname);
 
   return <>
     <a href="#contenido"
       className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:p-2">Ir al contenido</a>
-    <header className="store-header relative z-20 text-brand-ink md:sticky md:top-0">
+    <header className={`store-header relative z-20 text-brand-ink ${checkout ? "" : "md:sticky md:top-0"}`}>
       <div className="store-frame grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-2 md:min-h-14 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-6">
         <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-10 min-w-0 items-center gap-1.5 rounded-lg font-extrabold">
           <img src="/brand/zonda-isotipo.svg#color" alt="" width="30" height="30" className="size-7 shrink-0 rounded-lg bg-brand-ink p-0.5 sm:size-8" />

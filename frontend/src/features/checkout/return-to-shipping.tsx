@@ -5,7 +5,7 @@ import { Link, useBlocker } from "react-router-dom";
 import { getSessionRevision } from "@/features/auth/session-api";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activeOrderKey, cancelReservation, orderKey, ordersKey, type Order } from "./checkout-api";
+import { activeOrderKey, cancelReservation, checkoutPath, orderKey, ordersKey, type Order } from "./checkout-api";
 
 export function ReturnToShipping({ order, revision }: { order: Order; revision: number }) {
   const client = useQueryClient();
@@ -55,7 +55,7 @@ export function ReturnToShipping({ order, revision }: { order: Order; revision: 
 
   return <>
     <Button asChild variant="outline" className="min-h-11">
-      <Link ref={trigger} to="/checkout"><ArrowLeft aria-hidden="true" />Volver a Envío</Link>
+      <Link ref={trigger} to={checkoutPath(order.directSkuId)}><ArrowLeft aria-hidden="true" />Volver a Envío</Link>
     </Button>
     <dialog ref={dialog} aria-labelledby="return-shipping-title" aria-describedby="return-shipping-description"
       className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-panel border bg-card p-5 text-foreground shadow-float backdrop:bg-brand-ink/65 sm:p-6"
@@ -63,7 +63,7 @@ export function ReturnToShipping({ order, revision }: { order: Order; revision: 
       <TriangleAlert aria-hidden="true" className="mb-3 size-10 rounded-lg bg-accent p-2 text-primary" />
       <h2 id="return-shipping-title" className="text-xl font-bold">¿Volver a Envío?</h2>
       <p id="return-shipping-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Se cancelará el tiempo de pago y se liberará la reserva. Tus productos seguirán en el carrito.
+        Se cancelará el tiempo de pago y se liberará la reserva. {order.directSkuId ? "Tu carrito se conservará." : "Tus productos seguirán en el carrito."}
         Tendrás que cotizar y reservar de nuevo para pagar.
       </p>
       {mutation.isError && <p role="alert" className="mt-3 rounded-lg bg-destructive-soft p-3 text-sm text-destructive">

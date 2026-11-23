@@ -123,7 +123,7 @@ class MercadoPagoCardGatewayTest {
 
     private static CardPaymentRequest card(String method, String type) {
         return new CardPaymentRequest(UUID.randomUUID(), "token_ficticio_tarjeta", method, type, 1,
-                new CardPaymentRequest.Payer("pagador@example.test", new CardPaymentRequest.Identification("DNI", "12345678")));
+                new CardPaymentRequest.Payer("pagador@example.test", new CardPaymentRequest.Identification("DNI", "12345678")), null);
     }
 
     private static MercadoPagoCardGateway gateway(MPHttpClient http) {

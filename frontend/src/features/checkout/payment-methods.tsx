@@ -11,12 +11,13 @@ import {
   type PaymentAttempt, type PaymentMethod, type PaymentOptions, type VerifiedAttemptOutcome,
 } from "./checkout-api";
 import { TestPaymentAction } from "./test-payment-action";
+import { checkoutSurface } from "./checkout-summary";
 
 const CardPaymentForm = lazy(() => import("./card-payment-form").then(({ CardPaymentForm }) => ({ default: CardPaymentForm })));
 
 const methodLabels: Record<PaymentMethod, string> = {
-  CARD: "Card Payment",
-  CHECKOUT_PRO: "Checkout Pro",
+  CARD: "Pago con tarjeta de crédito o débito",
+  CHECKOUT_PRO: "Saldo de Mercado Pago",
 };
 const statusLabels: Record<PaymentAttempt["status"], string> = {
   CREADO: "Intento creado. Podés continuar el envío.",
@@ -195,7 +196,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
   const showFixture = options.isSuccess && !cardConfig && !options.data.checkoutPro && !attempt && !payment.isPending;
 
   return <>
-    {showCard && <Card className="gap-0 py-4">
+    {showCard && <Card className={checkoutSurface + " gap-0 py-5"}>
       <CardContent className="space-y-3 px-4 sm:px-6">
         <h2 className="flex items-center gap-3 text-lg font-bold">
           <CreditCard aria-hidden="true" className="size-10 rounded-xl bg-accent p-2 text-primary" />Medios de pago
@@ -225,8 +226,8 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
             onClick={() => run({ type: "start", method, key: crypto.randomUUID() })}>
             {method === "CARD" ? <CreditCard aria-hidden="true" /> : <Wallet aria-hidden="true" />}
             {method === "CHECKOUT_PRO" && options.data?.checkoutPro ? "Pagar con saldo de Mercado Pago"
-              : method === "CARD" && cardConfig ? "Pagar con tarjeta"
-              : method === "CHECKOUT_PRO" && cardConfig ? "Elegir Checkout Pro (simulado)" : "Elegir " + methodLabels[method]}
+              : method === "CARD" ? methodLabels[method]
+              : "Elegir saldo de Mercado Pago (simulado)"}
           </Button>)}
         </div>}
         {(attempt?.nextAction === "CONSULTAR" || proAttempt?.status === "PENDIENTE" || options.isError
