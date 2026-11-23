@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("la tienda móvil permite navegar con teclado y respeta el movimiento reducido", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
   await page.goto("/catalogo");
   await expect(page.getByRole("heading", { name: "Catálogo", exact: true })).toBeVisible();
 
@@ -22,10 +23,14 @@ test("la tienda móvil permite navegar con teclado y respeta el movimiento reduc
 
   await page.getByRole("button", { name: "Siguiente destacado" }).press("Enter");
   await expect(page.getByRole("button", { name: "Hogar y decoración", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".store-hero-slide[data-state=entering]")).toHaveCSS("animation-name", "none");
-  await expect(page.getByRole("button", { name: "Pausar destacados" })).toHaveCount(0);
+  await expect(page.locator(".store-hero-slide[data-state=entering] .store-hero-title")).toHaveCSS("animation-name", "none");
+  await page.clock.fastForward(4500);
+  await expect(page.getByRole("button", { name: "Calzado", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  const hero = (await page.getByLabel("Explorá Zonda Market", { exact: true }).boundingBox())!;
+  expect(hero.x).toBe(0);
+  expect(hero.width).toBe(390);
 });
 
 test("la búsqueda de la cabecera conserva el término y recupera un error de catálogo", async ({ page }) => {
@@ -63,29 +68,49 @@ test("categorías cierra al pulsar fuera y los filtros aparecen al elegir una ca
   await expect(page.getByRole("heading", { name: "Filtros", exact: true })).toBeVisible();
 });
 
-test("la portada rota, permite pausar y cambia de dirección al retroceder", async ({ page }, testInfo) => {
+test("la portada ocupa todo el ancho y sigue rotando al usar el puntero y las flechas", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.clock.install();
   await page.goto("/catalogo", { waitUntil: "domcontentloaded" });
   const carousel = page.getByLabel("Explorá Zonda Market", { exact: true });
   const technology = carousel.getByRole("button", { name: "Tecnología", exact: true });
   const home = carousel.getByRole("button", { name: "Hogar y decoración", exact: true });
+  const next = carousel.getByRole("button", { name: "Siguiente destacado" });
+  const previous = carousel.getByRole("button", { name: "Destacado anterior" });
   await expect(technology).toHaveAttribute("aria-pressed", "true");
-  await expect(carousel.getByRole("button", { name: "Pausar destacados" })).toBeVisible();
+  await expect(carousel.getByRole("button", { name: /Pausar|Reproducir/ })).toHaveCount(0);
   await expect(carousel.locator(".store-hero-progress")).toHaveCSS("animation-duration", "4.5s");
-  await expect(home).toHaveAttribute("aria-pressed", "true", { timeout: 6500 });
+  await carousel.hover({ position: { x: 20, y: 20 } });
+  await page.clock.fastForward(4500);
+  await expect(home).toHaveAttribute("aria-pressed", "true");
   const incoming = carousel.locator("[data-direction='1'] [data-state=entering]");
   await expect(incoming.locator(".store-hero-actions")).toHaveCSS("animation-delay", "0.26s");
   await expect(incoming.locator(".store-hero-artwork")).toHaveCSS("animation-duration", "0.65s");
-  await carousel.getByRole("button", { name: "Pausar destacados" }).press("Enter");
-  await expect(carousel.locator(".store-hero-progress")).toHaveCSS("animation-play-state", "paused");
-  await expect(home).toHaveAttribute("aria-pressed", "true");
-  await carousel.getByRole("button", { name: "Destacado anterior" }).press("Enter");
+  await previous.press("Enter");
   await expect(technology).toHaveAttribute("aria-pressed", "true");
   await expect(carousel.locator("[data-direction='-1'] [data-state=entering] .store-hero-title")).toHaveCSS("animation-name", "store-text-in");
   await expect(carousel.getByRole("link", { name: "Ver categoría" })).toHaveCount(1);
+  await carousel.getByRole("link", { name: "Ver categoría" }).focus();
+  await page.clock.fastForward(4500);
+  await expect(home).toHaveAttribute("aria-pressed", "true");
+  await expect(next).toBeFocused();
   const shortcuts = page.getByRole("region", { name: "Accesos a la tienda" });
+  expect((await carousel.boundingBox())!.width).toBe(await page.evaluate(() => document.body.clientWidth));
+  const gutter = await page.addStyleTag({ content: "html { scrollbar-gutter: stable; }" });
   const hero = (await carousel.boundingBox())!;
   const cards = (await shortcuts.boundingBox())!;
+  const content = (await incoming.boundingBox())!;
+  const { availableWidth, overflows } = await page.evaluate(() => ({
+    availableWidth: document.body.clientWidth,
+    overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  }));
+  expect(hero.x).toBe(0);
+  expect(hero.width).toBe(availableWidth);
+  expect(content.width).toBe(1280);
+  expect(content.x).toBeCloseTo((availableWidth - content.width) / 2, 0);
+  expect(overflows).toBe(false);
   expect(hero.y + hero.height - cards.y).toBeGreaterThan(40);
+  await gutter.evaluate((style) => style.remove());
   await page.screenshot({ path: testInfo.outputPath("portada-carrusel-y-accesos.png"), animations: "disabled" });
 });
 

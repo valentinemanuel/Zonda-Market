@@ -224,37 +224,39 @@ export function PublicCatalogPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <>
       {storefront && <StorefrontIntro categories={categories.data ?? []} />}
-      <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
-        <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
-        {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
-        <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
-          <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">
-            <span className="sr-only">Buscar publicaciones</span>
-            <input type="search" name="q" maxLength={160} value={term}
-              onChange={(event) => setDraft({ base: q, value: event.currentTarget.value })}
-              className={profileControl}
-              placeholder="¿Qué estás buscando?" />
-          </label>
-          <Button type="submit" className="min-h-11"><Search />Buscar</Button>
-        </form>
-        <Field label="Ordenar por">
-          <select className={profileControl} value={params.get("sort") ?? "relevance"}
-            onChange={(event) => filter("sort", event.currentTarget.value)}>
-            <option value="relevance">Relevancia</option>
-            <option value="newest">Más recientes</option>
-            <option value="price_asc">Menor precio</option>
-            <option value="price_desc">Mayor precio</option>
-          </select>
-        </Field>
-      </header>
-      <div className={showFilters ? "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]" : "grid gap-6"}>
-        {showFilters && filtersPanel}
-        {resultsPanel}
+      <div className={storefront ? "store-frame mt-6 space-y-6" : "space-y-6"}>
+        <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
+          <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
+          {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
+          <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
+            <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">
+              <span className="sr-only">Buscar publicaciones</span>
+              <input type="search" name="q" maxLength={160} value={term}
+                onChange={(event) => setDraft({ base: q, value: event.currentTarget.value })}
+                className={profileControl}
+                placeholder="¿Qué estás buscando?" />
+            </label>
+            <Button type="submit" className="min-h-11"><Search />Buscar</Button>
+          </form>
+          <Field label="Ordenar por">
+            <select className={profileControl} value={params.get("sort") ?? "relevance"}
+              onChange={(event) => filter("sort", event.currentTarget.value)}>
+              <option value="relevance">Relevancia</option>
+              <option value="newest">Más recientes</option>
+              <option value="price_asc">Menor precio</option>
+              <option value="price_desc">Mayor precio</option>
+            </select>
+          </Field>
+        </header>
+        <div className={showFilters ? "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]" : "grid gap-6"}>
+          {showFilters && filtersPanel}
+          {resultsPanel}
+        </div>
+        {storefront && <StorefrontEnd />}
       </div>
-      {storefront && <StorefrontEnd />}
-    </div>
+    </>
   );
 }
 

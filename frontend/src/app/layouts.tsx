@@ -60,8 +60,9 @@ export function SiteLayout() {
   const { pathname, search } = useLocation();
   // Identity flows manage their own refresh cookie, including the previous session in Google exchange.
   const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
-  const catalogTerm = pathname === "/catalogo" ? new URLSearchParams(search).get("q") ?? "" : "";
-  const storefront = pathname === "/catalogo" && !search;
+  const catalog = /^\/catalogo\/?$/i.test(pathname);
+  const catalogTerm = catalog ? new URLSearchParams(search).get("q") ?? "" : "";
+  const storefront = catalog && !search;
   const listing = pathname.startsWith("/publicaciones/");
 
   return <>
@@ -101,7 +102,7 @@ export function SiteLayout() {
       </div>
       <CategoryNavigation />
     </header>
-    <main id="contenido" tabIndex={-1} className={`store-frame min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : listing ? "pt-2 pb-7" : "py-5 sm:py-8"}`}>
+    <main id="contenido" tabIndex={-1} className={`min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : "store-frame " + (listing ? "pt-2 pb-7" : "py-5 sm:py-8")}`}>
       <Outlet />
     </main>
     <footer className="border-t bg-card">

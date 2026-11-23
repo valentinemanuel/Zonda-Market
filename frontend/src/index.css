@@ -98,7 +98,6 @@
   }
 
   .store-hero {
-    margin-inline: calc(-1 * var(--store-gutter));
     padding-block-end: calc(var(--store-hero-overlap) + 1rem);
     background:
       linear-gradient(to bottom, transparent 80%, var(--color-background) 100%),
@@ -164,10 +163,7 @@
   }
   .store-hero-progress {
     transform-origin: left;
-    animation: store-progress 4500ms linear both;
-  }
-  .store-hero[data-rotating="false"] :is(.store-hero-progress, .store-hero-float) {
-    animation-play-state: paused;
+    animation: store-progress var(--store-slide-duration) linear both;
   }
 
   .store-hero-slide[data-state="leaving"] {
