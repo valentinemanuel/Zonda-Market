@@ -83,6 +83,8 @@ export function orderStatus(status: string) {
     case "PAGO_PENDIENTE": return "Pago pendiente";
     case "EXPIRADA": return "Vencida";
     case "PAGADA": return "Pagada";
+    case "REEMBOLSO_PARCIAL": return "Con devolución parcial";
+    case "REEMBOLSADA": return "Reembolsada";
     case "FALLIDA": return "Pago rechazado";
     default: return status.replaceAll("_", " ").toLowerCase();
   }

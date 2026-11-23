@@ -1,6 +1,10 @@
 package com.zondamarket.checkout.controller;
 
 import com.zondamarket.checkout.dto.DisputeDtos.*;
+import com.zondamarket.checkout.dto.DisputeResolutionDtos.Balance;
+import com.zondamarket.checkout.dto.DisputeResolutionDtos.ResolveRequest;
+import com.zondamarket.checkout.dto.DisputeResolutionDtos.Resolution;
+import com.zondamarket.checkout.service.DisputeResolutionService;
 import com.zondamarket.checkout.service.DisputeService;
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.shared.web.CorrelationIdFilter;
@@ -30,9 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class DisputeController {
     private final DisputeService disputes;
+    private final DisputeResolutionService resolutions;
 
-    DisputeController(DisputeService disputes) {
+    DisputeController(DisputeService disputes, DisputeResolutionService resolutions) {
         this.disputes = disputes;
+        this.resolutions = resolutions;
     }
 
     @PostMapping("/me/sub-orders/{id}/disputes")
@@ -64,6 +70,18 @@ class DisputeController {
     ResponseEntity<Reference> assign(@AuthenticationPrincipal AccountResponse actor, @PathVariable UUID id,
             HttpServletResponse response) {
         return privateResponse(HttpStatus.OK, disputes.assign(actor, id, trace(response)));
+    }
+
+    @GetMapping("/admin/disputes/{id}/resolution-balance")
+    ResponseEntity<Balance> balance(@PathVariable UUID id) {
+        return privateResponse(HttpStatus.OK, resolutions.balance(id));
+    }
+
+    @PostMapping("/admin/disputes/{id}/resolve")
+    ResponseEntity<Resolution> resolve(@AuthenticationPrincipal AccountResponse actor, @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID key, @Valid @RequestBody ResolveRequest request,
+            HttpServletResponse response) {
+        return privateResponse(HttpStatus.OK, resolutions.resolve(id, actor.id(), key, request, trace(response)));
     }
 
     private static UUID trace(HttpServletResponse response) {

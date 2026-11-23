@@ -29,7 +29,7 @@ public class NotificationStore {
         return sql.sql("""
                 SELECT id, order_id, sub_order_id, event_type, created_at FROM zonda_market.checkout_outbox
                 WHERE notification_pending AND event_type IN
-                    ('CHECKOUT_PAID', 'SUB_ORDER_SHIPPED', 'DELIVERY_CONFIRMED', 'DISPUTE_OPENED', 'DISPUTE_ASSIGNED')
+                    ('CHECKOUT_PAID', 'SUB_ORDER_SHIPPED', 'DELIVERY_CONFIRMED', 'DISPUTE_OPENED', 'DISPUTE_ASSIGNED', 'DISPUTE_RESOLVED')
                 ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
                 """).query((row, i) -> new Event(row.getObject("id", UUID.class),
                         row.getObject("order_id", UUID.class), row.getObject("sub_order_id", UUID.class),

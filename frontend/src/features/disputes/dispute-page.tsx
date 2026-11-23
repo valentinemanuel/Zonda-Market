@@ -11,6 +11,7 @@ import { LoadError } from "@/features/admin/admin-page";
 import { assignDispute, disputeActive, disputeDetail, disputeError, disputeKey, disputeMessagePath, disputeQueueKey,
   disputeStatuses, postDisputeMessage, type DisputeDetail } from "./dispute-api";
 import { disputeControl, disputeDate } from "./dispute-ui";
+import { ResolutionDialog, ResolutionSummary } from "./dispute-resolution";
 
 const authors = { BUYER: "Comprador", SELLER: "Vendedor", ADMIN: "Administración" };
 
@@ -29,6 +30,8 @@ function Detail({ id, revision }: { id: string; revision: number }) {
   const query = useQuery({
     queryKey: [...key, page], queryFn: ({ signal }) => disputeDetail(id, page, signal),
     placeholderData: keepPreviousData, retry: false,
+    refetchInterval: ({ state }) => state.data?.status === "REEMBOLSO_PENDIENTE"
+      ? state.data.resolution?.status === "EN_REVISION" ? 15_000 : 3_000 : false,
   });
   const heading = useRef<HTMLHeadingElement>(null);
   const title = query.isSuccess;
@@ -53,6 +56,7 @@ function Conversation({ detail, revision, setPage, loading }: {
   const client = useQueryClient();
   const [body, setBody] = useState("");
   const [notice, setNotice] = useState("");
+  const noticeRef = useRef<HTMLParagraphElement>(null);
   const attempt = useRef<{ text: string; key: string }>(null);
   const messageField = useRef<HTMLTextAreaElement>(null);
   const key = disputeKey(revision, detail.id);
@@ -104,7 +108,13 @@ function Conversation({ detail, revision, setPage, loading }: {
       {detail.viewer === "ADMIN" && detail.status === "ABIERTA" && <Button type="button" className="min-h-12"
         disabled={assign.isPending} onClick={() => assign.mutate()}>{assign.isPending ? "Tomando caso…" : "Tomar para mediación"}</Button>}
       {assign.isError && <p role="alert" className="text-destructive">{disputeError(assign.error, "No pudimos tomar el caso.")}</p>}
+      {detail.viewer === "ADMIN" && detail.status === "EN_MEDIACION" && <ResolutionDialog
+        detail={detail} revision={revision} saved={() => {
+          setNotice("Resolución registrada.");
+          noticeRef.current?.focus();
+        }} />}
     </CardContent></Card>
+    {detail.resolution && <ResolutionSummary resolution={detail.resolution} />}
     <section className="space-y-3" aria-labelledby="dispute-history">
       <h2 id="dispute-history" className="text-xl font-semibold">Historial del reclamo</h2>
       {loading && <p role="status">Cargando historial…</p>}
@@ -123,7 +133,7 @@ function Conversation({ detail, revision, setPage, loading }: {
         <Button variant="outline" disabled={loading || !detail.hasNext} onClick={() => setPage(detail.page + 1)}>Más antiguos</Button>
       </nav>}
     </section>
-    <p role="status" className="text-success empty:sr-only">{notice}</p>
+    <p ref={noticeRef} tabIndex={-1} role="status" className="text-success empty:sr-only">{notice}</p>
     {disputeActive(detail.status) && <form method="post" action={disputeMessagePath(detail.id)}
       aria-labelledby="dispute-message-title" className="space-y-3 rounded-lg border bg-card p-4" onSubmit={send}>
       <h2 id="dispute-message-title" className="text-lg font-semibold">Responder</h2>

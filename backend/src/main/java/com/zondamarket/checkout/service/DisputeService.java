@@ -2,6 +2,7 @@ package com.zondamarket.checkout.service;
 
 import com.zondamarket.checkout.dto.DisputeDtos.*;
 import com.zondamarket.checkout.dto.FulfillmentDtos.ShipmentResponse;
+import com.zondamarket.checkout.repository.DisputeResolutionStore;
 import com.zondamarket.checkout.repository.DisputeStore;
 import com.zondamarket.checkout.repository.DisputeStore.Case;
 import com.zondamarket.checkout.repository.FulfillmentStore;
@@ -20,11 +21,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DisputeService {
     private final DisputeStore store;
+    private final DisputeResolutionStore resolutions;
     private final FulfillmentStore fulfillment;
     private final Clock clock;
 
-    DisputeService(DisputeStore store, FulfillmentStore fulfillment, Clock clock) {
+    DisputeService(DisputeStore store, DisputeResolutionStore resolutions, FulfillmentStore fulfillment, Clock clock) {
         this.store = store;
+        this.resolutions = resolutions;
         this.fulfillment = fulfillment;
         this.clock = clock;
     }
@@ -47,7 +50,7 @@ public class DisputeService {
             throw conflict("SUB_ORDER_VERSION_CONFLICT", "La suborden cambió. Consultá su estado antes de abrir el reclamo.");
         }
         var now = now();
-        if (!("PAGADA".equals(order.status()) || "REEMBOLSO_PARCIAL".equals(order.status())) || !eligible(sub, now)) {
+        if (!DisputeResolutionService.paid(order.status()) || !eligible(sub, now)) {
             throw conflict("DISPUTE_INELIGIBLE", "El estado o el plazo de esta suborden no permite abrir un reclamo.");
         }
         UUID id = UUID.randomUUID();
@@ -63,7 +66,8 @@ public class DisputeService {
         var messages = store.messages(id, page, size);
         return new Detail(id, dispute.orderId(), summary.subOrderId(), summary.status(), summary.reason(),
                 dispute.description(), summary.openedAt(), summary.assignedAt(), dispute.participants(), participant(dispute, actor),
-                messages.subList(0, Math.min(size, messages.size())), page, size, messages.size() > size);
+                messages.subList(0, Math.min(size, messages.size())), page, size, messages.size() > size,
+                dispute.version(), resolutions.latest(id).orElse(null));
     }
 
     @Transactional
