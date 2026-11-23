@@ -80,4 +80,6 @@ test("registra, restaura dos pestañas y cierra la sesión con teclado en móvil
   await expect(page.getByText(email)).toBeVisible();
   await page.getByRole("link", { name: "Mis órdenes" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Aún no realizaste ninguna compra" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ir al catálogo" })).toHaveAttribute("href", "/catalogo");
 });

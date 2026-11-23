@@ -2,6 +2,8 @@ package com.zondamarket.checkout.controller;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.ConfirmRequest;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
+import jakarta.validation.constraints.Size;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteRequest;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
@@ -89,9 +91,11 @@ class CheckoutController {
     @Operation(summary = "Listar las órdenes de la cuenta desde la más reciente")
     ResponseEntity<OrderPage> history(@AuthenticationPrincipal AccountResponse account,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size, HttpServletResponse response) {
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size,
+            @RequestParam(defaultValue = "") @Size(max = 160) String q,
+            @RequestParam(required = false) HistoryFilter filter, HttpServletResponse response) {
         expiry.forBuyer(account.id(), trace(response));
-        return privateResponse(checkout.history(account.id(), page, size));
+        return privateResponse(checkout.history(account.id(), page, size, q.strip(), filter));
     }
 
     private static UUID trace(HttpServletResponse response) {

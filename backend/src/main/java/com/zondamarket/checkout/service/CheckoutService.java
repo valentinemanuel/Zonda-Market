@@ -6,6 +6,7 @@ import com.zondamarket.catalog.repository.CategoryLock;
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
@@ -171,8 +172,8 @@ public class CheckoutService {
     }
 
     @Transactional(readOnly = true)
-    public OrderPage history(UUID buyer, int page, int size) {
-        var orders = store.history(buyer, page, size);
+    public OrderPage history(UUID buyer, int page, int size, String term, HistoryFilter filter) {
+        var orders = store.history(buyer, page, size, term, filter);
         return new OrderPage(orders.subList(0, Math.min(size, orders.size())), page, size, orders.size() > size);
     }
 

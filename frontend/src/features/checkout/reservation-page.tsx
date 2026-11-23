@@ -156,6 +156,7 @@ function Reservation({ order, revision, returned, paymentReview }: { order: Orde
       <p className="break-words">{addressText(address)}</p>
     </section>}
     <CheckoutSummary groups={order.subOrders.map(({ group }) => group)} total={order.total} subOrders={order.subOrders}
+      totalLabel={order.status === "PAGADA" ? "Total pagado" : active ? undefined : "Total original"}
       actions={paymentReview ? undefined : (sub) => <>
         {!disputeActive(sub.dispute?.status) && <DeliveryAction sub={sub} orderId={order.id} revision={revision} />}
         <ReviewAction sub={sub} orderId={order.id} revision={revision} />

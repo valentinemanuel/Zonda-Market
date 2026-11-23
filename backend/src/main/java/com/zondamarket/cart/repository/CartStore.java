@@ -45,6 +45,31 @@ public class CartStore {
 
     public record ReservedLine(UUID orderId, UUID skuId) {}
 
+    public record ReorderLine(UUID skuId, int purchasedQuantity, int cartQuantity) {}
+
+    public List<ReorderLine> reorderLines(UUID buyer, UUID cart, UUID order) {
+        return sql.sql("""
+                SELECT line.sku_id, line.quantity AS purchased_quantity, coalesce(item.quantity, 0) AS cart_quantity
+                FROM zonda_market.checkout_order purchase
+                JOIN zonda_market.checkout_sub_order sub ON sub.order_id = purchase.id
+                JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                LEFT JOIN zonda_market.cart_item item ON item.cart_id = :cart AND item.sku_id = line.sku_id AND NOT item.deleted
+                WHERE purchase.buyer_id = :buyer AND purchase.id = :order
+                    AND purchase.status IN ('PAGADA', 'REEMBOLSO_PARCIAL', 'REEMBOLSADA')
+                ORDER BY line.sku_id
+                """).param("buyer", buyer).param("cart", cart).param("order", order).query(ReorderLine.class).list();
+    }
+
+    public Optional<UUID> reordered(UUID cart, UUID key) {
+        return sql.sql("SELECT order_id FROM zonda_market.cart_reorder WHERE cart_id = :cart AND request_key = :key")
+                .param("cart", cart).param("key", key).query(UUID.class).optional();
+    }
+
+    public void recordReorder(UUID cart, UUID key, UUID order) {
+        sql.sql("INSERT INTO zonda_market.cart_reorder (cart_id, request_key, order_id) VALUES (:cart, :key, :order)")
+                .param("cart", cart).param("key", key).param("order", order).update();
+    }
+
     public List<ReservedLine> reserved(UUID cart) {
         return sql.sql("""
                 SELECT orders.id AS order_id, reservation.sku_id FROM zonda_market.checkout_order orders

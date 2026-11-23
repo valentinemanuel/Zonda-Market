@@ -117,7 +117,8 @@ test("modera una publicación y suspende al vendedor conservando la compra y su 
     })).status()).toBe(401);
 
     await buyerPage.goto("/mis-ordenes");
-    await buyerPage.getByRole("link", { name: "Ver orden " + order.id }).press("Enter");
+    await buyerPage.getByRole("article", { name: "Orden #" + order.id.slice(0, 8) })
+      .getByRole("link", { name: "Ver detalle" }).press("Enter");
     await expect(buyerPage.getByText(alpha.title, { exact: true })).toBeVisible();
     await expect(buyerPage.getByText(beta.title, { exact: true })).toBeVisible();
 
