@@ -8,7 +8,7 @@ import { signInRequired } from "@/features/cart/cart-api";
 import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activeOrderKey, checkoutPath, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
+import { activeOrderKey, checkoutPath, directOrderQuantity, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
 import { addressText, CheckoutHeading, CheckoutSummary, checkoutSurface } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 import { PurchaseReceipt } from "./purchase-receipt";
@@ -149,7 +149,7 @@ function Reservation({ order, revision, returned, paymentReview, heading }: {
       </div>}
       {(expired || cancelled || order.status === "FALLIDA") && <div className="mt-4 space-y-2">
         <p className="text-sm">{order.directSkuId ? "Volvé a Envío para iniciar la compra de nuevo." : "Tus productos siguen en el carrito."}</p>
-        <Button asChild><Link to={checkoutPath(order.directSkuId)}>Volver a Envío</Link></Button>
+        <Button asChild><Link to={checkoutPath(order.directSkuId, directOrderQuantity(order))}>Volver a Envío</Link></Button>
       </div>}
     </section>
     <PaymentMethods order={order} eligible={active && remaining > 0} revision={revision} returned={returned} />

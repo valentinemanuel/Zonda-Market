@@ -49,9 +49,10 @@ class CheckoutController {
     @GetMapping("/checkout/items/{skuId}")
     @Operation(summary = "Consultar la variante seleccionada para una compra directa")
     ResponseEntity<DirectPreview> directPreview(@AuthenticationPrincipal AccountResponse account,
-            @PathVariable UUID skuId, HttpServletResponse response) {
+            @PathVariable UUID skuId, @RequestParam(defaultValue = "1") @Min(1) @Max(99) int quantity,
+            HttpServletResponse response) {
         expiry.forSku(skuId, trace(response));
-        return privateResponse(checkout.directPreview(account.id(), skuId));
+        return privateResponse(checkout.directPreview(account.id(), skuId, quantity));
     }
 
     @PostMapping("/checkout/quote")
@@ -62,7 +63,9 @@ class CheckoutController {
             if (request.directSkuId() != null) expiry.forSku(request.directSkuId(), trace(response));
             expiry.forCheckout(account.id(), trace(response));
         }
-        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact(), request.directSkuId()));
+        int quantity = request.quantity() == null ? 1 : request.quantity().intValueExact();
+        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact(),
+                request.directSkuId(), quantity));
     }
 
     @PostMapping("/checkout/confirm")

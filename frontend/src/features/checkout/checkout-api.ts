@@ -76,7 +76,15 @@ export const ordersKey = (revision: number) => ["private", "orders", revision] a
 export const sellerOrdersKey = (revision: number) => ["private", "seller-orders", revision] as const;
 export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
-export const checkoutPath = (skuId?: string | null) => skuId ? "/checkout?sku=" + encodeURIComponent(skuId) : "/checkout";
+export function checkoutPath(skuId?: string | null, quantity = 1) {
+  if (!skuId) return "/checkout";
+  return "/checkout?sku=" + encodeURIComponent(skuId) + (quantity > 1 ? "&cantidad=" + quantity : "");
+}
+
+export function directOrderQuantity(order: Order) {
+  return order.directSkuId ? order.subOrders.flatMap(({ group }) => group.items)
+    .find(({ skuId }) => skuId === order.directSkuId)?.quantity ?? 1 : 1;
+}
 
 export type OrderHistoryFilter = "PAGADAS" | "PREPARANDO" | "ENTREGADAS";
 
@@ -129,12 +137,13 @@ function post(body: object, key?: string): RequestInit {
   };
 }
 
-export async function fetchDirectPreview(skuId: string, signal: AbortSignal): Promise<DirectPreview> {
-  return (await authenticatedRequest("/api/v1/checkout/items/" + encodeURIComponent(skuId), { signal })).json();
+export async function fetchDirectPreview(skuId: string, quantity: number, signal: AbortSignal): Promise<DirectPreview> {
+  const path = "/api/v1/checkout/items/" + encodeURIComponent(skuId);
+  return (await authenticatedRequest(quantity > 1 ? path + "?quantity=" + quantity : path, { signal })).json();
 }
 
-export async function quoteCheckout(addressId: string, cartVersion: number, directSkuId?: string): Promise<Quote> {
-  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion, directSkuId })));
+export async function quoteCheckout(addressId: string, cartVersion: number, directSkuId?: string, quantity?: number): Promise<Quote> {
+  return timed(await authenticatedRequest("/api/v1/checkout/quote", post({ addressId, cartVersion, directSkuId, quantity })));
 }
 
 export async function confirmCheckout(quoteId: string): Promise<Order> {
