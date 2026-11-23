@@ -60,6 +60,9 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: Verificar demo estática sin API
+        working-directory: frontend
+        run: npm run test:portfolio
       - name: Levantar aplicación
         run: |
           printf 'AUTH_JWT_KEY=%s\n' "$(openssl rand -base64 32)" > .env

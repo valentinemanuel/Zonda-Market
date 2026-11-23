@@ -1,3 +1,11 @@
+type Transport = (path: string, init: RequestInit) => Promise<Response>;
+
+let transport: Transport | undefined;
+
+export function setHttpTransport(next: Transport) {
+  transport = next;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -17,7 +25,7 @@ export async function request(path: string, init: RequestInit = {}, timeoutMs = 
   const timeout = AbortSignal.timeout(timeoutMs);
   const headers = new Headers(init.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json, application/problem+json");
-  const response = await fetch(path, {
+  const response = await (transport ?? fetch)(path, {
     ...init,
     signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
     headers,
