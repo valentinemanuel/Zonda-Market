@@ -49,7 +49,8 @@ test("reutiliza la ficha móvil y muestra los estados de error y vacío", async 
   await page.route("https://images.pexels.com/**", (route) => route.abort());
   await page.goto("/publicaciones/taza");
   await expect(page.getByRole("heading", { level: 1, name: /Taza de cerámica/ })).toBeVisible();
-  await expect(page.getByText("No pudimos cargar esta imagen.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ampliar imagen del producto" })
+    .getByText("No pudimos cargar esta imagen.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Opciones de compra" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.goto("/publicaciones/inexistente");
