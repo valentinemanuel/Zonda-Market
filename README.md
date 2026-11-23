@@ -257,7 +257,7 @@ $env:AUTH_JWT_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 $env:WEB_PORT = "3071"
 $env:API_PORT = "8171"
 $env:MAILPIT_PORT = "8071"
-$env:ZONDA_SMOKE_URL = "http://127.0.0.1:$env:WEB_PORT"
+$env:ZONDA_SMOKE_URL = "http://localhost:$env:WEB_PORT"
 $env:ZONDA_MAILPIT_URL = "http://127.0.0.1:$env:MAILPIT_PORT"
 docker compose up --build --wait
 Set-Location frontend
@@ -267,7 +267,7 @@ npm run test:e2e -- marketplace-regression.spec.ts
 Set-Location ..
 ```
 
-Corré `npm run test:e2e` desde `frontend/` para ejecutar la suite completa. Playwright guarda las capturas y trazas en `frontend/test-results/`. Después de conservar la evidencia, desde la raíz podés retirar el proyecto descartable con `docker compose down --volumes --rmi local` en la misma sesión de PowerShell.
+Corré `npm run test:e2e` desde `frontend/` para ejecutar la suite completa. El origen de `ZONDA_SMOKE_URL` debe coincidir con el de los enlaces de Mailpit para conservar la sesión al verificar el correo. Playwright guarda las capturas y trazas en `frontend/test-results/`. Después de conservar la evidencia, desde la raíz podés retirar el proyecto descartable con `docker compose down --volumes --rmi local` en la misma sesión de PowerShell.
 
 GitHub Actions ejecuta `backend-contract`, `frontend-quality` y `smoke` en los PR hacia `develop` y `main`. El artifact `evidencia-smoke` incluye capturas y trazas de los escenarios fallidos.
 
