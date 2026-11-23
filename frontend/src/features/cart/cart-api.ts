@@ -37,6 +37,14 @@ type Edit = { skuId: string; expectedVersion: number } & (
   { kind: "put"; quantity: number } | { kind: "remove" }
 );
 
+export function findCartItem(cart: Cart, skuId: string) {
+  for (const group of cart.groups) {
+    const item = group.items.find((entry) => entry.skuId === skuId);
+    if (item) return item;
+  }
+  return cart.unavailable.find((item) => item.skuId === skuId);
+}
+
 export function useCart(enabled = true) {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const query = useQuery({

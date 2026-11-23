@@ -1,27 +1,31 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
 import { getJson } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import type { ListingCategory } from "./listing-api";
-import { formattedPrice, listingPublicPath } from "./public-listing-format";
-import type { CatalogCategoryNode } from "./storefront-categories";
+import { formattedPrice } from "./public-listing-format";
+import { isStorefrontQuery, type CatalogCategoryNode } from "./storefront-categories";
 import { StorefrontEnd, StorefrontIntro } from "./storefront-intro";
+import { CatalogProductCard, type CatalogItem } from "./catalog-product-card";
 
 type CategoryOption = ListingCategory & { depth: number };
 type Facet = { key: string; value: string; count: number };
 type CatalogPage = {
-  content: {
-    id: string; slug: string; title: string; categoryId: string; seller: string; sellerName: string;
-    thumbnailUrl: string | null; price: string; available: boolean;
-  }[];
+  content: CatalogItem[];
   page: number; totalPages: number; totalElements: number;
   facets: Facet[];
   sellers: { slug: string; name: string; count: number }[];
 };
+
+const conditions = [
+  { value: "", label: "Todos" },
+  { value: "nuevo", label: "Nuevo" },
+  { value: "usado", label: "Usado" },
+];
 
 function flatten(nodes: CatalogCategoryNode[], depth = 0): CategoryOption[] {
   return nodes.flatMap(({ category, children }) => [{ ...category, depth }, ...flatten(children, depth + 1)]);
@@ -34,10 +38,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function PublicCatalogPage() {
   const [params, setParams] = useSearchParams();
   const filters = params.toString();
-  const storefront = !filters;
+  const storefront = isStorefrontQuery(params);
   const q = params.get("q") ?? "";
-  const [draft, setDraft] = useState<{ base: string; value: string }>();
-  const term = draft?.base === q ? draft.value : q;
+  const condition = params.get("condition") ?? "";
   const categoryId = params.get("category") ?? "";
   const showFilters = Boolean(q.trim() || categoryId);
   const seller = params.get("seller") ?? "";
@@ -60,42 +63,24 @@ export function PublicCatalogPage() {
     placeholderData: keepPreviousData,
   });
 
-  useEffect(() => { setDraft(undefined); }, [q]);
   useEffect(() => { priceForm.current?.reset(); }, [min, max]);
-
-  useEffect(() => {
-    if (term.trim() === q) return;
-    const timeout = window.setTimeout(() => {
-      const next = new URLSearchParams(filters);
-      update(next, "q", term.trim());
-      next.delete("page");
-      setParams(next, { replace: true });
-    }, 350);
-    return () => window.clearTimeout(timeout);
-  }, [term, q, filters, setParams]);
 
   function filter(key: string, value: string) {
     const next = new URLSearchParams(params);
     update(next, key, value);
     if (key === "category") next.delete("attr");
     next.delete("page");
-    setParams(next);
+    setParams(next, { preventScrollReset: key === "condition" || key === "sort" });
   }
 
   function selectAttribute(key: string, value: string) {
     const next = new URLSearchParams(params);
-    update(next, "q", term.trim());
     next.delete("attr");
     next.delete("page");
     if (value) chosen.set(key, value);
     else chosen.delete(key);
     for (const [name, option] of chosen) next.append("attr", name + ":" + option);
     setParams(next);
-  }
-
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (term.trim() !== q) filter("q", term.trim());
   }
 
   function submitPrices(event: FormEvent<HTMLFormElement>) {
@@ -199,23 +184,7 @@ export function PublicCatalogPage() {
             </p>}
             {results.data.totalElements > 0 && results.data.content.length === 0 && <p>Esta página no tiene resultados.</p>}
             <ul className={`grid gap-3 min-[360px]:grid-cols-2 ${storefront ? "md:grid-cols-3 lg:grid-cols-4" : "xl:grid-cols-3"}`}>
-              {results.data.content.map((item) => <li key={item.id}>
-                <Link to={listingPublicPath(item.slug)} state={{ catalogSearch: filters }}
-                  className="store-product group flex h-full flex-col rounded-panel border bg-card p-3 shadow-panel hover:border-primary/50">
-                  <div className="store-photo grid aspect-square place-items-center overflow-hidden rounded-lg bg-muted">
-                    {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
-                      : <Package aria-hidden="true" className="text-muted-foreground" />}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1 pt-2.5 [overflow-wrap:anywhere]">
-                    <p className="text-xs text-muted-foreground">{item.sellerName}</p>
-                    <h3 className="mb-auto line-clamp-2 text-sm font-semibold group-hover:underline">{item.title}</h3>
-                    <p className="mt-2 border-t pt-2 text-lg font-bold tabular-nums">{formattedPrice(item.price)}</p>
-                    <p className={"text-xs font-semibold " + (item.available ? "text-success" : "text-muted-foreground")}>
-                      {item.available ? "Disponible" : "Sin stock"}
-                    </p>
-                  </div>
-                </Link>
-              </li>)}
+              {results.data.content.map((item) => <CatalogProductCard key={item.id} item={item} catalogSearch={filters} />)}
             </ul>
             {(results.data.totalPages > 1 || results.data.page > 0) &&
               <CatalogPagination params={params} page={results.data.page} total={results.data.totalPages} />}
@@ -227,21 +196,18 @@ export function PublicCatalogPage() {
     <>
       {storefront && <StorefrontIntro categories={categories.data ?? []} />}
       <div className={storefront ? "store-frame mt-6 space-y-6" : "space-y-6"}>
-        <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
+        <header id="productos" className="flex scroll-mt-40 flex-wrap items-center gap-x-4 gap-y-3">
           <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
           {!showFilters && max && /^\d+(?:\.\d{1,2})?$/.test(max) &&
             <p className="text-sm font-medium text-muted-foreground">Productos hasta {formattedPrice(max)}</p>}
           {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
-          <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
-            <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">
-              <span className="sr-only">Buscar publicaciones</span>
-              <input type="search" name="q" maxLength={160} value={term}
-                onChange={(event) => setDraft({ base: q, value: event.currentTarget.value })}
-                className={profileControl}
-                placeholder="¿Qué estás buscando?" />
-            </label>
-            <Button type="submit" className="min-h-11"><Search />Buscar</Button>
-          </form>
+          <div role="group" aria-label="Condición del producto" className="flex flex-wrap gap-1.5">
+            {conditions.map(({ value, label }) => <Button key={value} type="button" variant="outline"
+              aria-pressed={condition === value} onClick={() => filter("condition", value)}
+              className="h-10 rounded-full px-3.5 text-sm shadow-none aria-pressed:border-primary/40 aria-pressed:bg-accent aria-pressed:text-primary">
+              {label}
+            </Button>)}
+          </div>
           <Field label="Ordenar por">
             <select className={profileControl} value={params.get("sort") ?? "relevance"}
               onChange={(event) => filter("sort", event.currentTarget.value)}>

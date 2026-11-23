@@ -2,12 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Popover } from "radix-ui";
-import { Form, Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
 import { getJson } from "@/shared/api/http-client";
 import { useCart } from "@/features/cart/cart-api";
 import { NotificationBell } from "@/features/notifications/notification-bell";
-import { categoryCatalogPath, type CatalogCategoryNode } from "@/features/listings/storefront-categories";
+import { categoryCatalogPath, isStorefrontQuery, type CatalogCategoryNode } from "@/features/listings/storefront-categories";
 import { StoreBrand } from "./store-brand";
 import { StoreFooter } from "./store-footer";
 
@@ -58,13 +58,34 @@ function CategoryNavigation() {
   </nav>;
 }
 
+function StoreSearch({ initialTerm }: { initialTerm: string }) {
+  const navigate = useNavigate();
+  const [term, setTerm] = useState(initialTerm);
+  const query = term.trim();
+  return <form role="search" aria-label="Búsqueda de la tienda" action="/catalogo" method="get"
+    onSubmit={(event) => {
+      event.preventDefault();
+      if (query) navigate("/catalogo?" + new URLSearchParams({ q: query }));
+    }}
+    className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 rounded-lg bg-white p-1 shadow-panel md:col-span-1 md:row-auto">
+    <input name="q" type="search" aria-label="Buscar en la tienda" maxLength={160}
+      value={term} onChange={(event) => setTerm(event.currentTarget.value)} placeholder="Buscar productos, marcas y más…"
+      className="min-h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-foreground focus-visible:outline-offset-0" />
+    <button type="submit" aria-label="Ejecutar búsqueda del catálogo" disabled={!query}
+      className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-ink text-white enabled:hover:bg-hero-panel disabled:cursor-not-allowed disabled:opacity-40">
+      <Search aria-hidden="true" className="size-4" />
+    </button>
+  </form>;
+}
+
 export function SiteLayout() {
-  const { pathname, search } = useLocation();
+  const { pathname, search, state, key } = useLocation();
   // Identity flows manage their own refresh cookie, including the previous session in Google exchange.
   const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
   const catalog = /^\/catalogo\/?$/i.test(pathname);
-  const catalogTerm = catalog ? new URLSearchParams(search).get("q") ?? "" : "";
-  const storefront = catalog && !search;
+  const params = new URLSearchParams(search);
+  const catalogTerm = catalog ? params.get("q") ?? "" : "";
+  const storefront = catalog && isStorefrontQuery(params);
   const listing = pathname.startsWith("/publicaciones/");
   const checkout = /^\/checkout(?:\/|$)/i.test(pathname);
 
@@ -74,16 +95,7 @@ export function SiteLayout() {
     <header className={`store-header relative z-20 text-brand-ink ${checkout ? "" : "md:sticky md:top-0"}`}>
       <div className="store-frame grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-2 md:min-h-14 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-6">
         <StoreBrand tone="orange" />
-        <Form role="search" aria-label="Búsqueda de la tienda" action="/catalogo" method="get"
-          className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 rounded-lg bg-white p-1 shadow-panel md:col-span-1 md:row-auto">
-          <input key={catalogTerm} name="q" type="search" aria-label="Buscar en la tienda" maxLength={160}
-            defaultValue={catalogTerm} placeholder="Buscar productos, marcas y más…"
-            className="min-h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-foreground focus-visible:outline-offset-0" />
-          <button type="submit" aria-label="Ejecutar búsqueda del catálogo"
-            className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-ink text-white hover:bg-hero-panel">
-            <Search aria-hidden="true" className="size-4" />
-          </button>
-        </Form>
+        <StoreSearch key={state?.backToHero ? key : pathname + ":" + catalogTerm} initialTerm={catalogTerm} />
         <nav aria-label="Cuenta y compras" className="flex min-w-0 items-center justify-end gap-0.5 text-xs md:gap-1.5">
           <Link to="/vendedor" className="store-header-link hidden rounded-full border border-brand-ink/20 bg-white/20 sm:inline-flex">
             <Store aria-hidden="true" className="size-3.5" /> Vender
@@ -104,7 +116,7 @@ export function SiteLayout() {
       <Outlet />
     </main>
     <StoreFooter />
-    <ScrollRestoration getKey={({ pathname }) => pathname} />
+    <ScrollRestoration getKey={(location) => location.state?.backToHero ? location.key : location.pathname} />
   </>;
 }
 
