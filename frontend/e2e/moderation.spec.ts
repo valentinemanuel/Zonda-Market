@@ -119,8 +119,9 @@ test("modera una publicación y suspende al vendedor conservando la compra y su 
     await buyerPage.goto("/mis-ordenes");
     await buyerPage.getByRole("article", { name: "Orden #" + order.id.slice(0, 8) })
       .getByRole("link", { name: "Ver detalle" }).press("Enter");
-    await expect(buyerPage.getByText(alpha.title, { exact: true })).toBeVisible();
-    await expect(buyerPage.getByText(beta.title, { exact: true })).toBeVisible();
+    const summary = buyerPage.getByRole("complementary", { name: "Resumen de compra" });
+    await expect(summary.getByText(alpha.title, { exact: true })).toBeVisible();
+    await expect(summary.getByText(beta.title, { exact: true })).toBeVisible();
 
     await seller.getByRole("button", { name: "Reactivar cuenta" }).press("Enter");
     await adminPage.getByLabel("Motivo obligatorio").fill("Revisión de cuenta completada");
