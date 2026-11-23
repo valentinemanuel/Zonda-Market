@@ -241,6 +241,36 @@ Para probar E6-05, como `ADMIN` abrí **Moderación → Auditoría**. Pegá el U
 
 Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ExecutiveMetricsContractIT,SellerMetricsContractIT"`. Desde `frontend/`, ejecutá `npm run test:e2e -- admin-operations.spec.ts` en un Compose aislado con perfil `local`. El escenario crea sus cuentas ficticias, aprueba una compra de dos vendedores, confirma una devolución parcial y compara el CSV descargado con la API. Para un proyecto Compose con otro nombre, configurá `COMPOSE_PROJECT_NAME` y `ZONDA_SMOKE_URL`.
 
+### E7-01 · Regresión end-to-end
+
+- En `backend/`, corré `.\mvnw.cmd --batch-mode --no-transfer-progress verify` con Docker iniciado. Los contratos usan PostgreSQL 16 y Flyway con datos ficticios.
+- En `frontend/`, corré `npm ci`, `npm run lint`, `npm run typecheck`, `npm test` y `npm run build`. La prueba de componentes verifica la validación del reclamo, la recuperación de un error y la invalidación de caché de la orden activa.
+- El recorrido de Playwright verifica una compra local de dos vendedores con pago reaplicado, despacho y recepción de una suborden y devolución parcial conciliada. Revisa permisos, saldos de inventario y asientos del reembolso.
+
+Para correr Playwright en PowerShell, desde la raíz y con los puertos de prueba libres:
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = "zonda-e701"
+$env:COMPOSE_ENV_FILES = ".env.example"
+$env:POSTGRES_PASSWORD = "regresion-local-e701"
+$env:AUTH_JWT_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+$env:WEB_PORT = "3071"
+$env:API_PORT = "8171"
+$env:MAILPIT_PORT = "8071"
+$env:ZONDA_SMOKE_URL = "http://127.0.0.1:$env:WEB_PORT"
+$env:ZONDA_MAILPIT_URL = "http://127.0.0.1:$env:MAILPIT_PORT"
+docker compose up --build --wait
+Set-Location frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e -- marketplace-regression.spec.ts
+Set-Location ..
+```
+
+Corré `npm run test:e2e` desde `frontend/` para ejecutar la suite completa. Playwright guarda las capturas y trazas en `frontend/test-results/`. Después de conservar la evidencia, desde la raíz podés retirar el proyecto descartable con `docker compose down --volumes --rmi local` en la misma sesión de PowerShell.
+
+GitHub Actions ejecuta `backend-contract`, `frontend-quality` y `smoke` en los PR hacia `develop` y `main`. El artifact `evidencia-smoke` incluye capturas y trazas de los escenarios fallidos.
+
 Para repetir E2-02, ejecutá `npm run test:e2e -- publication` desde `frontend/` con Compose, Mailpit y el proveedor local. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingPublicationIT"` en PowerShell. La prueba `CloudinaryListingMediaTest` verifica el cliente HTTP con respuestas de prueba.
 
 Para repetir E2-01, ejecutá `npm run test:e2e -- listings` desde `frontend/` con Compose y Mailpit arriba. Desde `backend/`, ejecutá `.\mvnw.cmd verify "-Dit.test=ListingContractIT"` en PowerShell. Para probar el flujo manualmente, activá un perfil de vendedor con correo verificado y abrí **Panel vendedor → Mis publicaciones → Crear publicación**. Elegí **Indumentaria**, guardá el borrador y agregá dos combinaciones de **Color** y **Talle** con códigos distintos. Reabrí la publicación y editá una variante. Intentá repetir una combinación para comprobar el error y cambiarla sin perder el resto de los datos.

@@ -4,7 +4,7 @@ import type { Order } from "../src/features/checkout/checkout-api";
 import { credentials, publish, verifyByMail } from "./cart-fixtures";
 import { productPhoto } from "./product-photo";
 
-export async function purchaseFixture(page: Page, request: APIRequestContext, origin: string, label = "envio",
+export async function purchaseCartFixture(page: Page, request: APIRequestContext, origin: string, label: string,
   verify = verifyByMail) {
   await page.goto("/registro");
   const photo = await productPhoto(page, "#2563eb");
@@ -25,8 +25,14 @@ export async function purchaseFixture(page: Page, request: APIRequestContext, or
       headers, data: { quantity: 1, expectedVersion },
     })).status()).toBe(200);
   }
+  return { alpha, beta, buyer, headers, addressId: (await address.json()).id as string };
+}
+
+export async function purchaseFixture(page: Page, request: APIRequestContext, origin: string, label = "envio",
+  verify = verifyByMail) {
+  const { alpha, beta, buyer, headers, addressId } = await purchaseCartFixture(page, request, origin, label, verify);
   const quote = await request.post("/api/v1/checkout/quote", {
-    headers, data: { addressId: (await address.json()).id, cartVersion: 2 },
+    headers, data: { addressId, cartVersion: 2 },
   });
   expect(quote.status()).toBe(200);
   const { id: quoteId } = await quote.json();

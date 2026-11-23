@@ -73,6 +73,8 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
         var dispute = mediate(buyer, admin, order.subs().getFirst());
         var key = UUID.randomUUID();
 
+        ship(seller, order.subs().getFirst()).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUB_ORDER_DISPUTED"));
         mvc.perform(auth(get(ADMIN + dispute + "/resolution-balance"), admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value("60.00")).andExpect(jsonPath("$.paymentAvailable").value("100.00"));
         resolve(seller, dispute, key, "REEMBOLSO", "25.00", 1).andExpect(status().isForbidden());
@@ -85,6 +87,8 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
                 .andExpect(jsonPath("$.status").value("PENDIENTE")).andReturn());
         assertTrue(worker.processNext());
         detail(buyer, dispute, "REEMBOLSO_PENDIENTE", "PENDIENTE");
+        ship(seller, order.subs().getFirst()).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUB_ORDER_DISPUTED"));
         mvc.perform(auth(get(ADMIN + dispute + "/resolution-balance"), admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentAvailable").value("75.00"));
         assertEquals(0, countAdjustment(refund));
@@ -104,9 +108,8 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
         mvc.perform(auth(get(ORDERS + order.id()), buyer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REEMBOLSO_PARCIAL"))
                 .andExpect(jsonPath("$.subOrders[0].status").value("PREPARANDO"));
-        mvc.perform(auth(post("/api/v1/seller/sub-orders/" + order.subs().getLast() + "/ship"), otherSeller).content("""
-                {"carrier":"ANDREANI","trackingCode":"E604-OTRA","expectedVersion":0}
-                """)).andExpect(status().isOk());
+        ship(seller, order.subs().getFirst()).andExpect(status().isOk());
+        ship(otherSeller, order.subs().getLast()).andExpect(status().isOk());
         mvc.perform(auth(get("/api/v1/seller/metrics"), seller)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.refunds").value("25.00")).andExpect(jsonPath("$.net").value("32.50"));
     }
@@ -239,6 +242,12 @@ class DisputeResolutionContractIT extends CheckoutContractFixtures {
     private int countAdjustment(UUID id) {
         return sql.sql("SELECT count(*) FROM zonda_market.checkout_sub_order_refund WHERE refund_id = :id")
                 .param("id", id).query(Integer.class).single();
+    }
+
+    private ResultActions ship(Account seller, UUID sub) throws Exception {
+        return mvc.perform(auth(post("/api/v1/seller/sub-orders/" + sub + "/ship"), seller).content("""
+                {"carrier":"ANDREANI","trackingCode":"E604-PRUEBA","expectedVersion":0}
+                """));
     }
 
     private Account admin() throws Exception {
