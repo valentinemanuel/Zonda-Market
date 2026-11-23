@@ -18,7 +18,7 @@ export function CategoryPage() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-5">
-      <Link to="/estado" className="inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline">
+      <Link to="/estado" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline">
         <ArrowLeft size={16} aria-hidden="true" />
         Volver al estado del sistema
       </Link>
@@ -66,7 +66,7 @@ export function CategoryPage() {
             </CardHeader>
             {category.parentId && (
               <CardContent className="border-t px-6 py-3 sm:px-8">
-                <Link to={`/categorias/${category.parentId}`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline">
+                <Link to={`/categorias/${category.parentId}`} className="inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline">
                   Ver categoría superior <ArrowUpRight size={16} aria-hidden="true" />
                 </Link>
               </CardContent>

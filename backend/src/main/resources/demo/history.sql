@@ -1,7 +1,9 @@
-INSERT INTO zonda_market.account_address (id, account_id, street, city, province_code, postal_code, country, created_at, updated_at, deleted)
+INSERT INTO zonda_market.account_address (id, account_id, street, city, province_code, postal_code, country,
+                                         created_at, updated_at, deleted, recipient, phone, delivery_details, is_default)
 SELECT pg_temp.demo_id('address:comprador'), pg_temp.demo_id('account:comprador'),
        'Calle Demostración 450', 'La Plata', 'AR-B', '1900', 'AR',
-       seeded_at - interval '40 days', seeded_at - interval '40 days', FALSE
+       seeded_at - interval '40 days', seeded_at - interval '40 days', FALSE,
+       'Lucía Demostración', '+54 221 555 0100', 'Piso 2, departamento B', TRUE
 FROM demo_context;
 
 INSERT INTO zonda_market.cart (id, account_id, version, created_at, updated_at)
@@ -47,7 +49,8 @@ GROUP BY name, order_id, quote_id, trace_id, order_status, created_at;
 
 CREATE TEMP TABLE demo_address ON COMMIT DROP AS
 SELECT id, jsonb_build_object('id', id, 'street', street, 'city', city, 'provinceCode', province_code,
-                              'postalCode', postal_code, 'country', country) AS snapshot
+                              'postalCode', postal_code, 'country', country, 'recipient', recipient,
+                              'phone', phone, 'deliveryDetails', delivery_details) AS snapshot
 FROM zonda_market.account_address WHERE id = pg_temp.demo_id('address:comprador');
 
 INSERT INTO zonda_market.checkout_quote (id, cart_id, cart_version, address_id, snapshot, created_at, expires_at)

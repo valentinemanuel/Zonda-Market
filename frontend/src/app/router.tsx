@@ -1,10 +1,16 @@
-import { createBrowserRouter, Link, Navigate } from "react-router-dom";
+import { createBrowserRouter, Link, Navigate, useLocation } from "react-router-dom";
 import { CategoryPage } from "@/features/categories/category-page";
 import { StatusPage } from "@/features/status/status-page";
 import { AccountPage } from "@/features/auth/account-page";
+import { AccountLayout } from "@/features/auth/account-layout";
 import { googleReturnLoader } from "@/features/auth/google-auth";
 import { GoogleReturnPage } from "@/features/auth/google-return-page";
 import { AuthLayout, PrivateLayout, SiteLayout } from "./layouts";
+
+function LegacyOrdersRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: "/cuenta/ordenes", search, hash }} replace />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -26,7 +32,7 @@ export const router = createBrowserRouter([
       { path: "checkout", lazy: async () => ({ Component: (await import("@/features/checkout/checkout-page")).CheckoutPage }) },
       { path: "checkout/reserva/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).ReservationPage }) },
       { path: "checkout/resultado/:id", lazy: async () => ({ Component: (await import("@/features/checkout/reservation-page")).CheckoutResultPage }) },
-      { path: "mis-ordenes", lazy: async () => ({ Component: (await import("@/features/checkout/orders-page")).OrdersPage }) },
+      { path: "mis-ordenes", element: <LegacyOrdersRedirect /> },
       { path: "reclamos/:id", lazy: async () => ({ Component: (await import("@/features/disputes/dispute-page")).DisputePage }) },
       { path: "notificaciones", lazy: async () => ({ Component: (await import("@/features/notifications/notifications-page")).NotificationsPage }) },
       { path: "vendedor", lazy: async () => ({ Component: (await import("@/features/auth/seller-pages")).SellerPanelPage }) },
@@ -39,7 +45,11 @@ export const router = createBrowserRouter([
       { path: "vendedor/publicaciones/:listingId", lazy: async () => ({ Component: (await import("@/features/listings/listing-pages")).ListingEditorPage }) },
       { path: "publicaciones/:slug", lazy: async () => ({ Component: (await import("@/features/listings/listing-detail")).PublicListingPage }) },
       { path: "categorias/:id", element: <CategoryPage /> },
-      { path: "cuenta", element: <AccountPage /> },
+      { path: "cuenta", element: <AccountLayout />, children: [
+        { index: true, element: <AccountPage /> },
+        { path: "direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
+        { path: "ordenes", lazy: async () => ({ Component: (await import("@/features/checkout/orders-page")).OrdersPage }) },
+      ] },
       { path: "admin", element: <Navigate to="/admin/publicaciones" replace /> },
       { path: "admin/publicaciones", lazy: async () => {
         const { ModerationPage } = await import("@/features/admin/moderation-page");
@@ -64,7 +74,6 @@ export const router = createBrowserRouter([
       { path: "admin/operacion", lazy: async () => ({
         Component: (await import("@/features/admin/operations-page")).OperationsPage,
       }) },
-      { path: "cuenta/direcciones", lazy: async () => ({ Component: (await import("@/features/auth/addresses-page")).AddressesPage }) },
       {
         element: <PrivateLayout />,
         hydrateFallbackElement: <p role="status">Cargando…</p>,

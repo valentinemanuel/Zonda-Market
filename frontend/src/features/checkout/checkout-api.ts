@@ -1,5 +1,5 @@
 import { authenticatedRequest } from "@/features/auth/session-api";
-import type { Address } from "@/features/auth/profile-api";
+import type { DeliveryAddress } from "@/features/auth/profile-api";
 import { ApiError } from "@/shared/api/http-client";
 
 type Timed = { expiresAt: string; serverNow: string };
@@ -15,7 +15,7 @@ export type Group = {
 };
 
 export type Quote = Received<Timed & {
-  id: string; cartVersion: number; address: Address; groups: Group[]; total: string;
+  id: string; cartVersion: number; address: DeliveryAddress; groups: Group[]; total: string;
   thumbnails?: Record<string, string>;
 }>;
 
@@ -40,7 +40,7 @@ export type ShipmentResponse = {
   id: string; status: string; version: number;
   shipment: { carrier: Carrier; trackingCode: string; trackingUrl: string; shippedAt: string; deliveredAt: string | null } | null;
 };
-export type SubOrder = ShipmentResponse & { address: Address; group: Group; reviewed: boolean | null;
+export type SubOrder = ShipmentResponse & { address: DeliveryAddress; group: Group; reviewed: boolean | null;
   dispute: import("@/features/disputes/dispute-api").Reference | null };
 export type SellerOrderStatus = "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | "REEMBOLSADA";
 type SellerOrderPage = { content: SubOrder[]; page: number; size: number; hasNext: boolean };

@@ -7,8 +7,12 @@ export type AddressFields = {
   provinceCode: string;
   postalCode: string;
   country: "AR";
+  recipient: string | null;
+  phone: string | null;
+  deliveryDetails: string | null;
 };
-export type Address = AddressFields & { id: string };
+export type DeliveryAddress = AddressFields & { id: string };
+export type Address = DeliveryAddress & { defaultAddress: boolean };
 export type SellerType = "PERSONAL" | "COMERCIO";
 export type SellerFields = { type: SellerType; displayName: string; slug: string; bio: string };
 export type Seller = SellerFields & { reviewCount: number; averageRating: number | null };
@@ -25,9 +29,13 @@ export async function getAddresses(signal: AbortSignal): Promise<Address[]> {
   return (await authenticatedRequest("/api/v1/me/addresses", { signal })).json();
 }
 
-export async function saveAddress(address: AddressFields, id?: string): Promise<Address> {
+export async function saveAddress(address: AddressFields & { defaultAddress: boolean }, id?: string): Promise<Address> {
   const path = id ? `/api/v1/me/addresses/${id}` : "/api/v1/me/addresses";
   return (await authenticatedRequest(path, json(id ? "PATCH" : "POST", address))).json();
+}
+
+export async function setDefaultAddress(id: string): Promise<Address> {
+  return (await authenticatedRequest(`/api/v1/me/addresses/${id}`, json("PATCH", { defaultAddress: true }))).json();
 }
 
 export async function removeAddress(id: string) {

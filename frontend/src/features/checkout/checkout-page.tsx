@@ -108,7 +108,7 @@ function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct }
   const addressInput = useId();
   const [chosen, setChosen] = useState<string>();
   const [quote, setQuote] = useState<Quote>();
-  const address = addresses.find((item) => item.id === chosen) ?? addresses[0];
+  const address = addresses.find((item) => item.id === chosen) ?? addresses.find((item) => item.defaultAddress) ?? addresses[0];
 
   const requestQuote = useMutation({
     mutationFn: () => quoteCheckout(address.id, cart.version, directSkuId),

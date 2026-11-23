@@ -26,7 +26,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
     reviewed: false,
     dispute: null,
     address: { id: randomUUID(), street: "Calle Ficticia 123", city: "La Plata", provinceCode: "AR-B",
-      postalCode: "1900", country: "AR" },
+      postalCode: "1900", country: "AR", recipient: null, phone: null, deliveryDetails: null },
     group: { sellerId: randomUUID(), sellerName: "Tienda " + seller, merchandise: "9.50", shipping: "0.00",
       subtotal: "9.50", items: [{ skuId: randomUUID(), title: "Producto " + seller, quantity: 1, attributes: {},
         subtotal: "9.50" }] },
@@ -104,7 +104,7 @@ test("vuelve de Checkout Pro y acredita solo después de consultar el pago", asy
   await expect(page.getByText("Pago aprobado.", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer")).toHaveCount(0);
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
-  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/mis-ordenes");
+  await expect(page.getByRole("link", { name: "Ver en Mis órdenes" })).toHaveAttribute("href", "/cuenta/ordenes");
   expect(consultations).toBe(3);
   await page.screenshot({ path: testInfo.outputPath("saldo-aprobado-movil.png"), fullPage: true });
 });

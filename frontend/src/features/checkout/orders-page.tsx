@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronRight, Package, RotateCcw, Search, ShoppingBag, Truck } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronRight, Package, RotateCcw, Search, ShoppingBag, Truck } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { profileControl, profileLink } from "@/features/auth/profile-fields";
+import { profileControl } from "@/features/auth/profile-fields";
+import { AccountView } from "@/features/auth/account-layout";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
 import { reorderError, signInRequired, useCartReorder } from "@/features/cart/cart-api";
 import { formattedPrice } from "@/features/listings/public-listing-format";
@@ -59,17 +60,7 @@ function OrderHistory({ revision }: { revision: number }) {
     reorder.mutate({ orderId, key }, { onSuccess: () => retryKeys.current.delete(orderId) });
   }
 
-  return <div className="mx-auto max-w-5xl space-y-5">
-    <Link className={profileLink + " gap-2 text-sm"} to="/cuenta"><ArrowLeft aria-hidden="true" className="size-4" />Volver a Mi cuenta</Link>
-    <header className="workspace-heading flex items-center gap-4 p-4 sm:p-7">
-      <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10 text-brand-gold sm:size-14">
-        <ShoppingBag aria-hidden="true" className="size-6" />
-      </span>
-      <div>
-        <h1 className="font-wordmark text-3xl font-extrabold tracking-tight sm:text-4xl">Mis órdenes</h1>
-        <p className="mt-1 text-sm text-hero-muted">Buscá compras y seguí tus envíos.</p>
-      </div>
-    </header>
+  return <AccountView title="Mis órdenes" description="Buscá compras y seguí tus envíos.">
     {!signIn && <OrderFilters term={term} filter={filter} update={update} />}
     {(term || filter) && <p role="status" className="sr-only">
       {orders.data && (orders.data.content.length === 1 ? "1 orden en esta página."
@@ -103,7 +94,7 @@ function OrderHistory({ revision }: { revision: number }) {
             <Button variant="outline" className="min-h-11" disabled={!orders.data.hasNext} onClick={() => update(term, filter, page + 1)}>Siguiente</Button>
           </nav>}
         </>}
-  </div>;
+  </AccountView>;
 }
 
 function OrderFilters({ term, filter, update }: {

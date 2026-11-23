@@ -61,7 +61,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
           ? "/reclamos/" + state.returnToDispute
         : state?.returnToNotifications === true ? "/notificaciones"
         : state?.returnToSellerSales === true ? "/vendedor/ventas"
-        : state?.returnToOrders === true ? "/mis-ordenes"
+        : state?.returnToOrders === true ? "/cuenta/ordenes"
         : state?.returnToCheckout === true ? (checkoutSku ? "/checkout?sku=" + encodeURIComponent(checkoutSku) : "/checkout")
         : state?.returnToCart === true ? "/carrito"
         : createAccount ? "/cuenta" : "/catalogo";

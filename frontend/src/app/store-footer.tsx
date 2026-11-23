@@ -13,7 +13,7 @@ const benefits = [
 const sections = [
   { title: "Comprá", links: [
     ["Explorar catálogo", "/catalogo"], ["Ofertas", "/catalogo?max=20000&sort=price_asc"],
-    ["Categorías populares", "/catalogo#categorias-populares"], ["Mis órdenes", "/mis-ordenes"],
+    ["Categorías populares", "/catalogo#categorias-populares"], ["Mis órdenes", "/cuenta/ordenes"],
   ] },
   { title: "Vendé", links: [
     ["Empezar a vender", "/cuenta"], ["Publicar producto", "/vendedor/publicaciones/nueva"],

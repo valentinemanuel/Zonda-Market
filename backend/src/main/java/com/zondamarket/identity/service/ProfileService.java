@@ -54,22 +54,54 @@ public class ProfileService {
 
     @Transactional
     public AddressResponse addAddress(UUID accountId, AddressRequest address) {
-        return AddressResponse.from(addresses.save(new AccountAddress(accountId, address.street(),
-                address.city(), address.provinceCode(), address.postalCode())));
+        lockAccount(accountId);
+        var saved = new AccountAddress(accountId, address.street(), address.city(), address.provinceCode(),
+                address.postalCode());
+        saved.updateDelivery(address.recipient(), address.phone(), address.deliveryDetails());
+        var active = activeAddresses(accountId);
+        if (active.isEmpty() || Boolean.TRUE.equals(address.defaultAddress())) {
+            makeDefault(active, saved);
+        }
+        return AddressResponse.from(addresses.save(saved));
     }
 
     @Transactional
     public AddressResponse updateAddress(UUID accountId, UUID id, AddressPatch update) {
+        lockAccount(accountId);
         AccountAddress address = lockAddress(accountId, id);
         address.update(orCurrent(update.street(), address.getStreet()), orCurrent(update.city(), address.getCity()),
                 orCurrent(update.provinceCode(), address.getProvinceCode()),
                 orCurrent(update.postalCode(), address.getPostalCode()));
+        address.updateDelivery(orCurrent(update.recipient(), address.getRecipient()),
+                orCurrent(update.phone(), address.getPhone()),
+                orCurrent(update.deliveryDetails(), address.getDeliveryDetails()));
+        if (Boolean.TRUE.equals(update.defaultAddress()) && !address.isDefaultAddress()) {
+            makeDefault(activeAddresses(accountId), address);
+        }
         return AddressResponse.from(address);
     }
 
     @Transactional
     public void removeAddress(UUID accountId, UUID id) {
-        lockAddress(accountId, id).archive();
+        lockAccount(accountId);
+        var address = lockAddress(accountId, id);
+        address.archive();
+        if (address.isDefaultAddress()) {
+            addresses.flush();
+            activeAddresses(accountId).stream().findFirst().ifPresent(next -> next.setDefaultAddress(true));
+        }
+    }
+
+    private List<AccountAddress> activeAddresses(UUID accountId) {
+        return addresses.findByAccountIdAndDeletedFalseOrderByCreatedAtAscIdAsc(accountId);
+    }
+
+    private void makeDefault(List<AccountAddress> active, AccountAddress next) {
+        active.stream().filter(AccountAddress::isDefaultAddress).findFirst().ifPresent(current -> {
+            current.setDefaultAddress(false);
+            addresses.flush();
+        });
+        next.setDefaultAddress(true);
     }
 
     @Transactional
