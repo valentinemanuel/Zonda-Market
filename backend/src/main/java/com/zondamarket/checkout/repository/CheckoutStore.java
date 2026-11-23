@@ -175,8 +175,13 @@ public class CheckoutStore {
     public void insertLine(UUID subOrder, Line line, Instant now) {
         sql.sql("""
                 INSERT INTO zonda_market.checkout_order_line
-                    (id, sub_order_id, sku_id, sku_code, title, attributes, quantity, unit_price, commission_bps, commission, created_at)
-                VALUES (:id, :sub, :sku, :code, :title, CAST(:attributes AS jsonb), :quantity, :price, :bps, :commission, :now)
+                    (id, sub_order_id, sku_id, sku_code, title, attributes, quantity, unit_price, commission_bps,
+                     commission, created_at, category_id)
+                SELECT :id, :sub, sku.id, :code, :title, CAST(:attributes AS jsonb), :quantity, :price, :bps,
+                       :commission, :now, listing.category_id
+                FROM zonda_market.listing_sku sku
+                JOIN zonda_market.listing listing ON listing.id = sku.listing_id
+                WHERE sku.id = :sku
                 """).param("id", UUID.randomUUID()).param("sub", subOrder).param("sku", line.skuId())
                 .param("code", line.skuCode()).param("title", line.title()).param("attributes", json.writeValueAsString(line.attributes()))
                 .param("quantity", line.quantity()).param("price", new BigDecimal(line.unitPrice()))

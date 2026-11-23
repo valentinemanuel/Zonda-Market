@@ -83,6 +83,8 @@ Smoke de etapa: aprobar una compra de dos vendedores con un pago de prueba. Desp
 | E6-05 | Consultar auditoría y recuperar incidencias | E6-01, E6-04 |
 | E6-06 | Medir operación global y exportar resultados | E5-04, E6-04, E6-05 |
 
+Smoke de etapa: moderar una publicación y una cuenta de prueba, revisar el árbol y la comisión de una categoría, y tramitar un reclamo privado de una compra de dos vendedores hasta confirmar una devolución parcial. Correlacionar la decisión y la devolución en Auditoría, recuperar una incidencia ficticia y verificar que Operación global y el CSV concilien el movimiento con una sola orden y rechacen el acceso de un usuario común.
+
 ## Etapa 7 · Regresión, CI/CD y demo · v1.0
 
 | ID | Entrega | Depende de |
