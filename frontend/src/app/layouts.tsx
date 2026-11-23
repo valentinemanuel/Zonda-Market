@@ -1,61 +1,126 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
+import { useRef } from "react";
+import { Form, Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
+import { getJson } from "@/shared/api/http-client";
 import { useCart } from "@/features/cart/cart-api";
 import { NotificationBell } from "@/features/notifications/notification-bell";
+import { categoryCatalogPath, type CatalogCategoryNode } from "@/features/listings/storefront-categories";
 
 function CartLink({ enabled }: { enabled: boolean }) {
   const { query } = useCart(enabled);
   const count = query.isSuccess ? query.data.itemCount : 0;
   return <Link to="/carrito" aria-label={count > 0 ? `Carrito, ${count} ${count === 1 ? "unidad" : "unidades"}` : "Carrito"}
-    className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-lg px-1 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
-    Carrito
-    {count > 0 && <span aria-hidden="true" className="rounded-full bg-brand-ink px-1.5 text-xs text-white tabular-nums">
+    className="store-header-link relative min-w-10">
+    <ShoppingCart aria-hidden="true" className="size-5" />
+    {count > 0 && <span aria-hidden="true" className="absolute top-0.5 right-0 rounded-full bg-brand-ink px-1 text-[0.625rem] leading-4 text-white tabular-nums">
       {count > 99 ? "99+" : count}
     </span>}
   </Link>;
 }
 
+function CategoryNavigation() {
+  const dropdown = useRef<HTMLDetailsElement>(null);
+  const { pathname, search } = useLocation();
+  const selected = pathname === "/catalogo" ? new URLSearchParams(search).get("category") : null;
+  const categories = useQuery({
+    queryKey: ["catalog-categories"],
+    queryFn: ({ signal }) => getJson("/api/v1/categories", signal) as Promise<CatalogCategoryNode[]>,
+    staleTime: 30_000, retry: false,
+  });
+  const roots = categories.data?.map(({ category }) => category) ?? [];
+  return <nav aria-label="Secciones de la tienda" className="store-frame flex min-h-9 flex-wrap items-center gap-x-4 border-t border-brand-ink/15 text-xs font-semibold lg:gap-x-6">
+    <NavLink end to="/cuenta/direcciones" className="inline-flex min-h-9 items-center gap-1.5 rounded hover:underline aria-[current=page]:underline">
+      <MapPin aria-hidden="true" className="size-3.5" /> Direcciones
+    </NavLink>
+    <details ref={dropdown} className="relative" onKeyDown={(event) => {
+      if (event.key !== "Escape" || !event.currentTarget.open) return;
+      event.currentTarget.open = false;
+      event.currentTarget.querySelector("summary")?.focus();
+    }}>
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 rounded [&::-webkit-details-marker]:hidden">
+        Categorías <ChevronDown aria-hidden="true" className="size-3.5" />
+      </summary>
+      <div className="absolute top-full start-0 z-30 w-52 rounded-panel border bg-card p-1.5 text-sm text-foreground shadow-float">
+        <Link to="/catalogo" className="block rounded-lg px-3 py-2 hover:bg-accent"
+          onClick={() => { if (dropdown.current) dropdown.current.open = false; }}>Todas las categorías</Link>
+        {roots.map(({ id, name }) => <Link key={id} to={categoryCatalogPath(id)} aria-current={selected === id ? "page" : undefined}
+          className="block rounded-lg px-3 py-2 hover:bg-accent aria-[current=page]:font-bold aria-[current=page]:underline"
+          onClick={() => { if (dropdown.current) dropdown.current.open = false; }}>{name}</Link>)}
+      </div>
+    </details>
+    {roots.slice(0, 6).map(({ id, name }) => <Link key={id} to={categoryCatalogPath(id)} aria-current={selected === id ? "page" : undefined}
+      className="hidden min-h-9 items-center rounded hover:underline aria-[current=page]:underline md:inline-flex">{name}</Link>)}
+    <NavLink end to="/mis-ordenes" aria-label="Historial de compras" className="ml-auto inline-flex min-h-7 items-center rounded-full bg-brand-ink px-2.5 text-brand-gold hover:bg-hero-panel aria-[current=page]:underline">
+      Mis órdenes
+    </NavLink>
+  </nav>;
+}
+
 export function SiteLayout() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Identity flows manage their own refresh cookie, including the previous session in Google exchange.
   const identityFlow = /^\/(ingresar|registro|oauth\/retorno|recuperar-acceso|restablecer-clave|verificar-correo)\/?$/i.test(pathname);
-  return (
-    <>
-      <a
-        href="#contenido"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-10 focus:bg-white focus:p-2"
-      >
-        Ir al contenido
-      </a>
-      <header className="border-b border-brand-ink/15 bg-brand text-brand-ink">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-11 min-w-0 items-center gap-1.5 rounded-lg font-extrabold focus-visible:outline-brand-ink sm:gap-2.5">
-            <img src="/brand/zonda-isotipo.svg#color" alt="" width="36" height="36" className="size-7 shrink-0 sm:size-9" />
-            <span className="font-wordmark text-lg leading-none tracking-[-0.045em] sm:text-[1.375rem]">zonda market</span>
+  const catalogTerm = pathname === "/catalogo" ? new URLSearchParams(search).get("q") ?? "" : "";
+  const storefront = pathname === "/catalogo" && !search;
+  const listing = pathname.startsWith("/publicaciones/");
+
+  return <>
+    <a href="#contenido"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:p-2">Ir al contenido</a>
+    <header className="store-header relative z-20 text-brand-ink md:sticky md:top-0">
+      <div className="store-frame grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-2 md:min-h-14 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-6">
+        <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-10 min-w-0 items-center gap-1.5 rounded-lg font-extrabold">
+          <img src="/brand/zonda-isotipo.svg#color" alt="" width="30" height="30" className="size-7 shrink-0 rounded-lg bg-brand-ink p-0.5 sm:size-8" />
+          <span className="whitespace-nowrap font-wordmark text-base leading-none tracking-[-0.035em] sm:text-xl">
+            <span className="text-white [text-shadow:0_1px_2px_#791c13]">ZONDA</span><span>–MARKET</span>
+          </span>
+        </Link>
+        <Form role="search" aria-label="Búsqueda de la tienda" action="/catalogo" method="get"
+          className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 rounded-lg bg-white p-1 shadow-panel md:col-span-1 md:row-auto">
+          <input key={catalogTerm} name="q" type="search" aria-label="Buscar en la tienda" maxLength={160}
+            defaultValue={catalogTerm} placeholder="Buscar productos, marcas y más…"
+            className="min-h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-sm text-foreground focus-visible:outline-offset-0" />
+          <button type="submit" aria-label="Ejecutar búsqueda del catálogo"
+            className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-ink text-white hover:bg-hero-panel">
+            <Search aria-hidden="true" className="size-4" />
+          </button>
+        </Form>
+        <nav aria-label="Cuenta y compras" className="flex min-w-0 items-center justify-end gap-0.5 text-xs md:gap-1.5">
+          <Link to="/vendedor" className="store-header-link hidden rounded-full border border-brand-ink/20 bg-white/20 sm:inline-flex">
+            <Store aria-hidden="true" className="size-3.5" /> Vender
           </Link>
-          <nav aria-label="Cuenta y compras" className="flex shrink-0 items-center gap-1 sm:gap-4">
-            <CartLink enabled={!identityFlow} />
-            <NotificationBell enabled={!identityFlow} />
-            <Link to="/cuenta" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-1 text-sm font-semibold underline underline-offset-4 focus-visible:outline-brand-ink">
-              Mi cuenta
-            </Link>
-          </nav>
+          <NotificationBell enabled={!identityFlow} />
+          <CartLink enabled={!identityFlow} />
+          <Link to="/cuenta" aria-label="Mi cuenta" className="store-header-link min-w-10">
+            <span className="grid size-7 place-items-center rounded-full bg-white/30 ring-1 ring-brand-ink/10">
+              <UserRound aria-hidden="true" className="size-4" />
+            </span>
+            <span className="hidden lg:inline">Mi cuenta</span>
+          </Link>
+        </nav>
+      </div>
+      <CategoryNavigation />
+    </header>
+    <main id="contenido" tabIndex={-1} className={`store-frame min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : listing ? "pt-2 pb-7" : "py-5 sm:py-8"}`}>
+      <Outlet />
+    </main>
+    <footer className="border-t bg-card">
+      <div className="store-frame flex flex-wrap items-center justify-between gap-x-5 py-4 text-sm text-muted-foreground">
+        <Link to="/catalogo" aria-label="Volver a la tienda" className="font-wordmark text-lg font-bold text-foreground">Zonda Market</Link>
+        <div className="flex flex-wrap items-center gap-x-4">
+          <Link to="/vendedor" className="inline-flex min-h-11 items-center hover:underline">Herramientas de venta</Link>
+          <Link to="/estado" className="inline-flex min-h-11 items-center hover:underline">Estado del sistema</Link>
         </div>
-      </header>
-      <main id="contenido" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <Outlet />
-      </main>
-      <footer className="mx-auto max-w-7xl border-t px-4 py-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
-        <Link to="/estado" className="inline-flex min-h-11 items-center underline underline-offset-4">Estado del sistema</Link>
-      </footer>
-    </>
-  );
+      </div>
+    </footer>
+    <ScrollRestoration getKey={({ pathname }) => pathname} />
+  </>;
 }
 
 export function PrivateLayout() {
-  return (
-    <Card className="mx-auto max-w-lg rounded-lg py-7 sm:py-8">
-      <CardContent className="sm:px-8"><Outlet /></CardContent>
-    </Card>
-  );
+  return <Card className="mx-auto max-w-lg border-t-4 border-t-brand py-6 shadow-float sm:py-8">
+    <CardContent className="sm:px-8"><Outlet /></CardContent>
+  </Card>;
 }

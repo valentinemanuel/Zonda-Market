@@ -8,8 +8,9 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import type { ListingCategory } from "./listing-api";
 import { formattedPrice, listingPublicPath } from "./public-listing-format";
+import type { CatalogCategoryNode } from "./storefront-categories";
+import { StorefrontEnd, StorefrontIntro } from "./storefront-intro";
 
-type CategoryNode = { category: ListingCategory; children: CategoryNode[] };
 type CategoryOption = ListingCategory & { depth: number };
 type Facet = { key: string; value: string; count: number };
 type CatalogPage = {
@@ -22,7 +23,7 @@ type CatalogPage = {
   sellers: { slug: string; name: string; count: number }[];
 };
 
-function flatten(nodes: CategoryNode[], depth = 0): CategoryOption[] {
+function flatten(nodes: CatalogCategoryNode[], depth = 0): CategoryOption[] {
   return nodes.flatMap(({ category, children }) => [{ ...category, depth }, ...flatten(children, depth + 1)]);
 }
 
@@ -33,6 +34,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function PublicCatalogPage() {
   const [params, setParams] = useSearchParams();
   const filters = params.toString();
+  const storefront = !filters;
   const q = params.get("q") ?? "";
   const [draft, setDraft] = useState<{ base: string; value: string }>();
   const term = draft?.base === q ? draft.value : q;
@@ -47,7 +49,7 @@ export function PublicCatalogPage() {
   }));
   const categories = useQuery({
     queryKey: ["catalog-categories"],
-    queryFn: ({ signal }) => getJson("/api/v1/categories", signal) as Promise<CategoryNode[]>,
+    queryFn: ({ signal }) => getJson("/api/v1/categories", signal) as Promise<CatalogCategoryNode[]>,
     retry: false,
   });
   const results = useQuery({
@@ -121,25 +123,10 @@ export function PublicCatalogPage() {
   const cleaned = new URLSearchParams();
   if (q) cleaned.set("q", q);
 
-  return (
-    <div className="space-y-6">
-      <header className="rounded-2xl bg-hero px-5 py-7 text-white sm:px-8 sm:py-10">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Catálogo</h1>
-        <form role="search" onSubmit={submitSearch} className="mt-5 flex max-w-2xl flex-wrap items-end gap-2">
-          <label className="grid min-w-44 flex-1 gap-1.5 text-sm font-medium">
-            Buscar publicaciones
-            <input type="search" name="q" maxLength={160} value={term}
-              onChange={(event) => setDraft({ base: q, value: event.currentTarget.value })}
-              className="min-h-11 w-full rounded-lg border border-input bg-card px-3 text-foreground"
-              placeholder="¿Qué estás buscando?" />
-          </label>
-          <Button type="submit" className="min-h-11"><Search />Buscar</Button>
-        </form>
-      </header>
-      <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <Card className="rounded-lg py-4">
-          <CardContent className="space-y-4 px-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+  const filtersPanel = (
+        <Card key="filters" id="filtros" className="scroll-mt-40 py-4">
+          <CardContent className={storefront ? "grid items-start gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4" : "space-y-4 px-4"}>
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-full">
               <h2 className="font-semibold">Filtros</h2>
               {filters !== cleaned.toString() && <Link className={profileLink + " text-sm"} to={"/catalogo?" + cleaned}>Limpiar</Link>}
             </div>
@@ -194,19 +181,9 @@ export function PublicCatalogPage() {
             ))}
           </CardContent>
         </Card>
-        <section className="min-w-0 space-y-4" aria-label="Resultados">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-xl font-semibold">Publicaciones</h2>
-            <Field label="Ordenar por">
-              <select className={profileControl} value={params.get("sort") ?? "relevance"}
-                onChange={(event) => filter("sort", event.currentTarget.value)}>
-                <option value="relevance">Relevancia</option>
-                <option value="newest">Más recientes</option>
-                <option value="price_asc">Menor precio</option>
-                <option value="price_desc">Mayor precio</option>
-              </select>
-            </Field>
-          </div>
+  );
+  const resultsPanel = (
+        <section key="results" className="min-w-0 space-y-3" aria-label="Resultados">
           {(results.isPending || results.isPlaceholderData) && <p role="status">Cargando publicaciones…</p>}
           {results.isError && <div className="space-y-3 rounded-lg border bg-card p-5">
             <p role="alert" className="text-destructive">No pudimos cargar el catálogo. Revisá los filtros o volvé a intentar.</p>
@@ -220,19 +197,19 @@ export function PublicCatalogPage() {
               {filters ? "No encontramos publicaciones con esos filtros." : "Todavía no hay publicaciones visibles."}
             </p>}
             {results.data.totalElements > 0 && results.data.content.length === 0 && <p>Esta página no tiene resultados.</p>}
-            <ul className="grid gap-4 min-[440px]:grid-cols-2 xl:grid-cols-3">
+            <ul className={`grid gap-3 min-[360px]:grid-cols-2 ${storefront ? "md:grid-cols-3 lg:grid-cols-4" : "xl:grid-cols-3"}`}>
               {results.data.content.map((item) => <li key={item.id}>
                 <Link to={listingPublicPath(item.slug)} state={{ catalogSearch: filters }}
-                  className="group block h-full overflow-hidden rounded-lg border bg-card hover:border-primary">
-                  <div className="grid aspect-square place-items-center bg-muted">
+                  className="store-product group flex h-full flex-col rounded-panel border bg-card p-3 shadow-panel hover:border-primary/50">
+                  <div className="store-photo grid aspect-square place-items-center overflow-hidden rounded-lg bg-muted">
                     {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
                       : <Package aria-hidden="true" className="text-muted-foreground" />}
                   </div>
-                  <div className="space-y-1 p-4 [overflow-wrap:anywhere]">
-                    <h3 className="font-semibold group-hover:underline">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground">{item.sellerName}</p>
-                    <p className="text-xl font-semibold tabular-nums">{formattedPrice(item.price)}</p>
-                    <p className={"text-sm " + (item.available ? "text-success" : "text-muted-foreground")}>
+                  <div className="flex flex-1 flex-col gap-1 pt-2.5 [overflow-wrap:anywhere]">
+                    <p className="text-xs text-muted-foreground">{item.sellerName}</p>
+                    <h3 className="mb-auto line-clamp-2 text-sm font-semibold group-hover:underline">{item.title}</h3>
+                    <p className="mt-2 border-t pt-2 text-lg font-bold tabular-nums">{formattedPrice(item.price)}</p>
+                    <p className={"text-xs font-semibold " + (item.available ? "text-success" : "text-muted-foreground")}>
                       {item.available ? "Disponible" : "Sin stock"}
                     </p>
                   </div>
@@ -250,7 +227,38 @@ export function PublicCatalogPage() {
             </nav>}
           </>}
         </section>
+  );
+
+  return (
+    <div className="space-y-6">
+      {storefront && <StorefrontIntro categories={categories.data ?? []} />}
+      <header id="productos" className="flex scroll-mt-40 flex-wrap items-end gap-x-4 gap-y-2">
+        <h1 className={storefront ? "sr-only" : "store-section-title mr-auto"}>Catálogo</h1>
+        {storefront && <h2 className="store-section-title mr-auto">Productos destacados</h2>}
+        <form role="search" aria-label="Buscar publicaciones" onSubmit={submitSearch} className="flex w-full max-w-xs flex-wrap items-end gap-2 sm:w-auto">
+          <label className="grid min-w-36 flex-1 gap-1.5 text-sm font-medium">
+            <span className="sr-only">Buscar publicaciones</span>
+            <input type="search" name="q" maxLength={160} value={term}
+              onChange={(event) => setDraft({ base: q, value: event.currentTarget.value })}
+              className={profileControl}
+              placeholder="¿Qué estás buscando?" />
+          </label>
+          <Button type="submit" className="min-h-11"><Search />Buscar</Button>
+        </form>
+        <Field label="Ordenar por">
+          <select className={profileControl} value={params.get("sort") ?? "relevance"}
+            onChange={(event) => filter("sort", event.currentTarget.value)}>
+            <option value="relevance">Relevancia</option>
+            <option value="newest">Más recientes</option>
+            <option value="price_asc">Menor precio</option>
+            <option value="price_desc">Mayor precio</option>
+          </select>
+        </Field>
+      </header>
+      <div className={storefront ? "grid gap-6" : "grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]"}>
+        {storefront ? [resultsPanel, filtersPanel] : [filtersPanel, resultsPanel]}
       </div>
+      {storefront && <StorefrontEnd />}
     </div>
   );
 }

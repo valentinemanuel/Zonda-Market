@@ -1,3 +1,4 @@
+import { ShoppingCart } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
@@ -17,10 +18,12 @@ const reasonText: Record<UnavailableReason, string> = {
 export function CartPage() {
   const { query, revision } = useCart();
   const heading = useRef<HTMLHeadingElement>(null);
-  return <div className="mx-auto max-w-5xl space-y-6">
+  return <div className="mx-auto max-w-7xl space-y-5">
     <div className="space-y-2">
       <Link className={profileLink + " text-sm"} to="/catalogo">Seguir comprando</Link>
-      <h1 ref={heading} tabIndex={-1} className="text-3xl font-semibold">Mi carrito</h1>
+      <h1 ref={heading} tabIndex={-1} className="store-section-title flex items-center gap-2 border-b pb-4">
+        <ShoppingCart aria-hidden="true" className="size-5 text-primary" />Mi carrito
+      </h1>
     </div>
     {query.isPending ? <p role="status">Cargando carrito…</p>
       : signInRequired(query.error) ? <div className="space-y-3">
@@ -52,7 +55,7 @@ function CartContent({ cart, revision, focusHeading }: { cart: Cart; revision: n
       {edit.variables?.kind === "remove" ? "Producto quitado del carrito." : "Cantidad actualizada."}
     </p>}
     {cart.itemCount === 0 ? <p>Tu carrito está vacío.</p> : (
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="grid items-start gap-5 md:grid-cols-[minmax(0,2fr)_minmax(14rem,1fr)]">
         <div className="space-y-4">
           {cart.groups.map((group) => (
             <Card key={group.sellerId} className="gap-0 py-4">

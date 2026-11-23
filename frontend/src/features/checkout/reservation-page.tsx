@@ -8,7 +8,7 @@ import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { activeOrderKey, fetchOrder, orderKey, ordersKey, orderStatus, remainingMs, type Order, type Refund } from "./checkout-api";
-import { addressText, CheckoutSummary } from "./checkout-summary";
+import { addressText, CheckoutHeading, CheckoutSummary } from "./checkout-summary";
 import { PaymentMethods } from "./payment-methods";
 import { DeliveryAction } from "./delivery-action";
 import { ReviewAction } from "@/features/reviews/review-action";
@@ -55,19 +55,18 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     return () => window.clearTimeout(timer);
   }, [data, refetch]);
 
-  return <div className="mx-auto max-w-5xl space-y-6">
+  return <div className="mx-auto max-w-7xl space-y-5">
     <div className="space-y-2">
       <div className="flex flex-wrap gap-x-5">
         <Link to="/carrito" className={profileLink + " text-sm"}>Volver al carrito</Link>
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
-      <h1 className="text-3xl font-semibold">
-        {returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
-      </h1>
       {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
       </Link>}
     </div>
+    <CheckoutHeading title={returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
+      step={returned || settled(data?.status) ? "Confirmación" : "Pago"} />
     {order.isPending ? <p role="status">Cargando reserva…</p>
       : signInRequired(order.error) ? <Button asChild>
           <Link to="/ingresar" state={{ returnToOrder: id, checkoutResult: returned, orderHash: hash }}>Iniciar sesión para ver la reserva</Link>
