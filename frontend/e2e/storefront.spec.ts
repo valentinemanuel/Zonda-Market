@@ -110,7 +110,7 @@ test("la portada ocupa todo el ancho y sigue rotando al usar el puntero y las fl
   expect(content.x).toBeCloseTo((availableWidth - content.width) / 2, 0);
   expect(overflows).toBe(false);
   expect(hero.y + hero.height - cards.y).toBeGreaterThan(40);
-  await gutter.evaluate((style) => style.remove());
+  await gutter.evaluate((style) => style.parentNode?.removeChild(style));
   await page.screenshot({ path: testInfo.outputPath("portada-carrusel-y-accesos.png"), animations: "disabled" });
 });
 
