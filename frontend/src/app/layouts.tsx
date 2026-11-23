@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
+import { ArrowRight, ChevronDown, MapPin, Search, ShoppingCart, Store, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Popover } from "radix-ui";
 import { Form, Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
@@ -8,6 +8,8 @@ import { getJson } from "@/shared/api/http-client";
 import { useCart } from "@/features/cart/cart-api";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import { categoryCatalogPath, type CatalogCategoryNode } from "@/features/listings/storefront-categories";
+import { StoreBrand } from "./store-brand";
+import { StoreFooter } from "./store-footer";
 
 function CartLink({ enabled }: { enabled: boolean }) {
   const { query } = useCart(enabled);
@@ -71,12 +73,7 @@ export function SiteLayout() {
       className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:p-2">Ir al contenido</a>
     <header className={`store-header relative z-20 text-brand-ink ${checkout ? "" : "md:sticky md:top-0"}`}>
       <div className="store-frame grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-2 md:min-h-14 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-6">
-        <Link to="/catalogo" aria-label="Zonda Market" className="inline-flex min-h-10 min-w-0 items-center gap-1.5 rounded-lg font-extrabold">
-          <img src="/brand/zonda-isotipo.svg#color" alt="" width="30" height="30" className="size-7 shrink-0 rounded-lg bg-brand-ink p-0.5 sm:size-8" />
-          <span className="whitespace-nowrap font-wordmark text-base leading-none tracking-[-0.035em] sm:text-xl">
-            <span className="text-white [text-shadow:0_1px_2px_#791c13]">ZONDA</span><span>–MARKET</span>
-          </span>
-        </Link>
+        <StoreBrand tone="orange" />
         <Form role="search" aria-label="Búsqueda de la tienda" action="/catalogo" method="get"
           className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 rounded-lg bg-white p-1 shadow-panel md:col-span-1 md:row-auto">
           <input key={catalogTerm} name="q" type="search" aria-label="Buscar en la tienda" maxLength={160}
@@ -106,23 +103,31 @@ export function SiteLayout() {
     <main id="contenido" tabIndex={-1} className={`min-h-[65vh] scroll-mt-28 ${storefront ? "pb-10" : "store-frame " + (listing ? "pt-2 pb-7" : "py-5 sm:py-8")}`}>
       <Outlet />
     </main>
-    <footer className="border-t bg-card">
-      <div className="store-frame flex flex-wrap items-center justify-between gap-x-5 py-4 text-sm text-muted-foreground">
-        <Link to="/catalogo" aria-label="Volver a la tienda" className="font-wordmark text-lg font-bold text-foreground">Zonda Market</Link>
-        <div className="flex flex-wrap items-center gap-x-4">
-          <Link to="/vendedor" className="inline-flex min-h-11 items-center hover:underline">Herramientas de venta</Link>
-          <Link to="/estado" className="inline-flex min-h-11 items-center hover:underline">Estado del sistema</Link>
-        </div>
-      </div>
-    </footer>
+    <StoreFooter />
     <ScrollRestoration getKey={({ pathname }) => pathname} />
   </>;
 }
 
 export function PrivateLayout() {
-  const { pathname } = useLocation();
-  if (/^\/ingresar\/?$/i.test(pathname)) return <Outlet />;
   return <Card className="mx-auto max-w-lg border-t-4 border-t-brand py-6 shadow-float sm:py-8">
     <CardContent className="sm:px-8"><Outlet /></CardContent>
   </Card>;
+}
+
+export function AuthLayout() {
+  return <div className="min-h-screen bg-[#f7f8fa]">
+    <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-white focus:p-2">Ir al contenido</a>
+    <header className="border-b bg-white">
+      <div className="store-frame flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-x-3 py-2 sm:min-h-18">
+        <StoreBrand />
+        <Link to="/catalogo" className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold text-muted-foreground hover:text-primary">
+          Volver a la tienda <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+      </div>
+    </header>
+    <main id="contenido" tabIndex={-1} className="store-frame grid min-h-[calc(100svh-4.5rem)] max-w-7xl items-center py-5 sm:py-9 lg:py-12">
+      <Outlet />
+    </main>
+    <ScrollRestoration />
+  </div>;
 }

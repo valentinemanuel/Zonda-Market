@@ -1,6 +1,6 @@
 import { ApiError, request } from "@/shared/api/http-client";
 
-type Credentials = { email: string; password: string };
+type Credentials = { email: string; password: string; rememberMe?: boolean };
 type Access = { accessToken: string; expiresIn: number; roles: string[] };
 export type Account = { id: string; email: string; emailVerified: boolean; roles: string[]; displayName: string | null };
 

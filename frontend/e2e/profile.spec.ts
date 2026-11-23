@@ -36,7 +36,7 @@ test("edita perfil y direcciones y activa un vendedor verificado con teclado en 
     await waiting;
     await route.fulfill({ status: 503 });
   }, { times: 1 });
-  await page.getByRole("link", { name: "Mis direcciones" }).press("Enter");
+  await page.getByRole("main").getByRole("link", { name: "Mis direcciones" }).press("Enter");
   try {
     await expect(page.getByRole("status")).toHaveText("Cargando direcciones…");
   } finally {
@@ -46,7 +46,7 @@ test("edita perfil y direcciones y activa un vendedor verificado con teclado en 
   await page.screenshot({ path: testInfo.outputPath("direcciones-error-movil.png") });
   await page.getByRole("button", { name: "Reintentar" }).press("Enter");
   await expect(page.getByText("Todavía no guardaste direcciones.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Mis direcciones" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("main").getByRole("link", { name: "Mis direcciones" })).toHaveAttribute("aria-current", "page");
 
   const street = page.getByLabel("Calle y número");
   await page.getByRole("button", { name: "Agregar dirección" }).press("Enter");

@@ -1,6 +1,7 @@
 import { ArrowRight, Backpack, ChevronRight, ClipboardList, House, Laptop, PackageCheck,
   ShoppingBag, ShoppingCart, Store, Tag, UserRound } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { categoryCatalogPath, type CatalogCategoryNode } from "./storefront-categories";
 import { StorefrontCarousel } from "./storefront-carousel";
@@ -15,6 +16,11 @@ const shortcuts = [
 ];
 
 export function StorefrontIntro({ categories }: { categories: CatalogCategoryNode[] }) {
+  const { hash } = useLocation();
+  const hasCategories = categories.length > 0;
+  useEffect(() => {
+    if (hasCategories && hash === "#categorias-populares") document.getElementById("categorias-populares")?.scrollIntoView();
+  }, [hasCategories, hash]);
   return <div className="store-intro">
     <StorefrontCarousel categories={categories} />
     <section aria-label="Accesos a la tienda" className="store-frame store-shortcuts relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
@@ -27,8 +33,8 @@ export function StorefrontIntro({ categories }: { categories: CatalogCategoryNod
         </Link>
       ))}
     </section>
-    {categories.length > 0 && <section aria-labelledby="categorias-populares" className="store-frame mt-8 space-y-3">
-      <h2 id="categorias-populares" className="store-section-title">Explorá por categorías populares</h2>
+    {hasCategories && <section aria-labelledby="categorias-populares" className="store-frame mt-8 space-y-3">
+      <h2 id="categorias-populares" className="store-section-title scroll-mt-28">Explorá por categorías populares</h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {categories.slice(0, 6).map(({ category }, position) => {
           const icons = [Backpack, ShoppingBag, PackageCheck, House, Tag, Laptop];

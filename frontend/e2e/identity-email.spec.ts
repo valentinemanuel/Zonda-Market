@@ -37,7 +37,7 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await page.screenshot({ path: testInfo.outputPath("correo-verificado-movil.png") });
 
   await page.goto("/ingresar");
-  await page.getByRole("link", { name: "Olvidé mi contraseña" }).press("Enter");
+  await page.getByRole("link", { name: "¿Olvidaste tu contraseña?" }).press("Enter");
   const recoveryEmail = page.getByLabel("Correo electrónico");
   const sendRecovery = page.getByRole("button", { name: "Enviar enlace de recuperación" });
   await sendRecovery.press("Enter");
@@ -89,6 +89,6 @@ test("verifica correo y restablece la contraseña desde Mailpit con teclado en m
   await page.getByLabel("Contraseña").fill(newPassword);
   await page.getByLabel("Contraseña").press("Enter");
   await expect(page).toHaveURL(/\/catalogo$/);
-  await page.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
+  await page.getByRole("banner").getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
   await expect(page.getByText("Verificado", { exact: true })).toBeVisible();
 });

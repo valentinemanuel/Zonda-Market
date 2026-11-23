@@ -242,7 +242,7 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByText("Cancelada", { exact: true })).toHaveCount(2);
   await expect(page.getByRole("timer")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("checkout-reserva-vencida-movil.png"), fullPage: true });
-  await page.getByRole("link", { name: "Mis órdenes" }).press("Enter");
+  await page.getByRole("main").getByRole("link", { name: "Mis órdenes" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Mis órdenes" })).toBeVisible();
   await expect(page.getByText("Vencida", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);

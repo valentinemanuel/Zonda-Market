@@ -98,6 +98,25 @@ class AuthContractIT {
     }
 
     @Test
+    void keepsTheBrowserPersistenceChoiceWhenRotatingTheCookie() throws Exception {
+        String email = email();
+        register(email);
+        for (boolean remember : List.of(false, true)) {
+            String login = """
+                    {"email":"%s","password":"%s","rememberMe":%s}
+                    """.formatted(email, PASSWORD, remember);
+            var signedIn = mvc.perform(command("login").content(login)).andExpect(status().isOk()).andReturn();
+            var initial = refreshCookie(signedIn);
+            assertPersistence(signedIn, remember, 1_209_600);
+            time.set(time.get().plusSeconds(60));
+            var refreshed = mvc.perform(command("refresh").cookie(initial)).andExpect(status().isOk()).andReturn();
+            var rotated = refreshCookie(refreshed);
+            assertPersistence(refreshed, remember, 1_209_540);
+            mvc.perform(command("logout").cookie(rotated)).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
     void rotatesAndRevokesTheFamilyOnReuseWithoutRevokingAnotherLogin() throws Exception {
         String email = email();
         var registered = register(email);
@@ -214,6 +233,13 @@ class AuthContractIT {
     private static Cookie refreshCookie(MvcResult result) {
         String firstPair = result.getResponse().getHeader(HttpHeaders.SET_COOKIE).split(";", 2)[0];
         return new Cookie(COOKIE, firstPair.substring(COOKIE.length() + 1));
+    }
+
+    private static void assertPersistence(MvcResult result, boolean remember, long maxAge) {
+        String cookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertEquals(remember, cookie.contains("; Max-Age="));
+        assertEquals(remember, cookie.contains("; Expires="));
+        if (remember) assertEquals(true, cookie.contains("; Max-Age=" + maxAge + ";"));
     }
 
     private static String credentials(String email, String password) {

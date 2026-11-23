@@ -109,7 +109,7 @@ test("encuentra una variante, conserva los filtros y publica una conversación e
     await owner.getByLabel("Contraseña").fill(password);
     await owner.getByLabel("Contraseña").press("Enter");
     await expect(owner).toHaveURL(/\/catalogo$/);
-    await owner.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
+    await owner.getByRole("banner").getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
     await owner.getByRole("link", { name: "Panel vendedor" }).press("Enter");
     await owner.getByRole("link", { name: "Preguntas", exact: true }).press("Enter");
     await expect(owner.getByText("¿Es de algodón?", { exact: true })).toBeVisible();

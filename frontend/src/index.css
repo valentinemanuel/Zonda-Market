@@ -93,6 +93,30 @@
     background-image: radial-gradient(ellipse at 100% 0%, #683722, transparent 65%);
   }
 
+  .auth-benefits {
+    background-color: var(--color-hero);
+    background-image:
+      radial-gradient(ellipse at 85% 35%, #b4563380, transparent 68%),
+      radial-gradient(circle, #ffffff20 1px, transparent 1.3px),
+      linear-gradient(135deg, #111a2c, #222331);
+    background-size: auto, 18px 18px, auto;
+  }
+
+  .auth-field:focus {
+    border-color: var(--color-primary);
+    outline: 2px solid #f75e0b4d;
+    outline-offset: 1px;
+  }
+
+  .auth-field:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #f9fafb inset;
+    -webkit-text-fill-color: var(--color-foreground);
+  }
+
+  .auth-field:autofill {
+    box-shadow: 0 0 0 1000px #f9fafb inset;
+  }
+
   .store-intro {
     --store-hero-overlap: clamp(3.5rem, 7vw, 6rem);
   }
