@@ -35,7 +35,7 @@ public class ReviewService {
         var order = fulfillment.lockParent(id, buyer, false).orElseThrow(() -> new ApiProblemException(
                 HttpStatus.NOT_FOUND, "SUB_ORDER_NOT_FOUND", "No encontramos esa suborden."));
         var sub = fulfillment.lockSubOrder(id);
-        if (!"PAGADA".equals(order.status()) || !"ENTREGADA".equals(sub.status())) {
+        if (!("PAGADA".equals(order.status()) || "REEMBOLSO_PARCIAL".equals(order.status())) || !"ENTREGADA".equals(sub.status())) {
             throw new ApiProblemException(HttpStatus.CONFLICT, "REVIEW_DELIVERY_REQUIRED",
                     "Confirmá la recepción de la suborden para calificarla.");
         }

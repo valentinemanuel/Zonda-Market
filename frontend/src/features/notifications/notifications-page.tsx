@@ -13,6 +13,7 @@ const titles: Record<Notification["type"], string> = {
   DELIVERY_CONFIRMED: "Entrega confirmada",
   DISPUTE_OPENED: "Reclamo abierto",
   DISPUTE_ASSIGNED: "Reclamo en mediación",
+  DISPUTE_RESOLVED: "Reclamo resuelto",
 };
 const dateFormat = new Intl.DateTimeFormat("es-AR", {
   dateStyle: "medium", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires",
@@ -68,7 +69,7 @@ function Notifications({ revision }: { revision: number }) {
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <Link to={entry.href} className={profileLink + " inline-flex min-h-11 items-center"}>
-                      {entry.type === "DISPUTE_OPENED" || entry.type === "DISPUTE_ASSIGNED" ? "Ver reclamo"
+                      {entry.href.startsWith("/reclamos/") ? "Ver reclamo"
                         : entry.href.startsWith("/vendedor/") ? "Ver pedido" : "Ver compra"}
                       <span className="sr-only"> {entry.resourceId.slice(0, 8)}</span>
                     </Link>

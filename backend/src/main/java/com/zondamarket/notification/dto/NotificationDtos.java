@@ -12,7 +12,8 @@ public final class NotificationDtos {
         SUB_ORDER_SHIPPED("Pedido despachado", "El vendedor registró el despacho de tu pedido."),
         DELIVERY_CONFIRMED("Entrega confirmada", "El comprador confirmó que recibió el pedido."),
         DISPUTE_OPENED("Reclamo abierto", "Se abrió un reclamo sobre una suborden."),
-        DISPUTE_ASSIGNED("Reclamo en mediación", "Administración tomó el reclamo para mediación.");
+        DISPUTE_ASSIGNED("Reclamo en mediación", "Administración tomó el reclamo para mediación."),
+        DISPUTE_RESOLVED("Reclamo resuelto", "Ya está disponible la resolución del reclamo.");
 
         private final String subject;
         private final String message;

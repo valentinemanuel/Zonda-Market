@@ -221,6 +221,51 @@ class MercadoPagoCheckoutProGateway implements CheckoutProGateway, PaymentRefund
         }
     }
 
+    @Override
+    public Observation inspectPartial(PartialCharge request) throws PaymentProviderReadFailure {
+        var charge = request.refund();
+        if (!validRefundCharge(charge)) return MercadoPagoRefunds.REVIEW;
+        try {
+            String path = PAYMENTS + "/" + charge.paymentId();
+            var payment = client.exchange(path, HttpMethod.GET, null, null, options(Map.of()));
+            if (!matchesPayment(payment, charge.paymentId()) || !charge.reference().equals(value(payment, "external_reference"))
+                    || request.captured().compareTo(payment.get("transaction_amount").getAsBigDecimal()) != 0) {
+                return MercadoPagoRefunds.REVIEW;
+            }
+            var history = client.exchangeRaw(path + "/refunds", HttpMethod.GET, null, null, options(Map.of()));
+            var available = "approved".equals(value(payment, "status"));
+            return MercadoPagoRefunds.partial(history.getAsJsonArray(), request, "payment_id", "approved", available, false);
+        } catch (MPApiException error) {
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
+    @Override
+    public Observation refundPartial(PartialCharge request) throws PaymentProviderReadFailure {
+        var charge = request.refund();
+        if (!validRefundCharge(charge)) return MercadoPagoRefunds.REVIEW;
+        boolean postingRefund = false;
+        try {
+            var account = client.exchange("/users/me", HttpMethod.GET, null, null, options(Map.of()));
+            if (!isTestCollector(account)) return MercadoPagoRefunds.REVIEW;
+            var body = new JsonObject();
+            if (charge.amount().compareTo(request.captured()) != 0) body.addProperty("amount", charge.amount());
+            postingRefund = true;
+            var reply = client.exchange(PAYMENTS + "/" + charge.paymentId() + "/refunds", HttpMethod.POST,
+                    body, null, options(Map.of("X-Idempotency-Key", charge.key().toString())));
+            var rows = new JsonArray();
+            rows.add(reply);
+            return MercadoPagoRefunds.partial(rows, request, "payment_id", "approved", false, true);
+        } catch (MPApiException error) {
+            if (postingRefund && MercadoPagoRefunds.definitiveWriteRejection(error, request)) return MercadoPagoRefunds.REJECTED;
+            throw new PaymentProviderReadFailure(error.getStatusCode());
+        } catch (MPException | RuntimeException error) {
+            throw new PaymentProviderReadFailure(0);
+        }
+    }
+
     private static boolean validRefundCharge(Charge charge) {
         return charge.orderId().equals(charge.paymentId()) && charge.paymentId().matches("[0-9]{1,30}")
                 && "ARS".equals(charge.currency());

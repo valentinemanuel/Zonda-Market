@@ -95,7 +95,7 @@ public class FulfillmentService {
     }
 
     private static void requireState(String orderStatus, ShipmentResponse sub, String expectedStatus, int version) {
-        if (!"PAGADA".equals(orderStatus) || !expectedStatus.equals(sub.status())) {
+        if (!DisputeResolutionService.paid(orderStatus) || !expectedStatus.equals(sub.status())) {
             throw conflict("SUB_ORDER_STATE_CONFLICT", "El estado actual de la suborden no permite esa acción.");
         }
         if (version != sub.version()) {

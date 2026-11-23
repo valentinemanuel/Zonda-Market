@@ -41,7 +41,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
     }
   }, [hash, loadedId]);
   useEffect(() => {
-    if (data?.status === "EXPIRADA" || data?.status === "PAGADA") {
+    if (data?.status === "EXPIRADA" || settled(data?.status)) {
       void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
@@ -62,7 +62,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
         <Link to="/mis-ordenes" className={profileLink + " text-sm"}>Mis órdenes</Link>
       </div>
       <h1 className="text-3xl font-semibold">
-        {returned ? "Resultado del pago" : data?.status === "PAGADA" ? "Detalle de la orden" : "Tu reserva"}
+        {returned ? "Resultado del pago" : settled(data?.status) ? "Detalle de la orden" : "Tu reserva"}
       </h1>
       {returned && <Link to={"/checkout/reserva/" + encodeURIComponent(id)} className={profileLink + " text-sm"}>
         Ver la reserva
@@ -132,7 +132,7 @@ function Reservation({ order, revision, returned }: { order: Order; revision: nu
         <BuyerDisputeAction sub={sub} orderId={order.id} revision={revision}
           paid={order.status === "PAGADA" || order.status === "REEMBOLSO_PARCIAL"} serverNow={order.serverNow} />
       </>}>
-      {order.status === "PAGADA" && <Button asChild className="w-full">
+      {settled(order.status) && <Button asChild className="w-full">
         <Link to="/mis-ordenes">Seguir mi compra</Link>
       </Button>}
     </CheckoutSummary>
@@ -151,4 +151,8 @@ function secondsLeft(order: Order) {
 
 function running(status: string) {
   return status === "RESERVADA" || status === "PAGO_PENDIENTE";
+}
+
+function settled(status: string | undefined) {
+  return status === "PAGADA" || status === "REEMBOLSO_PARCIAL" || status === "REEMBOLSADA";
 }

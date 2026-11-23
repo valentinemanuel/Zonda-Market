@@ -1843,6 +1843,66 @@ paths:
         '403': { $ref: '#/components/responses/AdminRequired' }
         '404': { $ref: '#/components/responses/DisputeNotFound' }
         '409': { $ref: '#/components/responses/DisputeConflict' }
+  /api/v1/admin/disputes/{id}/resolution-balance:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    get:
+      summary: Consultar el saldo que puede devolverse
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Saldos calculados con los reembolsos confirmados y las reservas activas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subOrderAvailable, paymentAvailable, available, currency]
+                properties:
+                  subOrderAvailable: { $ref: '#/components/schemas/CartAmount' }
+                  paymentAvailable: { $ref: '#/components/schemas/CartAmount' }
+                  available: { $ref: '#/components/schemas/CartAmount' }
+                  currency: { type: string, const: ARS }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+  /api/v1/admin/disputes/{id}/resolve:
+    parameters: [{ $ref: '#/components/parameters/DisputePathId' }]
+    post:
+      summary: Resolver un reclamo en mediación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Repetir la misma clave y los mismos datos recupera el resultado persistido.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, reason, expectedVersion]
+              properties:
+                outcome: { $ref: '#/components/schemas/DisputeResolutionOutcome' }
+                amount:
+                  description: Importe positivo en ARS con hasta dos decimales. Se omite o envía nulo para el cierre sin devolución.
+                  oneOf:
+                    - { type: number, minimum: 0.01, multipleOf: 0.01 }
+                    - { type: string, pattern: '^[0-9]{1,17}(\.[0-9]{1,2})?$' }
+                    - { type: 'null' }
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+                expectedVersion: { type: integer, minimum: 0, maximum: 2147483647 }
+      responses:
+        '200':
+          description: Resolución guardada. Una devolución se encola para conciliación.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeResolution' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/InvalidSession' }
+        '403': { $ref: '#/components/responses/AdminRequired' }
+        '404': { $ref: '#/components/responses/DisputeNotFound' }
+        '409': { $ref: '#/components/responses/DisputeConflict' }
 components:
   securitySchemes:
     bearerAuth:
@@ -1960,7 +2020,7 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemResponse' }
     DisputeConflict:
-      description: DISPUTE_INELIGIBLE, SUB_ORDER_VERSION_CONFLICT, DISPUTE_ALREADY_EXISTS, DISPUTE_CLOSED, DISPUTE_ASSIGNMENT_CONFLICT o IDEMPOTENCY_KEY_REUSED.
+      description: DISPUTE_INELIGIBLE, SUB_ORDER_VERSION_CONFLICT, DISPUTE_ALREADY_EXISTS, DISPUTE_CLOSED, DISPUTE_ASSIGNMENT_CONFLICT, DISPUTE_VERSION_CONFLICT, DISPUTE_RESOLUTION_CONFLICT, REFUND_CAPTURE_UNAVAILABLE, REFUND_BALANCE_EXCEEDED o IDEMPOTENCY_KEY_REUSED.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemResponse' }
@@ -2182,6 +2242,21 @@ components:
         type: string
         format: uuid
   schemas:
+    DisputeResolutionOutcome:
+      type: string
+      enum: [SIN_REEMBOLSO, REEMBOLSO]
+    DisputeResolution:
+      type: object
+      required: [id, outcome, status, amount, reason, providerRefundId, simulated, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        outcome: { $ref: '#/components/schemas/DisputeResolutionOutcome' }
+        status: { type: string, enum: [CERRADA, PENDIENTE, EN_REVISION, CONFIRMADA, RECHAZADA] }
+        amount: { type: [string, 'null'] }
+        reason: { type: string }
+        providerRefundId: { type: [string, 'null'] }
+        simulated: { type: boolean }
+        updatedAt: { type: string, format: date-time }
     DisputeStatus:
       type: string
       enum: [ABIERTA, EN_MEDIACION, REEMBOLSO_PENDIENTE, CERRADA_SIN_REEMBOLSO, CERRADA_REEMBOLSADA]
@@ -2224,10 +2299,15 @@ components:
         - $ref: '#/components/schemas/DisputeSummary'
         - $ref: '#/components/schemas/DisputePage'
         - type: object
-          required: [orderId, description, participants, viewer, messages]
+          required: [orderId, description, participants, viewer, messages, version, resolution]
           properties:
             orderId: { type: string, format: uuid }
             description: { type: string }
+            version: { type: integer, minimum: 0 }
+            resolution:
+              oneOf:
+                - $ref: '#/components/schemas/DisputeResolution'
+                - type: 'null'
             viewer: { $ref: '#/components/schemas/DisputeParticipantRole' }
             participants:
               type: object
@@ -2312,7 +2392,7 @@ components:
         id: { type: string, format: uuid }
         expiresAt: { type: string, format: date-time }
         serverNow: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA, REEMBOLSO_PARCIAL, REEMBOLSADA] }
         subOrders:
           type: array
           items:
@@ -2347,7 +2427,7 @@ components:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
-        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA] }
+        status: { type: string, enum: [RESERVADA, PAGO_PENDIENTE, EXPIRADA, PAGADA, FALLIDA, REEMBOLSO_PARCIAL, REEMBOLSADA] }
         total:
           $ref: '#/components/schemas/CartAmount'
         currency: { type: string, const: ARS }
@@ -2356,7 +2436,7 @@ components:
       required: [id, type, createdAt, read, resourceId, href]
       properties:
         id: { type: string, format: uuid }
-        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED, DISPUTE_OPENED, DISPUTE_ASSIGNED] }
+        type: { type: string, enum: [PAYMENT_APPROVED, SUB_ORDER_SHIPPED, DELIVERY_CONFIRMED, DISPUTE_OPENED, DISPUTE_ASSIGNED, DISPUTE_RESOLVED] }
         createdAt: { type: string, format: date-time }
         read: { type: boolean }
         resourceId:

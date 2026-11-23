@@ -35,5 +35,6 @@ public final class DisputeDtos {
     public record CasePage(List<Summary> content, int page, int size, boolean hasNext) {}
     public record Detail(UUID id, UUID orderId, UUID subOrderId, Status status, String reason, String description,
                          Instant openedAt, Instant assignedAt, Participants participants, ParticipantRole viewer,
-                         List<Message> messages, int page, int size, boolean hasNext) {}
+                         List<Message> messages, int page, int size, boolean hasNext, int version,
+                         DisputeResolutionDtos.Resolution resolution) {}
 }

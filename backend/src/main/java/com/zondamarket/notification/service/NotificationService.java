@@ -39,6 +39,7 @@ public class NotificationService {
             case "DELIVERY_CONFIRMED" -> notifySellers(event, Type.DELIVERY_CONFIRMED, now);
             case "DISPUTE_OPENED" -> notifyDispute(event, Type.DISPUTE_OPENED, now);
             case "DISPUTE_ASSIGNED" -> notifyDispute(event, Type.DISPUTE_ASSIGNED, now);
+            case "DISPUTE_RESOLVED" -> notifyDispute(event, Type.DISPUTE_RESOLVED, now);
             default -> throw new IllegalStateException("Hito de compra desconocido.");
         }
         store.projected(event.id(), now);
@@ -62,7 +63,7 @@ public class NotificationService {
         for (var seller : store.sellers(event)) {
             store.enqueue(event, seller, type, dispute, href, now);
         }
-        if (type == Type.DISPUTE_ASSIGNED) {
+        if (type != Type.DISPUTE_OPENED) {
             store.buyer(event.orderId()).ifPresent(buyer -> store.enqueue(event, buyer, type, dispute, href, now));
         }
     }

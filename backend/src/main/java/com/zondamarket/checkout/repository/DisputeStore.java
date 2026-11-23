@@ -30,7 +30,7 @@ public class DisputeStore {
         this.sql = sql;
     }
 
-    public record Case(Summary summary, UUID orderId, String description, Participants participants) {}
+    public record Case(Summary summary, UUID orderId, String description, Participants participants, int version) {}
 
     public Optional<Case> forSubOrder(UUID subOrder) {
         return sql.sql(CASES + " WHERE sub_order_id = :sub").param("sub", subOrder)
@@ -60,9 +60,15 @@ public class DisputeStore {
 
     public void assign(UUID id, UUID admin, Instant now) {
         sql.sql("""
-                UPDATE zonda_market.dispute SET status = 'EN_MEDIACION', assigned_by = :admin, assigned_at = :now
+                UPDATE zonda_market.dispute SET status = 'EN_MEDIACION', assigned_by = :admin, assigned_at = :now,
+                    version = version + 1
                 WHERE id = :id
                 """).param("id", id).param("admin", admin).param("now", at(now)).update();
+    }
+
+    public void transition(UUID id, Status status) {
+        sql.sql("UPDATE zonda_market.dispute SET status = :status, version = version + 1 WHERE id = :id")
+                .param("status", status.name()).param("id", id).update();
     }
 
     public List<Summary> queue(Status status, Instant since, int page, int size) {
@@ -105,7 +111,7 @@ public class DisputeStore {
     private static Case readCase(ResultSet row, int index) throws SQLException {
         return new Case(summary(row, index), row.getObject("order_id", UUID.class), row.getString("description"),
                 new Participants(row.getObject("buyer_id", UUID.class), row.getObject("seller_account_id", UUID.class),
-                    row.getObject("assigned_by", UUID.class)));
+                    row.getObject("assigned_by", UUID.class)), row.getInt("version"));
     }
 
     private static Summary summary(ResultSet row, int ignored) throws SQLException {
