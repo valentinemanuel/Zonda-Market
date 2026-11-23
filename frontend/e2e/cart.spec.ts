@@ -19,23 +19,25 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
   const firstPath = "/publicaciones/" + first.slug;
 
   await page.goto(firstPath);
+  await page.getByRole("button", { name: "Agregar una unidad" }).press("Enter");
   await page.getByRole("link", { name: "Ingresá para agregar al carrito" }).press("Enter");
   await page.getByRole("link", { name: "Crear una cuenta" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Crear cuenta" })).toBeVisible();
   await credentials(page, email);
   await expect(page).toHaveURL(origin + firstPath);
+  await expect(page.getByLabel("Cantidad seleccionada")).toHaveText("2");
   const add = page.getByRole("button", { name: "Agregar al carrito" });
   await add.press("Enter");
-  await expect(page.getByRole("link", { name: "Carrito, 1 unidad" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Carrito, 2 unidades" })).toBeVisible();
 
   await page.goto("/publicaciones/" + second.slug);
   await add.press("Enter");
-  await page.getByRole("link", { name: "Carrito, 2 unidades" }).press("Enter");
+  await page.getByRole("link", { name: "Carrito, 3 unidades" }).press("Enter");
   await expect(page.getByRole("heading", { name: first.seller })).toBeVisible();
   await expect(page.getByRole("heading", { name: second.seller })).toBeVisible();
-  await expect(page.getByText("$ 351,15", { exact: true })).toBeVisible();
+  await expect(page.getByText("$ 451,40", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText("$ 351,15", { exact: true })).toBeVisible();
+  await expect(page.getByText("$ 451,40", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("carrito-dos-vendedores-movil.png"), fullPage: true });
 
@@ -46,11 +48,11 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
     await expect(device.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
     await credentials(device, email);
     await expect(device).toHaveURL(origin + "/carrito");
-    await expect(device.getByText("$ 351,15", { exact: true })).toBeVisible();
+    await expect(device.getByText("$ 451,40", { exact: true })).toBeVisible();
 
     const quantity = page.getByRole("spinbutton", { name: new RegExp(first.title) });
     const deviceQuantity = device.getByRole("spinbutton", { name: new RegExp(first.title) });
-    await deviceQuantity.fill("3");
+    await deviceQuantity.fill("4");
     const itemPath = cart + "/items/" + first.skuId;
     let release!: () => void;
     let sent!: () => void;
@@ -65,18 +67,18 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
     await deviceQuantity.press("Enter");
     await intercepted;
     try {
-      await quantity.fill("2");
+      await quantity.fill("3");
       await quantity.press("Tab");
       await expect(page.getByRole("button", { name: "Guardar" }).first()).toBeFocused();
       await page.keyboard.press("Enter");
       await expect(page.getByText("Cantidad actualizada.")).toBeVisible();
-      await expect(page.getByText("$ 451,40", { exact: true })).toBeVisible();
+      await expect(page.getByText("$ 551,65", { exact: true })).toBeVisible();
     } finally {
       release();
     }
     expect((await conflict).status()).toBe(409);
     await expect(device.getByRole("alert")).toContainText("El carrito cambió en otra sesión.");
-    await expect(deviceQuantity).toHaveValue("2");
+    await expect(deviceQuantity).toHaveValue("3");
     await device.screenshot({ path: testInfo.outputPath("carrito-conflicto-movil.png"), fullPage: true });
   } finally {
     await device.close();
@@ -89,13 +91,13 @@ test("persiste dos vendedores, maneja un conflicto y permite quitar una línea a
   await page.reload();
   await expect(page.getByText("La publicación ya no está disponible.")).toBeVisible();
   await expect(page.getByText(/Cambió el precio por unidad.*120,25/)).toBeVisible();
-  await expect(page.getByText("$ 240,50", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("$ 360,75", { exact: true }).last()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("carrito-precio-y-archivado-movil.png"), fullPage: true });
   await page.getByRole("button", { name: new RegExp("Quitar " + second.title) }).press("Enter");
   await expect(page.getByText("Producto quitado del carrito.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mi carrito" })).toBeFocused();
   await expect(page.getByRole("heading", { name: "Productos no disponibles" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Carrito, 2 unidades" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Carrito, 3 unidades" })).toBeVisible();
 });
 
 test("anuncia carga y permite reintentar hasta mostrar el carrito vacío", async ({ page }, testInfo) => {

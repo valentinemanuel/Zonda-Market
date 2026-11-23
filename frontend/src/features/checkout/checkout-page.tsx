@@ -10,7 +10,7 @@ import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { activeOrder, activeOrderKey, checkoutError, confirmCheckout, fetchDirectPreview, orderKey, ordersKey, quoteCheckout,
+import { activeOrder, activeOrderKey, checkoutError, confirmCheckout, directOrderQuantity, fetchDirectPreview, orderKey, ordersKey, quoteCheckout,
   reservationPath, type DirectPreview, type Quote } from "./checkout-api";
 import { addressText, CheckoutHeading, CheckoutSummary, checkoutSurface } from "./checkout-summary";
 
@@ -18,10 +18,13 @@ export function CheckoutPage() {
   const [params] = useSearchParams();
   const sku = params.get("sku");
   const directSkuId = sku && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(sku) ? sku : undefined;
+  const quantityParam = params.get("cantidad") ?? "1";
+  const validQuantity = /^[1-9][0-9]?$/.test(quantityParam);
+  const quantity = Number(quantityParam);
   const { query: cart, revision } = useCart();
   const direct = useQuery({
-    queryKey: ["private", "checkout-item", revision, directSkuId],
-    queryFn: ({ signal }) => fetchDirectPreview(directSkuId!, signal), enabled: !!directSkuId, retry: false,
+    queryKey: ["private", "checkout-item", revision, directSkuId, quantity],
+    queryFn: ({ signal }) => fetchDirectPreview(directSkuId!, quantity, signal), enabled: !!directSkuId && validQuantity, retry: false,
   });
   const account = useQuery({
     queryKey: ["private", "me", revision], queryFn: ({ signal }) => currentAccount(signal), retry: false,
@@ -36,19 +39,21 @@ export function CheckoutPage() {
   const reload = () => { void Promise.all(queries.map((query) => query.refetch())); };
   const ready = (!directSkuId || direct.isSuccess) && cart.data && !(cart.data.activeOrderId && cart.isFetching)
     && account.data && addresses.data && active.isSuccess && !active.data;
-  const differentReservation = directSkuId && active.data && active.data.directSkuId !== directSkuId ? active.data : null;
+  const differentReservation = directSkuId && active.data
+    && (active.data.directSkuId !== directSkuId || directOrderQuantity(active.data) !== quantity) ? active.data : null;
 
   return <div className="mx-auto max-w-7xl space-y-5">
     <Link className={profileLink + " gap-2 text-sm"} to="/carrito"><ArrowLeft aria-hidden="true" className="size-4" />Volver al carrito</Link>
     {(!ready || (sku !== null && !directSkuId)) && <CheckoutHeading title="Confirmar compra" step="Envío" />}
     {sku !== null && !directSkuId ? <p role="alert">No encontramos la variante de esta compra.</p>
+      : directSkuId && !validQuantity ? <p role="alert">Elegí una cantidad entre 1 y 99 unidades.</p>
       : differentReservation && !active.isFetching ? <Card className={checkoutSurface + " max-w-xl items-start gap-3 px-5"}>
           <p>Ya tenés otra reserva activa. Resolvela antes de comprar esta variante.</p>
           <Button asChild className="min-h-11"><Link to={reservationPath(differentReservation.id)}>Ver mi reserva activa</Link></Button>
         </Card>
       : active.data && !active.isFetching ? <Navigate to={reservationPath(active.data.id)} replace />
       : queries.some((query) => signInRequired(query.error)) ? <Button asChild>
-          <Link to="/ingresar" state={{ returnToCheckout: true, checkoutSku: directSkuId }}>Iniciar sesión para comprar</Link>
+          <Link to="/ingresar" state={{ returnToCheckout: true, checkoutSku: directSkuId, checkoutQuantity: quantity }}>Iniciar sesión para comprar</Link>
         </Button>
       : queries.some((query) => query.isError) ? <div className="space-y-2">
           <p role="alert" className="text-destructive">{directSkuId && direct.isError
@@ -56,15 +61,15 @@ export function CheckoutPage() {
           <Button variant="outline" onClick={reload}>Reintentar</Button>
         </div>
       : ready && cart.data && account.data && addresses.data
-        ? <CheckoutContent key={revision + ":" + (directSkuId ?? "")} revision={revision} cart={cart.data} verified={account.data.emailVerified}
-            addresses={addresses.data} reload={reload} directSkuId={directSkuId} direct={direct.data} />
+        ? <CheckoutContent key={revision + ":" + (directSkuId ?? "") + ":" + quantity} revision={revision} cart={cart.data} verified={account.data.emailVerified}
+            addresses={addresses.data} reload={reload} directSkuId={directSkuId} direct={direct.data} quantity={quantity} />
         : <p role="status">Preparando tu compra…</p>}
   </div>;
 }
 
 type ShippingProps = {
   revision: number; cart: Cart; verified: boolean; addresses: Address[]; reload: () => void;
-  directSkuId?: string; direct?: DirectPreview;
+  directSkuId?: string; direct?: DirectPreview; quantity: number;
 };
 
 function CheckoutContent({ verified, ...props }: ShippingProps) {
@@ -102,7 +107,7 @@ function shippingImages(cart: Cart, direct?: DirectPreview) {
     item.thumbnailUrl ? [[item.skuId, item.thumbnailUrl]] : [])));
 }
 
-function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct }: Omit<ShippingProps, "verified">) {
+function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct, quantity }: Omit<ShippingProps, "verified">) {
   const navigate = useNavigate();
   const client = useQueryClient();
   const addressInput = useId();
@@ -111,7 +116,7 @@ function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct }
   const address = addresses.find((item) => item.id === chosen) ?? addresses.find((item) => item.defaultAddress) ?? addresses[0];
 
   const requestQuote = useMutation({
-    mutationFn: () => quoteCheckout(address.id, cart.version, directSkuId),
+    mutationFn: () => quoteCheckout(address.id, cart.version, directSkuId, directSkuId ? quantity : undefined),
     onSuccess: (result) => {
       if (revision === getSessionRevision()) setQuote(result);
     },

@@ -5,7 +5,7 @@ import { Link, useBlocker } from "react-router-dom";
 import { getSessionRevision } from "@/features/auth/session-api";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activeOrderKey, cancelReservation, checkoutPath, orderKey, ordersKey, type Order } from "./checkout-api";
+import { activeOrderKey, cancelReservation, checkoutPath, directOrderQuantity, orderKey, ordersKey, type Order } from "./checkout-api";
 
 export function ReturnToShipping({ order, revision }: { order: Order; revision: number }) {
   const client = useQueryClient();
@@ -55,7 +55,7 @@ export function ReturnToShipping({ order, revision }: { order: Order; revision: 
 
   return <>
     <Button asChild variant="outline" className="min-h-11">
-      <Link ref={trigger} to={checkoutPath(order.directSkuId)}><ArrowLeft aria-hidden="true" />Volver a Envío</Link>
+      <Link ref={trigger} to={checkoutPath(order.directSkuId, directOrderQuantity(order))}><ArrowLeft aria-hidden="true" />Volver a Envío</Link>
     </Button>
     <dialog ref={dialog} aria-labelledby="return-shipping-title" aria-describedby="return-shipping-description"
       className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-panel border bg-card p-5 text-foreground shadow-float backdrop:bg-brand-ink/65 sm:p-6"

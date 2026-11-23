@@ -442,23 +442,32 @@ class CheckoutContractIT extends CheckoutContractFixtures {
         mvc.perform(auth(get(preview), buyer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.groups[0].items[0].quantity").value(1))
                 .andExpect(jsonPath("$.thumbnails['" + direct + "']").value("/fixture"));
+        mvc.perform(auth(get(preview).param("quantity", "100"), buyer)).andExpect(status().isBadRequest());
+        mvc.perform(auth(get(preview).param("quantity", "7"), buyer)).andExpect(status().isConflict());
+        mvc.perform(auth(get(preview).param("quantity", "3"), buyer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[0].items[0].quantity").value(3));
         String body = """
-                {"addressId":"%s","cartVersion":2,"directSkuId":"%s"}
+                {"addressId":"%s","cartVersion":2,"directSkuId":"%s","quantity":3}
                 """.formatted(address, direct);
+        mvc.perform(auth(post(QUOTE), buyer).content(body.replace("\"quantity\":3", "\"quantity\":1.5")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(auth(post(QUOTE), buyer).content(body.replace("\"quantity\":3", "\"quantity\":7")))
+                .andExpect(status().isConflict());
         UUID quote = uuid(mvc.perform(auth(post(QUOTE), buyer).content(body)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.groups.length()").value(1))
-                .andExpect(jsonPath("$.total").value("19.25")).andReturn());
+                .andExpect(jsonPath("$.total").value("55.75")).andReturn());
         confirm(outsider, quote, "directa").andExpect(status().isNotFound());
         UUID order = uuid(confirm(buyer, quote, "directa").andExpect(status().isOk())
                 .andExpect(jsonPath("$.directSkuId").value(direct.toString()))
-                .andExpect(jsonPath("$.subOrders[0].group.items[0].quantity").value(1)).andReturn());
-        assertStock(direct, 5, 1);
+                .andExpect(jsonPath("$.subOrders[0].group.items[0].quantity").value(3)).andReturn());
+        confirm(buyer, quote, "directa").andExpect(status().isOk()).andExpect(jsonPath("$.id").value(order.toString()));
+        assertStock(direct, 3, 3);
         assertStock(other, 6, 0);
         for (int replay = 0; replay < 2; replay++) {
             outcome(buyer, order, LocalPaymentPort.reference(order), "APPROVED").andExpect(status().isOk())
                     .andExpect(jsonPath("$.payment.simulated").value(true));
         }
-        assertStock(direct, 5, 0);
+        assertStock(direct, 3, 0);
         assertStock(other, 6, 0);
         mvc.perform(auth(get("/api/v1/cart"), buyer)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.itemCount").value(3));

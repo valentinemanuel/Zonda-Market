@@ -8,6 +8,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { listingPublicPath } from "@/features/listings/public-listing-format";
+import { checkoutPath } from "@/features/checkout/checkout-api";
 import { authenticate } from "./session-api";
 import { useGoogleOptions } from "./google-auth";
 import { emailField, newPasswordField, passwordField } from "./credential-fields";
@@ -62,12 +63,17 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         : state?.returnToNotifications === true ? "/notificaciones"
         : state?.returnToSellerSales === true ? "/vendedor/ventas"
         : state?.returnToOrders === true ? "/cuenta/ordenes"
-        : state?.returnToCheckout === true ? (checkoutSku ? "/checkout?sku=" + encodeURIComponent(checkoutSku) : "/checkout")
+        : state?.returnToCheckout === true ? checkoutPath(checkoutSku,
+          Number.isInteger(state.checkoutQuantity) && state.checkoutQuantity >= 1 && state.checkoutQuantity <= 99 ? state.checkoutQuantity : 1)
         : state?.returnToCart === true ? "/carrito"
         : createAccount ? "/cuenta" : "/catalogo";
       navigate(returnPath, {
         replace: true,
-        state: listingSlug || cartListingSlug ? { catalogSearch: state?.catalogSearch } : undefined,
+        state: listingSlug || cartListingSlug ? {
+          catalogSearch: state?.catalogSearch,
+          cartSku: cartListingSlug ? state?.cartSku : undefined,
+          cartQuantity: cartListingSlug ? state?.cartQuantity : undefined,
+        } : undefined,
       });
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 0;
