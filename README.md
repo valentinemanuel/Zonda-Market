@@ -2,7 +2,23 @@
 
 Marketplace C2C/B2C. El [roadmap](docs/roadmap.md) describe las etapas y las entregas.
 
-## Arranque local
+## Demo interactiva
+
+La demo de portfolio permite buscar y filtrar productos ficticios, abrir fichas, elegir variantes y editar un carrito que se guarda en el navegador. El recorrido termina en el carrito.
+
+Para ejecutar la demo estática en local, usá Node.js 24 y corré desde `frontend/`:
+
+```sh
+npm ci
+npm run build:portfolio
+npm run preview:portfolio
+```
+
+Para comprobar los recorridos en escritorio y móvil, ejecutá `npx playwright install chromium` y `npm run test:portfolio` desde `frontend/`.
+
+Para publicarla en Cloudflare Pages Free, subí `frontend/portfolio/dist` como proyecto de carga directa. El build incluye `index.html` para que Pages resuelva rutas directas como `/publicaciones/taza`.
+
+## Arranque local con Docker Compose
 
 Requisitos: Docker con Compose v2 y los puertos locales 3000 y 8080 disponibles.
 
