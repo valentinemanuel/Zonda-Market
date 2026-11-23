@@ -70,8 +70,18 @@ export const sellerOrdersKey = (revision: number) => ["private", "seller-orders"
 export const paymentOptionsKey = (revision: number, id: string) => ["private", "payment-options", revision, id] as const;
 export const reservationPath = (id: string) => "/checkout/reserva/" + encodeURIComponent(id);
 
+export type OrderHistoryFilter = "PAGADAS" | "PREPARANDO" | "ENTREGADAS";
+
+export type OrderSummary = {
+  id: string; createdAt: string; expiresAt: string; status: string; total: string; currency: "ARS";
+  previews: { title: string; thumbnailUrl: string | null }[];
+  lineCount: number;
+  units: number;
+  fulfillment: "PREPARANDO" | "DESPACHADA" | "ENTREGADA" | null;
+};
+
 export type OrderPage = {
-  content: { id: string; createdAt: string; expiresAt: string; status: string; total: string; currency: "ARS" }[];
+  content: OrderSummary[];
   page: number;
   size: number;
   hasNext: boolean;
@@ -91,8 +101,11 @@ export function orderStatus(status: string) {
   }
 }
 
-export async function fetchOrders(page: number, signal: AbortSignal): Promise<OrderPage> {
-  return (await authenticatedRequest("/api/v1/orders?page=" + page, { signal })).json();
+export async function fetchOrders(page: number, term: string, filter: OrderHistoryFilter | "", signal: AbortSignal): Promise<OrderPage> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (term) params.set("q", term);
+  if (filter) params.set("filter", filter);
+  return (await authenticatedRequest("/api/v1/orders?" + params, { signal })).json();
 }
 
 async function timed<T>(response: Response): Promise<T & { receivedAt: number }> {

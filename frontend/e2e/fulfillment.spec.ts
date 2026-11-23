@@ -10,7 +10,8 @@ test("registra un despacho y confirma solo esa entrega con teclado en móvil", a
   await approve();
 
   await page.goto("/mis-ordenes");
-  await page.getByRole("link", { name: "Ver orden " + order.id }).press("Enter");
+  await page.getByRole("article", { name: "Orden #" + order.id.slice(0, 8) })
+    .getByRole("link", { name: "Ver detalle" }).press("Enter");
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Confirmar recepción" })).toHaveCount(0);
 

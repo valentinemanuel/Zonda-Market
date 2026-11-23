@@ -18,7 +18,8 @@ test("abre y toma un reclamo privado y recupera un mensaje con teclado", async (
   const { order, alpha, beta } = purchase;
   const sub = order.subOrders.find(({ group }) => group.sellerName === alpha.seller)!;
   await buyerPage.goto("/mis-ordenes");
-  await buyerPage.getByRole("link", { name: "Ver orden " + order.id }).press("Enter");
+  await buyerPage.getByRole("article", { name: "Orden #" + order.id.slice(0, 8) })
+    .getByRole("link", { name: "Ver detalle" }).press("Enter");
   const card = buyerPage.locator("#suborden-" + sub.id);
   const open = card.getByRole("button", { name: "Abrir un reclamo" });
   await open.press("Enter");

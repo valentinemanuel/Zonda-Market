@@ -39,7 +39,12 @@ public final class CheckoutDtos {
                                 List<SubOrder> subOrders, String total, String currency, TestPayment testPayment,
                                 List<CompensationDtos.Refund> refunds, String refundedAmount) {}
 
-    public record OrderSummary(UUID id, Instant createdAt, Instant expiresAt, String status, String total, String currency) {}
+    public enum HistoryFilter { PAGADAS, PREPARANDO, ENTREGADAS }
+
+    public record OrderPreview(String title, String thumbnailUrl) {}
+
+    public record OrderSummary(UUID id, Instant createdAt, Instant expiresAt, String status, String total, String currency,
+                               List<OrderPreview> previews, long lineCount, long units, String fulfillment) {}
 
     public record OrderPage(List<OrderSummary> content, int page, int size, boolean hasNext) {}
 }

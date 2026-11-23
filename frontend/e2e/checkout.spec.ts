@@ -203,7 +203,8 @@ test("cotiza dos vendedores y recupera la reserva tras perder la respuesta", asy
   await expect(page.getByText("Vencida", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("checkout-historial-movil.png"), fullPage: true });
-  await page.getByRole("link", { name: "Ver orden " + originalId }).press("Enter");
+  await page.getByRole("article", { name: "Orden #" + originalId!.slice(0, 8) })
+    .getByRole("link", { name: "Ver detalle" }).press("Enter");
   await page.getByRole("link", { name: "Volver a cotizar" }).press("Enter");
   await page.getByRole("button", { name: "Cotizar compra" }).press("Enter");
   await expect(page.getByText("Cotización lista. El total es $ 371,15.")).toBeVisible();

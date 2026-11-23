@@ -1,7 +1,9 @@
 package com.zondamarket.checkout.repository;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.Group;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
 import com.zondamarket.checkout.dto.CheckoutDtos.Line;
+import com.zondamarket.checkout.dto.CheckoutDtos.OrderPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderSummary;
 import com.zondamarket.checkout.dto.CheckoutDtos.Snapshot;
 import com.zondamarket.checkout.dto.CheckoutDtos.SubOrder;
@@ -31,6 +33,7 @@ import tools.jackson.databind.ObjectMapper;
 @Repository
 public class CheckoutStore {
     private static final TypeReference<Map<String, String>> ATTRIBUTES = new TypeReference<>() {};
+    private static final TypeReference<List<OrderPreview>> ORDER_PREVIEWS = new TypeReference<>() {};
     private static final String ORDER_COLUMNS = """
             SELECT id, status, total, currency, expires_at, request_hash FROM zonda_market.checkout_order
             """;
@@ -98,15 +101,64 @@ public class CheckoutStore {
                 .param("buyer", buyer).param("quote", quote).query(String.class).optional();
     }
 
-    public List<OrderSummary> history(UUID buyer, int page, int size) {
+    public List<OrderSummary> history(UUID buyer, int page, int size, String term, HistoryFilter filter) {
+        String orderNumber = term.startsWith("#") ? term.substring(1).strip() : term;
         return sql.sql("""
-                SELECT id, created_at, expires_at, status, total, currency FROM zonda_market.checkout_order
-                WHERE buyer_id = :buyer ORDER BY created_at DESC, id DESC OFFSET :offset LIMIT :limit
+                WITH orders AS (
+                    SELECT purchase.*, delivery.fulfillment
+                    FROM zonda_market.checkout_order purchase
+                    CROSS JOIN LATERAL (
+                        SELECT CASE
+                            WHEN bool_or(sub.status = 'PREPARANDO') THEN 'PREPARANDO'
+                            WHEN bool_or(sub.status = 'DESPACHADA') THEN 'DESPACHADA'
+                            WHEN bool_or(sub.status = 'ENTREGADA') AND
+                                 bool_and(sub.status IN ('ENTREGADA', 'REEMBOLSADA')) THEN 'ENTREGADA'
+                        END AS fulfillment
+                        FROM zonda_market.checkout_sub_order sub WHERE sub.order_id = purchase.id
+                    ) delivery
+                    WHERE purchase.buyer_id = :buyer
+                        AND (:filter = '' OR (:filter = 'PAGADAS' AND purchase.status = 'PAGADA')
+                            OR (:filter = 'PREPARANDO' AND delivery.fulfillment = 'PREPARANDO')
+                            OR (:filter = 'ENTREGADAS' AND delivery.fulfillment = 'ENTREGADA'))
+                        AND (:term = '' OR (:number <> '' AND starts_with(purchase.id::text, lower(:number))) OR EXISTS (
+                            SELECT 1 FROM zonda_market.checkout_sub_order sub
+                            JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                            WHERE sub.order_id = purchase.id AND strpos(
+                                translate(lower(line.title), 'áéíóúü', 'aeiouu'),
+                                translate(lower(:term), 'áéíóúü', 'aeiouu')) > 0
+                        ))
+                    ORDER BY purchase.created_at DESC, purchase.id DESC OFFSET :offset LIMIT :limit
+                )
+                SELECT orders.*, preview.line_count, preview.units, preview.items
+                FROM orders
+                CROSS JOIN LATERAL (
+                    SELECT count(*) AS line_count, coalesce(sum(items.quantity), 0) AS units,
+                        coalesce(jsonb_agg(jsonb_build_object('title', items.title, 'thumbnailUrl', cover.thumbnail_url)
+                            ORDER BY items.position) FILTER (WHERE items.position <= 3), '[]'::jsonb) AS items
+                    FROM (
+                        SELECT line.title, line.quantity, line.sku_id,
+                            row_number() OVER (ORDER BY sub.seller_name, sub.id, line.created_at, line.id) AS position
+                        FROM zonda_market.checkout_sub_order sub
+                        JOIN zonda_market.checkout_order_line line ON line.sub_order_id = sub.id
+                        WHERE sub.order_id = orders.id
+                    ) items
+                    LEFT JOIN zonda_market.listing_sku sku ON items.position <= 3 AND sku.id = items.sku_id
+                    LEFT JOIN LATERAL (
+                        SELECT image.thumbnail_url FROM zonda_market.listing_image image
+                        JOIN zonda_market.public_listing listing ON listing.id = image.listing_id
+                        WHERE image.listing_id = sku.listing_id AND NOT image.deleted
+                        ORDER BY image.position, image.id LIMIT 1
+                    ) cover ON true
+                ) preview
+                ORDER BY orders.created_at DESC, orders.id DESC
                 """).param("buyer", buyer).param("offset", (long) page * size).param("limit", size + 1)
+                .param("term", term).param("number", orderNumber).param("filter", filter == null ? "" : filter.name())
                 .query((rs, row) -> new OrderSummary(rs.getObject("id", UUID.class),
                         rs.getObject("created_at", OffsetDateTime.class).toInstant(),
                         rs.getObject("expires_at", OffsetDateTime.class).toInstant(),
-                        rs.getString("status"), rs.getBigDecimal("total").toPlainString(), rs.getString("currency")))
+                        rs.getString("status"), rs.getBigDecimal("total").toPlainString(), rs.getString("currency"),
+                        json.readValue(rs.getString("items"), ORDER_PREVIEWS), rs.getLong("line_count"),
+                        rs.getLong("units"), rs.getString("fulfillment")))
                 .list();
     }
 
