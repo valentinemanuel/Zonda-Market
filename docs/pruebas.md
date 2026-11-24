@@ -6,7 +6,7 @@ Requisitos: Docker con Compose v2 y los puertos locales 3000 y 8080 disponibles.
 
 1. Copiá `.env.example` a `.env` y completá `POSTGRES_PASSWORD` con una contraseña de desarrollo. Generá `AUTH_JWT_KEY` con `openssl rand -base64 32` o, en PowerShell 7, con `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. Guardá la clave en `.env`.
 2. Desde la raíz, ejecutá `docker compose up --build --wait`.
-3. Abrí [Estado del sistema](http://localhost:3000/estado). También podés comprobar que `docker compose ps` liste los servicios como saludables.
+3. Abrí [Disponibilidad de Zonda Market](http://localhost:3000/estado). También podés comprobar que `docker compose ps` liste los servicios como saludables.
 
 | Ruta local | Resultado |
 | --- | --- |

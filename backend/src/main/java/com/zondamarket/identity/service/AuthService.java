@@ -72,7 +72,7 @@ public class AuthService {
         if (account.orElseThrow().isSuspended()) {
             throw unauthorized();
         }
-        return replaceFamily(account.orElseThrow(), previousRefresh);
+        return replaceFamily(account.orElseThrow(), previousRefresh, !Boolean.FALSE.equals(request.rememberMe()));
     }
 
     void verifyPassword(Optional<UserAccount> account, String password) {
@@ -85,8 +85,12 @@ public class AuthService {
     }
 
     IssuedSession replaceFamily(UserAccount account, String previousRefresh) {
+        return replaceFamily(account, previousRefresh, true);
+    }
+
+    private IssuedSession replaceFamily(UserAccount account, String previousRefresh, boolean rememberBrowser) {
         revoke(previousRefresh);
-        return startFamily(account);
+        return startFamily(account, rememberBrowser);
     }
 
     RefreshSession requireBrowserFamily(UUID accountId, String refresh) {
@@ -150,11 +154,11 @@ public class AuthService {
         }
     }
 
-    private IssuedSession startFamily(UserAccount account) {
+    private IssuedSession startFamily(UserAccount account, boolean rememberBrowser) {
         String jti = UUID.randomUUID().toString();
         Instant now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         var family = sessions.save(new RefreshSession(account, SessionTokens.hash(jti),
-                now.plus(SessionTokens.REFRESH_TTL)));
+                now.plus(SessionTokens.REFRESH_TTL), rememberBrowser));
         return issue(family, now, jti);
     }
 
@@ -162,7 +166,8 @@ public class AuthService {
         Duration remaining = Duration.between(now, family.getExpiresAt());
         long accessSeconds = Math.min(SessionTokens.ACCESS_TTL.toSeconds(), remaining.toSeconds());
         return new IssuedSession(new AccessTokenResponse(tokens.issueAccess(family, now), accessSeconds,
-                List.of(family.getAccount().getRole())), tokens.issueRefresh(family, now, jti), remaining);
+                List.of(family.getAccount().getRole())), tokens.issueRefresh(family, now, jti),
+                family.isRememberBrowser() ? remaining : Duration.ofSeconds(-1));
     }
 
     public static ApiProblemException unauthorized() {

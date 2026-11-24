@@ -20,7 +20,7 @@ test("diagnóstico, caída de PostgreSQL, recuperación y persistencia", async (
   console.log(`JVM con -Xmx384m. ${memory}`);
 
   await page.goto("/estado");
-  await expect(page.getByRole("heading", { name: "Estado del sistema" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Disponibilidad de Zonda Market" })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText(/Sistema operativo/);
   await expect(page.getByText(status.version, { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("estado-operativo.png"), fullPage: true });
@@ -39,6 +39,7 @@ test("diagnóstico, caída de PostgreSQL, recuperación y persistencia", async (
     await refresh.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("alert")).toContainText("La base de datos no está disponible");
+    await expect(page.getByRole("contentinfo").getByText("Interrumpido", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reintentar" })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath("estado-sin-postgres.png"), fullPage: true });
     console.log("Readiness con PostgreSQL detenido: HTTP 503 y cuerpo mínimo.");
@@ -56,5 +57,6 @@ test("diagnóstico, caída de PostgreSQL, recuperación y persistencia", async (
   await page.getByRole("button", { name: "Reintentar" }).click();
   await expect(page.getByRole("status")).toHaveText(/Sistema operativo/);
   await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("contentinfo").getByText("Operativo", { exact: true })).toBeVisible();
   console.log("Readiness tras recrear PostgreSQL: HTTP 200. El volumen conserva el dato de prueba.");
 });

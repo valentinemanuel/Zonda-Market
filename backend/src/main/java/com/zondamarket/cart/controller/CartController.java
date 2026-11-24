@@ -19,8 +19,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -62,6 +64,14 @@ class CartController {
                                         @RequestParam @Min(0) long expectedVersion, HttpServletResponse http) {
         expiry.forBuyer(account.id(), trace(http));
         return response(cart.remove(account.id(), skuId, expectedVersion));
+    }
+
+    @PostMapping("/reorders/{orderId}")
+    @Operation(summary = "Agregar al carrito los productos de una compra propia")
+    ResponseEntity<CartResponse> reorder(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID orderId,
+                                         @RequestHeader("Idempotency-Key") UUID key, HttpServletResponse http) {
+        expiry.forBuyer(account.id(), trace(http));
+        return response(cart.reorder(account.id(), orderId, key));
     }
 
     private static UUID trace(HttpServletResponse response) {

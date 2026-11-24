@@ -36,7 +36,7 @@ test("encuentra una variante, conserva los filtros y publica una conversación e
   expect(listing.status()).toBe(201);
   const { id } = await listing.json();
   const privateListing = privateListings + "/" + id;
-  for (const [color, talle, price, initialStock] of [["Azul", "M", 150, 2], ["Rojo", "S", 80, 0]]) {
+  for (const [color, talle, price, initialStock] of [["Azul", "M", 150, 2], ["Rojo", "S", 80, 0], ["Negro", "L", 170, 2]]) {
     expect((await request.post(privateListing + "/skus", {
       headers, data: { code: color + "-" + suffix, attributes: { color, talle }, price, initialStock },
     })).status()).toBe(201);
@@ -50,8 +50,9 @@ test("encuentra una variante, conserva los filtros y publica una conversación e
   const { slug } = await published.json();
   const questions = "/api/v1/listings/" + id + "/questions";
 
-  const search = page.getByRole("searchbox", { name: "Buscar publicaciones" });
+  const search = page.getByRole("searchbox", { name: "Buscar en la tienda" });
   await search.fill("campera " + suffix);
+  await search.press("Enter");
   await expect(page).toHaveURL(/q=campera\+/);
   await page.getByRole("combobox", { name: "Categoría", exact: true }).selectOption(category);
   await page.getByRole("combobox", { name: "Color", exact: true }).selectOption("Rojo");
@@ -100,6 +101,21 @@ test("encuentra una variante, conserva los filtros y publica una conversación e
   expect(unauthorized.status()).toBe(404);
   expect(await unauthorized.json()).toMatchObject({ code: "QUESTION_NOT_FOUND" });
   await expect(page.getByText("Pregunta publicada.", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Volver al catálogo" }).press("Enter");
+  const quickAdd = page.getByRole("button", { name: "Agregar al carrito " + title });
+  await quickAdd.press("Enter");
+  await expect(page.getByText("Agregaste una unidad al carrito.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Carrito, 1 unidad" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Color", exact: true }).selectOption("");
+  await quickAdd.press("Enter");
+  const picker = page.getByRole("dialog", { name: "Elegí una variante" });
+  const addVariant = picker.getByRole("button", { name: "Agregar al carrito", exact: true });
+  await expect(addVariant).toBeDisabled();
+  await expect(picker.getByRole("option", { name: /Rojo/ })).toHaveCount(0);
+  await picker.getByRole("combobox", { name: "Elegí una variante" }).selectOption({ label: "Color Negro · Talle L · $ 170,00" });
+  await addVariant.press("Enter");
+  await expect(picker).toBeHidden();
+  await expect(page.getByRole("link", { name: "Carrito, 2 unidades" })).toBeVisible();
 
   const owner = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -109,7 +125,7 @@ test("encuentra una variante, conserva los filtros y publica una conversación e
     await owner.getByLabel("Contraseña").fill(password);
     await owner.getByLabel("Contraseña").press("Enter");
     await expect(owner).toHaveURL(/\/catalogo$/);
-    await owner.getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
+    await owner.getByRole("banner").getByRole("link", { name: "Mi cuenta", exact: true }).press("Enter");
     await owner.getByRole("link", { name: "Panel vendedor" }).press("Enter");
     await owner.getByRole("link", { name: "Preguntas", exact: true }).press("Enter");
     await expect(owner.getByText("¿Es de algodón?", { exact: true })).toBeVisible();

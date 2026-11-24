@@ -23,7 +23,7 @@ public final class CartDtos {
 
     public record SellerGroup(UUID sellerId, String sellerSlug, String sellerName, List<Item> items, String subtotal) {}
 
-    public record Item(UUID skuId, String listingSlug, String title, Map<String, String> attributes,
+    public record Item(UUID skuId, String listingSlug, String thumbnailUrl, String title, Map<String, String> attributes,
                        int quantity, int availableStock, String unitPrice, String referencePrice,
                        String subtotal, UnavailableReason reason, boolean reserved) {}
 }

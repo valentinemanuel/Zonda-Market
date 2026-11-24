@@ -11,6 +11,7 @@ export type UnavailableReason = "LISTING_UNAVAILABLE" | "SKU_UNAVAILABLE" | "INS
 export type CartItem = {
   skuId: string;
   listingSlug: string | null;
+  thumbnailUrl?: string | null;
   title: string;
   attributes: Record<string, string>;
   quantity: number;
@@ -35,6 +36,14 @@ export type Cart = {
 type Edit = { skuId: string; expectedVersion: number } & (
   { kind: "put"; quantity: number } | { kind: "remove" }
 );
+
+export function findCartItem(cart: Cart, skuId: string) {
+  for (const group of cart.groups) {
+    const item = group.items.find((entry) => entry.skuId === skuId);
+    if (item) return item;
+  }
+  return cart.unavailable.find((item) => item.skuId === skuId);
+}
 
 export function useCart(enabled = true) {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
@@ -77,6 +86,36 @@ export function useCartEdit(revision: number) {
       }
     },
   });
+}
+
+export function useCartReorder(revision: number) {
+  const client = useQueryClient();
+  const queryKey = cartKey(revision);
+  return useMutation({
+    mutationFn: async ({ orderId, key }: { orderId: string; key: string }): Promise<Cart> => {
+      if (revision !== getSessionRevision()) throw new DOMException("La sesión cambió.", "AbortError");
+      return (await authenticatedRequest(path + "/reorders/" + encodeURIComponent(orderId), {
+        method: "POST",
+        headers: { "Idempotency-Key": key },
+      })).json();
+    },
+    onSettled: async () => {
+      if (revision === getSessionRevision()) await client.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+export function reorderError(error: unknown) {
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case "REORDER_NOT_FOUND": return "No encontramos esta compra.";
+      case "CART_QUANTITY_LIMIT": return "Esta recompra superaría las 99 unidades de una variante en tu carrito.";
+      case "CART_ITEM_RESERVED": return "Uno de los productos está incluido en una reserva activa.";
+      case "SKU_NOT_FOUND": return "Uno de los productos ya no está disponible.";
+      case "INSUFFICIENT_STOCK": return "Uno de los productos no tiene stock para la cantidad solicitada.";
+    }
+  }
+  return "No pudimos confirmar la recompra. Volvé a intentar.";
 }
 
 export function signInRequired(error: unknown) {

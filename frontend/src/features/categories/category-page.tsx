@@ -18,12 +18,12 @@ export function CategoryPage() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-5">
-      <Link to="/estado" className="inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline">
+      <Link to="/estado" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold text-primary hover:underline">
         <ArrowLeft size={16} aria-hidden="true" />
-        Volver al estado del sistema
+        Ver disponibilidad de Zonda Market
       </Link>
 
-      <Card className="gap-0 rounded-lg shadow-sm">
+      <Card className="gap-0 overflow-hidden">
         {isPending ? (
           <CardContent role="status" className="space-y-4 p-6 sm:p-8">
             <h1 className="text-2xl font-bold">Cargando categoría…</h1>
@@ -55,18 +55,18 @@ export function CategoryPage() {
           </CardContent>
         ) : (
           <>
-            <CardHeader className="gap-4 p-6 sm:p-8">
-              <div className="w-fit rounded-lg bg-accent p-3 text-primary">
+            <CardHeader className="workspace-heading gap-4 rounded-none p-6 sm:p-8">
+              <div className="w-fit rounded-lg bg-white/10 p-3 text-brand-gold">
                 <LayoutGrid size={24} aria-hidden="true" />
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{category.name}</h1>
+              <h1 className="font-wordmark text-3xl font-extrabold tracking-tight sm:text-4xl">{category.name}</h1>
               <Button asChild className="min-h-11 w-fit">
                 <Link to={"/catalogo?category=" + category.id}>Explorar publicaciones</Link>
               </Button>
             </CardHeader>
             {category.parentId && (
               <CardContent className="border-t px-6 py-3 sm:px-8">
-                <Link to={`/categorias/${category.parentId}`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline">
+                <Link to={`/categorias/${category.parentId}`} className="inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline">
                   Ver categoría superior <ArrowUpRight size={16} aria-hidden="true" />
                 </Link>
               </CardContent>

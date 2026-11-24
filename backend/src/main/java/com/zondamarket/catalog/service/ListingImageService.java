@@ -121,8 +121,10 @@ public class ListingImageService {
         image.archive();
         gallery.remove(image);
         reindex(gallery);
-        var now = clock.instant();
-        cleanup.enqueue(image.getPublicId(), image.getProvider(), now, now);
+        if (!"external".equals(image.getProvider())) {
+            var now = clock.instant();
+            cleanup.enqueue(image.getPublicId(), image.getProvider(), now, now);
+        }
     }
 
     private Format detect(MultipartFile file) {

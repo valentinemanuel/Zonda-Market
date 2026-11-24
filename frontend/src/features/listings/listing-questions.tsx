@@ -83,7 +83,7 @@ function QuestionPagination({ page, hasNext, change }: { page: number; hasNext: 
   </nav>;
 }
 
-export function ListingQuestions({ listingId }: { listingId: string }) {
+export function ListingQuestions({ listingId, readOnly = false }: { listingId: string; readOnly?: boolean }) {
   const { slug = "" } = useParams();
   const { hash, state } = useLocation();
   const section = useRef<HTMLElement>(null);
@@ -98,13 +98,13 @@ export function ListingQuestions({ listingId }: { listingId: string }) {
   });
   const account = useQuery({
     queryKey: ["private", "me", revision], queryFn: ({ signal }) => currentAccount(signal),
-    retry: false, staleTime: 30_000,
+    enabled: !readOnly, retry: false, staleTime: 30_000,
   });
   useEffect(() => {
     if (hash === "#preguntas") section.current?.scrollIntoView();
   }, [hash]);
 
-  return <section ref={section} id="preguntas" aria-labelledby="preguntas-titulo" className="mx-auto max-w-5xl space-y-4 border-t pt-5">
+  return <section ref={section} id="preguntas" aria-labelledby="preguntas-titulo" className="mx-auto max-w-7xl scroll-mt-32 space-y-4 rounded-panel border bg-card p-4 shadow-panel sm:p-6">
     <h2 id="preguntas-titulo" className="text-xl font-semibold">Preguntas y respuestas</h2>
     {questions.isPending && <p role="status">Cargando preguntas…</p>}
     {questions.isError && <div className="space-y-2">
@@ -127,12 +127,12 @@ export function ListingQuestions({ listingId }: { listingId: string }) {
       </ul>
       <QuestionPagination page={page} hasNext={questions.data.hasNext} change={setPage} />
     </>}
-    {account.isPending && <p role="status" className="text-sm text-muted-foreground">Comprobando sesión…</p>}
-    {account.isError && (account.error instanceof ApiError && account.error.status === 401
+    {!readOnly && account.isPending && <p role="status" className="text-sm text-muted-foreground">Comprobando sesión…</p>}
+    {!readOnly && account.isError && (account.error instanceof ApiError && account.error.status === 401
       ? <Link className={profileLink} to="/ingresar"
           state={{ listingSlug: slug, catalogSearch: state?.catalogSearch }}>Iniciá sesión para preguntar</Link>
       : <Button type="button" variant="outline" onClick={() => void account.refetch()}>Volver a comprobar la sesión</Button>)}
-    {account.data && <Card className="rounded-lg py-4"><CardContent className="px-4">
+    {!readOnly && account.data && <Card className="rounded-lg py-4"><CardContent className="px-4">
       <MessageForm key={revision} kind="question" send={async (text) => {
         await sendMessage(path, "POST", text);
         setPage(0);

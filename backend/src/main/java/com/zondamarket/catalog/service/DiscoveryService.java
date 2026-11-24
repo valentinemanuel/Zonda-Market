@@ -22,7 +22,7 @@ public class DiscoveryService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ListingPage search(String q, UUID category, BigDecimal min, BigDecimal max, String seller,
-                              List<String> attr, Boolean inStock, int page, int size, Sort sort) {
+                              List<String> attr, Boolean inStock, ConditionFilter condition, int page, int size, Sort sort) {
         if (min != null && max != null && min.compareTo(max) > 0) {
             throw invalid("El precio mínimo debe ser menor o igual al máximo.");
         }
@@ -38,7 +38,7 @@ public class DiscoveryService {
                 throw invalid("Usá un valor por atributo con el formato nombre:valor.");
             }
         }
-        return store.search(new Search(q.strip(), category, min, max, seller, attributes, inStock, page, size, sort));
+        return store.search(new Search(q.strip(), category, min, max, seller, attributes, inStock, condition, page, size, sort));
     }
 
     private static ApiProblemException invalid(String message) {

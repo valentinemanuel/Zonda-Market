@@ -39,6 +39,42 @@ public class CartService {
         var cart = store.lock(buyer);
         requireVersion(cart.version(), expectedVersion);
         requireEditable(cart.id(), skuId);
+        putAvailable(buyer, cart.id(), skuId, quantity);
+        return quote(buyer, cart.id(), store.advance(cart.id()));
+    }
+
+    @Transactional
+    public CartResponse reorder(UUID buyer, UUID order, UUID key) {
+        var cart = store.lock(buyer);
+        var previous = store.reordered(cart.id(), key);
+        if (previous.isPresent()) {
+            if (!previous.get().equals(order)) {
+                throw new ApiProblemException(HttpStatus.CONFLICT, "REORDER_KEY_CONFLICT",
+                        "La clave de recompra ya se usó para otra orden.");
+            }
+            return quote(buyer, cart.id(), cart.version());
+        }
+
+        var lines = store.reorderLines(buyer, cart.id(), order);
+        if (lines.isEmpty()) {
+            throw new ApiProblemException(HttpStatus.NOT_FOUND, "REORDER_NOT_FOUND",
+                    "No encontramos una compra disponible para volver a comprar.");
+        }
+        var reserved = store.reserved(cart.id()).stream().map(CartStore.ReservedLine::skuId).collect(Collectors.toSet());
+        for (var line : lines) {
+            if (reserved.contains(line.skuId())) throw reservedItem();
+            int quantity = line.purchasedQuantity() + line.cartQuantity();
+            if (quantity > 99) {
+                throw new ApiProblemException(HttpStatus.CONFLICT, "CART_QUANTITY_LIMIT",
+                        "La cantidad supera el máximo de 99 unidades por variante.");
+            }
+            putAvailable(buyer, cart.id(), line.skuId(), quantity);
+        }
+        store.recordReorder(cart.id(), key, order);
+        return quote(buyer, cart.id(), store.advance(cart.id()));
+    }
+
+    private void putAvailable(UUID buyer, UUID cart, UUID skuId, int quantity) {
         var offer = store.offer(skuId).orElseThrow(CartService::missingSku);
         var reason = unavailable(buyer, offer, quantity);
         if (reason != null) {
@@ -50,8 +86,7 @@ public class CartService {
                         "La cantidad supera el stock disponible.");
             };
         }
-        store.put(cart.id(), offer, quantity);
-        return quote(buyer, cart.id(), store.advance(cart.id()));
+        store.put(cart, offer, quantity);
     }
 
     @Transactional
@@ -78,6 +113,7 @@ public class CartService {
             var subtotal = offer.price().multiply(BigDecimal.valueOf(line.quantity()));
             boolean current = offer.visible() && !offer.deleted();
             var item = new Item(offer.skuId(), current ? offer.listingSlug() : null,
+                    current ? line.thumbnailUrl() : null,
                     current ? offer.title() : line.referenceTitle(),
                     current ? offer.attributes() : line.referenceAttributes(), line.quantity(), current ? offer.stock() : 0,
                     (current ? offer.price() : line.referencePrice()).toPlainString(), line.referencePrice().toPlainString(),
@@ -106,9 +142,13 @@ public class CartService {
 
     private void requireEditable(UUID cart, UUID sku) {
         if (store.reserved(cart).stream().anyMatch(line -> line.skuId().equals(sku))) {
-            throw new ApiProblemException(HttpStatus.CONFLICT, "CART_ITEM_RESERVED",
-                    "La variante está incluida en una reserva.");
+            throw reservedItem();
         }
+    }
+
+    private static ApiProblemException reservedItem() {
+        return new ApiProblemException(HttpStatus.CONFLICT, "CART_ITEM_RESERVED",
+                "La variante está incluida en una reserva.");
     }
 
     private static void requireVersion(long current, long expected) {

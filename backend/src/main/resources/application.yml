@@ -3,6 +3,11 @@ server:
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
 zonda:
+  demo:
+    seed:
+      enabled: ${DEMO_SEED_ENABLED:false}
+      password: ${DEMO_SEED_PASSWORD:}
+      admin-password: ${DEMO_SEED_ADMIN_PASSWORD:}
   mercado-pago:
     test-enabled: ${MERCADO_PAGO_TEST_ENABLED:false}
     public-key: ${MERCADO_PAGO_PUBLIC_KEY:}

@@ -1,4 +1,5 @@
 node_modules/
 dist/
+portfolio/dist/
 test-results/
 playwright-report/

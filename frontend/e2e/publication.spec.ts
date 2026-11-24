@@ -28,7 +28,7 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
   await expect(page.getByRole("heading", { name: "Todavía no creaste publicaciones." })).toBeVisible();
   await page.getByRole("link", { name: "Crear publicación" }).press("Enter");
   await page.getByLabel("Categoría").selectOption({ label: "Indumentaria" });
-  await page.getByLabel("Título").fill("Remera ilustrada");
+  await page.getByLabel("Título").fill("Remera ilustrada · como nuevo");
   await page.getByLabel("Descripción").fill("Remera ficticia de algodón para la prueba de catálogo.");
   await page.getByRole("button", { name: "Crear borrador" }).press("Enter");
 
@@ -100,12 +100,33 @@ test("adjunta imágenes, publica una ficha navegable y la archiva desde el panel
   const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
   try {
     await guest.goto(publicUrl);
-    await expect(guest.getByRole("heading", { name: "Remera ilustrada" })).toBeVisible();
+    await expect(guest.getByRole("heading", { name: "Remera ilustrada", exact: true })).toBeVisible();
+    await expect(guest.getByText("Como nuevo", { exact: true })).toBeVisible();
     await expect(guest.getByRole("link", { name: "Taller de prueba" })).toBeVisible();
     const mainImage = guest.getByRole("img", { name: "Vista violeta" });
     await expect.poll(() => mainImage.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
     await guest.getByRole("button", { name: "Ver imagen 2 · Remera azul" }).press("Enter");
     await expect(guest.getByRole("img", { name: "Remera azul" })).toBeVisible();
+    const zoom = guest.getByRole("button", { name: "Ampliar imagen del producto" });
+    await expect(zoom).toHaveCSS("max-height", "460px");
+    await guest.setViewportSize({ width: 1440, height: 900 });
+    await expect(guest.locator(".product-layout")).toHaveCSS("grid-template-columns", /^\S+px \S+px \S+px$/);
+    await guest.screenshot({ path: testInfo.outputPath("ficha-publicada-1440.png") });
+    await zoom.press("Enter");
+    const lightbox = guest.getByRole("dialog", { name: "Imágenes ampliadas del producto" });
+    await expect(lightbox.getByRole("button", { name: "Cerrar imagen ampliada" })).toBeFocused();
+    await expect(lightbox.getByRole("img", { name: "Remera azul" })).toBeVisible();
+    await lightbox.getByRole("button", { name: "Imagen anterior" }).click();
+    await expect(lightbox.getByRole("img", { name: "Vista violeta" })).toBeVisible();
+    await guest.keyboard.press("ArrowRight");
+    await expect(lightbox.getByRole("img", { name: "Remera azul" })).toBeVisible();
+    await guest.screenshot({ path: testInfo.outputPath("ficha-visor-1440.png") });
+    await guest.keyboard.press("Escape");
+    await expect(zoom).toBeFocused();
+    await zoom.press("Enter");
+    await guest.mouse.click(5, 5);
+    await expect(lightbox).toBeHidden();
+    await guest.setViewportSize({ width: 390, height: 844 });
     await expect(guest.getByText("$ 12.900,50", { exact: true })).toBeVisible();
     await guest.getByLabel("Variante").press("ArrowDown");
     await expect(guest.getByText("$ 15.000,00", { exact: true })).toBeVisible();

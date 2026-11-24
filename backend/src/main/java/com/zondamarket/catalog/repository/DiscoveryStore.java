@@ -1,6 +1,7 @@
 package com.zondamarket.catalog.repository;
 
 import com.zondamarket.catalog.dto.DiscoveryDtos.AttributeFacet;
+import com.zondamarket.catalog.dto.DiscoveryDtos.ConditionFilter;
 import com.zondamarket.catalog.dto.DiscoveryDtos.ListingCardResponse;
 import com.zondamarket.catalog.dto.DiscoveryDtos.ListingPage;
 import com.zondamarket.catalog.dto.DiscoveryDtos.Search;
@@ -32,9 +33,19 @@ public class DiscoveryStore {
                 """;
         String matches = categories + (categories.isEmpty() ? "WITH " : "") + """
                 matched AS (
-                    SELECT l.id, l.seller_slug, l.seller_name, sku.price, sku.available_stock > 0 AS available, sku.attributes
+                    SELECT l.id, l.seller_slug, l.seller_name, sku.id AS sku_id, sku.price,
+                           sku.available_stock > 0 AS available, sku.attributes, product.condition
                     FROM zonda_market.public_listing l
+                    JOIN zonda_market.listing details ON details.id = l.id
                     JOIN zonda_market.listing_sku sku ON sku.listing_id = l.id AND NOT sku.deleted
+                    LEFT JOIN LATERAL (
+                        SELECT value AS condition FROM (VALUES (COALESCE(
+                            NULLIF(lower(btrim(details.specs ->> 'Condición')), ''),
+                            NULLIF(lower(btrim(details.specs ->> 'condición')), ''),
+                            substring(lower(btrim(l.title)) FROM ' · (nuevo|como nuevo|buen estado|segunda mano|usado)$')
+                        ))) AS declared(value)
+                        WHERE value IN ('nuevo', 'como nuevo', 'buen estado', 'segunda mano', 'usado')
+                    ) product ON TRUE
                     WHERE TRUE
                 """;
         if (search.category() != null) {
@@ -60,6 +71,11 @@ public class DiscoveryStore {
         if (search.inStock() != null) {
             params.put("inStock", search.inStock());
             matches += " AND (sku.available_stock > 0) = :inStock";
+        }
+        if (search.condition() != null) {
+            matches += search.condition() == ConditionFilter.nuevo
+                    ? " AND product.condition = 'nuevo'"
+                    : " AND product.condition <> 'nuevo'";
         }
         for (var attribute : search.attributes().entrySet()) {
             int index = params.size();
@@ -97,10 +113,13 @@ public class DiscoveryStore {
         var cards = sql.sql(matches + """
                 , result AS (
                     SELECT id, COALESCE(min(price) FILTER (WHERE available), min(price)) AS price,
-                           bool_or(available) AS available FROM matched GROUP BY id
+                           bool_or(available) AS available, max(condition) AS condition,
+                           CASE WHEN count(*) FILTER (WHERE available) = 1
+                               THEN (array_agg(sku_id) FILTER (WHERE available))[1] END AS quick_sku_id
+                    FROM matched GROUP BY id
                 )
                 SELECT l.id, l.slug, l.title, l.category_id, seller.slug AS seller_slug, seller.display_name AS seller_name,
-                       cover.thumbnail_url, result.price, result.available
+                       cover.thumbnail_url, result.price, result.available, result.condition, result.quick_sku_id
                 FROM result JOIN zonda_market.listing l ON l.id = result.id
                 JOIN zonda_market.seller_profile seller ON seller.id = l.seller_id
                 LEFT JOIN LATERAL (
@@ -111,7 +130,8 @@ public class DiscoveryStore {
                 .params(params).query((rs, row) -> new ListingCardResponse(
                         rs.getObject("id", UUID.class), rs.getString("slug"), rs.getString("title"),
                         rs.getObject("category_id", UUID.class), rs.getString("seller_slug"), rs.getString("seller_name"),
-                        rs.getString("thumbnail_url"), rs.getBigDecimal("price").toPlainString(), rs.getBoolean("available")))
+                        rs.getString("thumbnail_url"), rs.getBigDecimal("price").toPlainString(), rs.getBoolean("available"),
+                        rs.getString("condition"), rs.getObject("quick_sku_id", UUID.class)))
                 .list();
 
         return new ListingPage(cards, search.page(), search.size(), total, pages, facets, sellers);

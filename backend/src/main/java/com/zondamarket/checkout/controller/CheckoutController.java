@@ -1,7 +1,10 @@
 package com.zondamarket.checkout.controller;
 
 import com.zondamarket.checkout.dto.CheckoutDtos.ConfirmRequest;
+import com.zondamarket.checkout.dto.CheckoutDtos.DirectPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
+import com.zondamarket.checkout.dto.CheckoutDtos.HistoryFilter;
+import jakarta.validation.constraints.Size;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteRequest;
 import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
@@ -43,12 +46,26 @@ class CheckoutController {
         this.expiry = expiry;
     }
 
+    @GetMapping("/checkout/items/{skuId}")
+    @Operation(summary = "Consultar la variante seleccionada para una compra directa")
+    ResponseEntity<DirectPreview> directPreview(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID skuId, @RequestParam(defaultValue = "1") @Min(1) @Max(99) int quantity,
+            HttpServletResponse response) {
+        expiry.forSku(skuId, trace(response));
+        return privateResponse(checkout.directPreview(account.id(), skuId, quantity));
+    }
+
     @PostMapping("/checkout/quote")
     @Operation(summary = "Cotizar el carrito propio para una dirección de la cuenta")
     ResponseEntity<QuoteResponse> quote(@AuthenticationPrincipal AccountResponse account,
             @Valid @RequestBody QuoteRequest request, HttpServletResponse response) {
-        if (account.emailVerified()) expiry.forCheckout(account.id(), trace(response));
-        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact()));
+        if (account.emailVerified()) {
+            if (request.directSkuId() != null) expiry.forSku(request.directSkuId(), trace(response));
+            expiry.forCheckout(account.id(), trace(response));
+        }
+        int quantity = request.quantity() == null ? 1 : request.quantity().intValueExact();
+        return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact(),
+                request.directSkuId(), quantity));
     }
 
     @PostMapping("/checkout/confirm")
@@ -68,6 +85,15 @@ class CheckoutController {
         return privateResponse(checkout.get(account.id(), id));
     }
 
+    @PostMapping("/orders/{id}/cancel-reservation")
+    @Operation(summary = "Liberar una reserva propia antes de enviar el pago")
+    ResponseEntity<Void> cancelReservation(@AuthenticationPrincipal AccountResponse account,
+            @PathVariable UUID id, HttpServletResponse response) {
+        expiry.forOrder(account.id(), id, trace(response));
+        checkout.cancelReservation(account.id(), id, trace(response));
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
     @GetMapping("/orders/active")
     @Operation(summary = "Recuperar la reserva de la cuenta")
     ResponseEntity<OrderResponse> active(@AuthenticationPrincipal AccountResponse account, HttpServletResponse response) {
@@ -80,9 +106,11 @@ class CheckoutController {
     @Operation(summary = "Listar las órdenes de la cuenta desde la más reciente")
     ResponseEntity<OrderPage> history(@AuthenticationPrincipal AccountResponse account,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size, HttpServletResponse response) {
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size,
+            @RequestParam(defaultValue = "") @Size(max = 160) String q,
+            @RequestParam(required = false) HistoryFilter filter, HttpServletResponse response) {
         expiry.forBuyer(account.id(), trace(response));
-        return privateResponse(checkout.history(account.id(), page, size));
+        return privateResponse(checkout.history(account.id(), page, size, q.strip(), filter));
     }
 
     private static UUID trace(HttpServletResponse response) {
