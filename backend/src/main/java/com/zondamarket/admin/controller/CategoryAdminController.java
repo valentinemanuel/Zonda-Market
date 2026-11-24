@@ -1,11 +1,12 @@
 package com.zondamarket.admin.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.admin.dto.CategoryAdminDtos.ArchiveRequest;
 import com.zondamarket.admin.dto.CategoryAdminDtos.CategoryAdminRequest;
 import com.zondamarket.admin.dto.CategoryAdminDtos.CategoryRow;
 import com.zondamarket.admin.service.CategoryAdminService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,22 +44,18 @@ class CategoryAdminController {
     @PostMapping
     ResponseEntity<CategoryRow> create(@Valid @RequestBody CategoryAdminRequest request,
             @AuthenticationPrincipal AccountResponse actor, HttpServletResponse response) {
-        return privateResponse(HttpStatus.CREATED, categories.create(request, actor.id(), trace(response)));
+        return privateResponse(HttpStatus.CREATED, categories.create(request, actor.id(), responseTraceId(response)));
     }
 
     @PatchMapping("/{id}")
     ResponseEntity<CategoryRow> edit(@PathVariable UUID id, @Valid @RequestBody CategoryAdminRequest request,
             @AuthenticationPrincipal AccountResponse actor, HttpServletResponse response) {
-        return privateResponse(HttpStatus.OK, categories.edit(id, request, actor.id(), trace(response)));
+        return privateResponse(HttpStatus.OK, categories.edit(id, request, actor.id(), responseTraceId(response)));
     }
 
     @PostMapping("/{id}/archive")
     ResponseEntity<CategoryRow> archive(@PathVariable UUID id, @Valid @RequestBody ArchiveRequest request) {
         return privateResponse(HttpStatus.OK, categories.archive(id, request.expectedVersion()));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
     }
 
     private static <T> ResponseEntity<T> privateResponse(HttpStatus status, T body) {

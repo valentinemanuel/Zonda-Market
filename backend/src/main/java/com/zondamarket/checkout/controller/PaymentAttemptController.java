@@ -1,5 +1,7 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentOptions;
 import com.zondamarket.checkout.dto.PaymentDtos.StartRequest;
@@ -9,7 +11,6 @@ import com.zondamarket.checkout.service.CardPaymentService;
 import com.zondamarket.checkout.service.CheckoutProService;
 import com.zondamarket.checkout.service.PaymentAttemptService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -57,43 +58,39 @@ class PaymentAttemptController {
     ResponseEntity<PaymentAttemptResponse> start(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @Valid @RequestBody StartRequest request, HttpServletResponse response,
             @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key) {
-        return privateResponse(payments.start(account.id(), id, request.method(), key, trace(response)));
+        return privateResponse(payments.start(account.id(), id, request.method(), key, responseTraceId(response)));
     }
 
     @PostMapping("/payments/{attemptId}/submit")
     ResponseEntity<PaymentAttemptResponse> submit(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
-        return privateResponse(payments.submit(account.id(), id, attemptId, trace(response)));
+        return privateResponse(payments.submit(account.id(), id, attemptId, responseTraceId(response)));
     }
 
     @PostMapping("/payments/card")
     ResponseEntity<PaymentAttemptResponse> card(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
             @Valid @RequestBody CardPaymentRequest request, HttpServletResponse response,
             @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key) {
-        return privateResponse(cards.submit(account.id(), id, key, request, trace(response)));
+        return privateResponse(cards.submit(account.id(), id, key, request, responseTraceId(response)));
     }
 
     @PostMapping("/payments/{attemptId}/reconcile-card")
     ResponseEntity<PaymentAttemptResponse> reconcileCard(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
-        return privateResponse(cards.consult(account.id(), id, attemptId, trace(response)));
+        return privateResponse(cards.consult(account.id(), id, attemptId, responseTraceId(response)));
     }
 
     @PostMapping("/payments/pro")
     ResponseEntity<PaymentAttemptResponse> checkoutPro(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @Valid @RequestBody ProPaymentRequest request, HttpServletResponse response,
             @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key) {
-        return privateResponse(pro.submit(account.id(), id, request.attemptId(), key, trace(response)));
+        return privateResponse(pro.submit(account.id(), id, request.attemptId(), key, responseTraceId(response)));
     }
 
     @PostMapping("/payments/{attemptId}/reconcile-pro")
     ResponseEntity<PaymentAttemptResponse> reconcilePro(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, HttpServletResponse response) {
-        return privateResponse(pro.consult(account.id(), id, attemptId, trace(response)));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return privateResponse(pro.consult(account.id(), id, attemptId, responseTraceId(response)));
     }
 
     private static <T> ResponseEntity<T> privateResponse(T body) {

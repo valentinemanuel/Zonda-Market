@@ -15,6 +15,10 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     public static final String TRACE_KEY = "traceId";
     public static final String TRACE_HEADER = "X-Trace-Id";
 
+    public static UUID responseTraceId(HttpServletResponse response) {
+        return UUID.fromString(response.getHeader(TRACE_HEADER));
+    }
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)

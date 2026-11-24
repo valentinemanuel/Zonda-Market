@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Wallet } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { getSessionRevision } from "@/features/auth/session-api";
+import { cartKey } from "@/features/cart/cart-api";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import {
@@ -91,7 +92,7 @@ export function PaymentMethods({ order, eligible, revision, returned }: {
       client.invalidateQueries({ queryKey: orderKey(revision, id) }),
       client.invalidateQueries({ queryKey: activeOrderKey(revision) }),
       client.invalidateQueries({ queryKey: ordersKey(revision) }),
-      client.invalidateQueries({ queryKey: ["private", "cart", revision] }),
+      client.invalidateQueries({ queryKey: cartKey(revision) }),
     ]);
   }, [client, id, revision]);
   const payment = useMutation({

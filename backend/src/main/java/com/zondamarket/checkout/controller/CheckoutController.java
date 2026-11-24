@@ -1,5 +1,7 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.CheckoutDtos.ConfirmRequest;
 import com.zondamarket.checkout.dto.CheckoutDtos.DirectPreview;
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderPage;
@@ -11,7 +13,6 @@ import com.zondamarket.checkout.dto.CheckoutDtos.QuoteResponse;
 import com.zondamarket.checkout.service.CheckoutService;
 import com.zondamarket.checkout.service.ReservationExpiry;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,7 +52,7 @@ class CheckoutController {
     ResponseEntity<DirectPreview> directPreview(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID skuId, @RequestParam(defaultValue = "1") @Min(1) @Max(99) int quantity,
             HttpServletResponse response) {
-        expiry.forSku(skuId, trace(response));
+        expiry.forSku(skuId, responseTraceId(response));
         return privateResponse(checkout.directPreview(account.id(), skuId, quantity));
     }
 
@@ -60,8 +61,8 @@ class CheckoutController {
     ResponseEntity<QuoteResponse> quote(@AuthenticationPrincipal AccountResponse account,
             @Valid @RequestBody QuoteRequest request, HttpServletResponse response) {
         if (account.emailVerified()) {
-            if (request.directSkuId() != null) expiry.forSku(request.directSkuId(), trace(response));
-            expiry.forCheckout(account.id(), trace(response));
+            if (request.directSkuId() != null) expiry.forSku(request.directSkuId(), responseTraceId(response));
+            expiry.forCheckout(account.id(), responseTraceId(response));
         }
         int quantity = request.quantity() == null ? 1 : request.quantity().intValueExact();
         return privateResponse(checkout.quote(account, request.addressId(), request.cartVersion().longValueExact(),
@@ -72,7 +73,7 @@ class CheckoutController {
     @Operation(summary = "Confirmar una cotización propia y reservar el inventario")
     ResponseEntity<OrderResponse> confirm(@AuthenticationPrincipal AccountResponse account, @Valid @RequestBody ConfirmRequest request,
             @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key, HttpServletResponse response) {
-        var trace = trace(response);
+        var trace = responseTraceId(response);
         if (account.emailVerified()) expiry.forCheckout(account.id(), trace);
         return privateResponse(checkout.confirm(account, request.quoteId(), key, trace));
     }
@@ -81,7 +82,7 @@ class CheckoutController {
     @Operation(summary = "Consultar el detalle congelado de una orden propia")
     ResponseEntity<OrderResponse> order(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, HttpServletResponse response) {
-        expiry.forOrder(account.id(), id, trace(response));
+        expiry.forOrder(account.id(), id, responseTraceId(response));
         return privateResponse(checkout.get(account.id(), id));
     }
 
@@ -89,15 +90,15 @@ class CheckoutController {
     @Operation(summary = "Liberar una reserva propia antes de enviar el pago")
     ResponseEntity<Void> cancelReservation(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, HttpServletResponse response) {
-        expiry.forOrder(account.id(), id, trace(response));
-        checkout.cancelReservation(account.id(), id, trace(response));
+        expiry.forOrder(account.id(), id, responseTraceId(response));
+        checkout.cancelReservation(account.id(), id, responseTraceId(response));
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
     @GetMapping("/orders/active")
     @Operation(summary = "Recuperar la reserva de la cuenta")
     ResponseEntity<OrderResponse> active(@AuthenticationPrincipal AccountResponse account, HttpServletResponse response) {
-        expiry.forBuyer(account.id(), trace(response));
+        expiry.forBuyer(account.id(), responseTraceId(response));
         return checkout.active(account.id()).map(CheckoutController::privateResponse)
                 .orElseGet(() -> ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build());
     }
@@ -109,12 +110,8 @@ class CheckoutController {
             @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size,
             @RequestParam(defaultValue = "") @Size(max = 160) String q,
             @RequestParam(required = false) HistoryFilter filter, HttpServletResponse response) {
-        expiry.forBuyer(account.id(), trace(response));
+        expiry.forBuyer(account.id(), responseTraceId(response));
         return privateResponse(checkout.history(account.id(), page, size, q.strip(), filter));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
     }
 
     private static <T> ResponseEntity<T> privateResponse(T body) {

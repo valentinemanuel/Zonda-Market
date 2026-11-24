@@ -1,6 +1,9 @@
 import { request } from "@/shared/api/http-client";
 import { type Account, authenticatedRequest } from "./session-api";
 
+export const addressesKey = (revision: number) => ["private", "addresses", revision] as const;
+export const ownSellerKey = (revision: number) => ["private", "seller", revision] as const;
+
 export type AddressFields = {
   street: string;
   city: string;

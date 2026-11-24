@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } fro
 import { Navigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { type Address, getAddresses, removeAddress, saveAddress, setDefaultAddress } from "./profile-api";
+import { type Address, addressesKey, getAddresses, removeAddress, saveAddress, setDefaultAddress } from "./profile-api";
 import { AccountView } from "./account-layout";
 import { ProfileInput, profileControl } from "./profile-fields";
 import { getSessionRevision, subscribeToSession } from "./session-api";
@@ -33,7 +33,7 @@ function Addresses({ revision }: { revision: number }) {
   const [notice, setNotice] = useState("");
   const addButton = useRef<HTMLButtonElement>(null);
   const client = useQueryClient();
-  const queryKey = ["private", "addresses", revision];
+  const queryKey = addressesKey(revision);
   const addresses = useQuery({ queryKey, queryFn: ({ signal }) => getAddresses(signal), retry: false });
   const makeDefault = useMutation({
     mutationFn: setDefaultAddress,

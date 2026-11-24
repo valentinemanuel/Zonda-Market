@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
-import { authenticatedRequest, currentAccount, getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
+import { authenticatedRequest, currentAccount, getSessionRevision, subscribeToSession, currentAccountKey } from "@/features/auth/session-api";
 import { ApiError, getJson } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -97,7 +97,7 @@ export function ListingQuestions({ listingId, readOnly = false }: { listingId: s
     retry: false,
   });
   const account = useQuery({
-    queryKey: ["private", "me", revision], queryFn: ({ signal }) => currentAccount(signal),
+    queryKey: currentAccountKey(revision), queryFn: ({ signal }) => currentAccount(signal),
     enabled: !readOnly, retry: false, staleTime: 30_000,
   });
   useEffect(() => {

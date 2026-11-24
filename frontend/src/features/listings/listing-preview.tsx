@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ownSeller } from "@/features/auth/profile-api";
+import { ownSeller, ownSellerKey } from "@/features/auth/profile-api";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { changePublicationState, type Listing, type ListingCategory } from "./listing-api";
@@ -17,7 +17,7 @@ export function ListingPreview({ listing, category, sessionRevision, updated, ed
 }) {
   const state = useSave();
   const seller = useQuery({
-    queryKey: ["private", "seller", sessionRevision],
+    queryKey: ownSellerKey(sessionRevision),
     queryFn: ({ signal }) => ownSeller(signal),
     retry: false,
   });

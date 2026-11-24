@@ -1,9 +1,10 @@
 package com.zondamarket.admin.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.admin.dto.AuditDtos.*;
 import com.zondamarket.admin.service.AuditService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -52,7 +53,7 @@ class AuditController {
     ResponseEntity<RecoveryResponse> reconcile(@PathVariable UUID id, @RequestHeader("Idempotency-Key") UUID key,
             @Valid @RequestBody ReconcileRequest request, @AuthenticationPrincipal AccountResponse actor,
             HttpServletResponse response) {
-        var trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        var trace = responseTraceId(response);
         return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
                 .body(audit.reconcile(id, key, actor.id(), request.reason().strip(), trace));
     }

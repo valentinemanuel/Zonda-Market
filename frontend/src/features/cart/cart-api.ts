@@ -4,7 +4,7 @@ import { authenticatedRequest, getSessionRevision, subscribeToSession } from "@/
 import { ApiError } from "@/shared/api/http-client";
 
 const path = "/api/v1/cart";
-const cartKey = (revision: number) => ["private", "cart", revision] as const;
+export const cartKey = (revision: number) => ["private", "cart", revision] as const;
 
 export type UnavailableReason = "LISTING_UNAVAILABLE" | "SKU_UNAVAILABLE" | "INSUFFICIENT_STOCK" | "SELF_PURCHASE";
 

@@ -3,6 +3,7 @@ import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useBlocker } from "react-router-dom";
 import { getSessionRevision } from "@/features/auth/session-api";
+import { cartKey } from "@/features/cart/cart-api";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { activeOrderKey, cancelReservation, checkoutPath, directOrderQuantity, orderKey, ordersKey, type Order } from "./checkout-api";
@@ -41,7 +42,7 @@ export function ReturnToShipping({ order, revision }: { order: Order; revision: 
     client.setQueryData(activeOrderKey(revision), null);
     void client.invalidateQueries({ queryKey: orderKey(revision, order.id) });
     void client.invalidateQueries({ queryKey: ordersKey(revision) });
-    void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
+    void client.invalidateQueries({ queryKey: cartKey(revision) });
     void client.invalidateQueries({ queryKey: ["catalog"] });
     void client.invalidateQueries({ queryKey: ["listing-public"] });
     blocker.proceed();

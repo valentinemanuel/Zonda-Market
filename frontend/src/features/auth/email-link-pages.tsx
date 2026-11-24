@@ -8,6 +8,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { emailField, newPasswordField } from "./credential-fields";
 import { confirmEmailLink, requestEmailLink } from "./identity-email-api";
+import { currentAccountQueryPrefix } from "./session-api";
 
 const emailSchema = z.object({ email: emailField });
 const passwordSchema = z.object({ password: newPasswordField });
@@ -82,7 +83,7 @@ function ConfirmLinkPage({ resetPassword }: { resetPassword: boolean }) {
       await confirmEmailLink(resetPassword ? "password-reset" : "email-verification", token,
         resetPassword ? password : undefined);
       if (!resetPassword) {
-        void queryClient.invalidateQueries({ queryKey: ["private", "me"] });
+        void queryClient.invalidateQueries({ queryKey: currentAccountQueryPrefix });
       }
       reset();
       navigate(pathname, { replace: true, state: { emailLinkConfirmed: true } });

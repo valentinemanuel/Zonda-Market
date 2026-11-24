@@ -1,5 +1,7 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.DisputeDtos.*;
 import com.zondamarket.checkout.dto.DisputeResolutionDtos.Balance;
 import com.zondamarket.checkout.dto.DisputeResolutionDtos.ResolveRequest;
@@ -7,7 +9,6 @@ import com.zondamarket.checkout.dto.DisputeResolutionDtos.Resolution;
 import com.zondamarket.checkout.service.DisputeResolutionService;
 import com.zondamarket.checkout.service.DisputeService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,7 +45,7 @@ class DisputeController {
     @PostMapping("/me/sub-orders/{id}/disputes")
     ResponseEntity<Reference> open(@AuthenticationPrincipal AccountResponse actor, @PathVariable UUID id,
             @Valid @RequestBody OpenRequest request, HttpServletResponse response) {
-        return privateResponse(HttpStatus.CREATED, disputes.open(actor.id(), id, request, trace(response)));
+        return privateResponse(HttpStatus.CREATED, disputes.open(actor.id(), id, request, responseTraceId(response)));
     }
 
     @GetMapping("/disputes/{id}")
@@ -69,7 +70,7 @@ class DisputeController {
     @PostMapping("/admin/disputes/{id}/assign")
     ResponseEntity<Reference> assign(@AuthenticationPrincipal AccountResponse actor, @PathVariable UUID id,
             HttpServletResponse response) {
-        return privateResponse(HttpStatus.OK, disputes.assign(actor, id, trace(response)));
+        return privateResponse(HttpStatus.OK, disputes.assign(actor, id, responseTraceId(response)));
     }
 
     @GetMapping("/admin/disputes/{id}/resolution-balance")
@@ -81,11 +82,7 @@ class DisputeController {
     ResponseEntity<Resolution> resolve(@AuthenticationPrincipal AccountResponse actor, @PathVariable UUID id,
             @RequestHeader("Idempotency-Key") UUID key, @Valid @RequestBody ResolveRequest request,
             HttpServletResponse response) {
-        return privateResponse(HttpStatus.OK, resolutions.resolve(id, actor.id(), key, request, trace(response)));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return privateResponse(HttpStatus.OK, resolutions.resolve(id, actor.id(), key, request, responseTraceId(response)));
     }
 
     private static <T> ResponseEntity<T> privateResponse(HttpStatus status, T body) {

@@ -125,6 +125,9 @@ export async function authenticatedRequest(path: string, init: RequestInit = {},
   }
 }
 
+export const currentAccountQueryPrefix = ["private", "me"] as const;
+export const currentAccountKey = (revision: number) => [...currentAccountQueryPrefix, revision] as const;
+
 export async function currentAccount(signal: AbortSignal): Promise<Account> {
   return (await authenticatedRequest("/api/v1/me", { signal })).json();
 }

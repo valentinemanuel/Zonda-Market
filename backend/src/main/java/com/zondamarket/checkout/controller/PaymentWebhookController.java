@@ -1,15 +1,15 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.PaymentWebhookTopic;
 import com.zondamarket.checkout.service.PaymentWebhookService;
 import com.zondamarket.shared.errors.ApiProblemException;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -56,7 +56,7 @@ class PaymentWebhookController {
         if (!eventId.matches("[A-Za-z0-9_-]{1,80}")) throw invalid();
         webhooks.receive(topic, resource, single(Collections.list(request.getHeaders("x-request-id"))),
                 single(Collections.list(request.getHeaders("x-signature"))), eventId,
-                UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER)));
+                responseTraceId(response));
         return ResponseEntity.ok().build();
     }
 

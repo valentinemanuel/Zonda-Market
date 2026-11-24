@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { currentAccount, getSessionRevision, logout, subscribeToSession } from "./session-api";
+import { currentAccount, getSessionRevision, logout, subscribeToSession, currentAccountKey } from "./session-api";
 import { GoogleSecurity } from "./google-security";
 import { EmailVerificationAction } from "./email-verification-action";
 import { AccountProfile, AccountSeller } from "./account-profile";
@@ -17,7 +17,7 @@ export function AccountPage() {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
 
   const account = useQuery({
-    queryKey: ["private", "me", revision],
+    queryKey: currentAccountKey(revision),
     queryFn: ({ signal }) => currentAccount(signal),
     retry: false,
     staleTime: 30_000,

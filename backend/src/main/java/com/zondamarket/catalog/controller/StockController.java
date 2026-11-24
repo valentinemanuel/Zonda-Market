@@ -1,11 +1,12 @@
 package com.zondamarket.catalog.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.catalog.dto.StockDtos.AdjustmentRequest;
 import com.zondamarket.catalog.dto.StockDtos.Movement;
 import com.zondamarket.catalog.dto.StockDtos.MovementPage;
 import com.zondamarket.catalog.service.StockService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,7 +42,7 @@ class StockController {
     Movement adjust(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
                     @RequestHeader("Idempotency-Key") @Pattern(regexp = "[A-Za-z0-9._:-]{1,128}") String key,
                     @Valid @RequestBody AdjustmentRequest request, HttpServletResponse response) {
-        UUID trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        UUID trace = responseTraceId(response);
         return stock.adjust(account.id(), id, key, request, trace);
     }
 

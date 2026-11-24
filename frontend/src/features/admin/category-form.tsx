@@ -1,9 +1,9 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/shared/ui/button";
 import type { Category, CategoryInput } from "./category-admin-api";
+import { formatCommission } from "./category-commission";
 
 const control = "min-h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-ring";
-const percent = new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 2 });
 type Attribute = { id: number; name: string; values: string };
 
 export function CategoryForm({ category, categories, pending, stale, cancel, save }: {
@@ -91,7 +91,7 @@ export function CategoryForm({ category, categories, pending, stale, cancel, sav
             <input name="commissionBps" className={control} type="number" min={0} max={10_000} step={1}
               required value={bps} onChange={(event) => setBps(event.target.value)} aria-describedby="category-rate-help" />
             <span id="category-rate-help" className="text-xs text-muted-foreground">
-              100 puntos equivalen a 1 %. Tasa ingresada: {percent.format(Number(bps) / 10_000)}.
+              100 puntos equivalen a 1 %. Tasa ingresada: {formatCommission(Number(bps))}.
             </span>
           </label>
         </div>

@@ -59,6 +59,7 @@ test("edita el árbol y las tasas en móvil con teclado y recupera errores", asy
   await slug.fill(root.slug);
   await page.getByLabel("Categoría superior").selectOption(rootId);
   await page.getByLabel("Comisión en puntos básicos").fill("1250");
+  await expect(page.getByText(/Tasa ingresada: 12,5\s*%/)).toBeVisible();
   await page.getByRole("button", { name: "Agregar atributo" }).press("Enter");
   await page.getByLabel("Nombre del atributo").fill("color");
   await page.getByLabel("Valores permitidos").fill("Negro\nBlanco");

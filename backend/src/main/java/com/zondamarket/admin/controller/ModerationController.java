@@ -1,10 +1,11 @@
 package com.zondamarket.admin.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.admin.dto.ModerationDtos.*;
 import com.zondamarket.admin.repository.ModerationStore.Target;
 import com.zondamarket.admin.service.ModerationService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,21 +70,17 @@ class ModerationController {
     @PostMapping("/listings/{id}/moderation")
     ResponseEntity<Audit> moderate(@PathVariable UUID id, @Valid @RequestBody Command<ListingAction> command,
             @AuthenticationPrincipal AccountResponse actor, HttpServletResponse response) {
-        return privateResponse(moderation.moderate(id, command, actor, trace(response)));
+        return privateResponse(moderation.moderate(id, command, actor, responseTraceId(response)));
     }
 
     @PostMapping("/users/{id}/status")
     ResponseEntity<Audit> status(@PathVariable UUID id, @Valid @RequestBody Command<AccountAction> command,
             @AuthenticationPrincipal AccountResponse actor, HttpServletResponse response) {
-        return privateResponse(moderation.changeStatus(id, command, actor, trace(response)));
+        return privateResponse(moderation.changeStatus(id, command, actor, responseTraceId(response)));
     }
 
     private static Target target(String resource) {
         return "listings".equals(resource) ? Target.LISTING : Target.ACCOUNT;
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
     }
 
     private static <T> ResponseEntity<T> privateResponse(T body) {
