@@ -1,4 +1,5 @@
 .env
+/.local/plan/
 .idea/
 .vscode/
 backend/target/

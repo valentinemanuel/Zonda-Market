@@ -1,6 +1,6 @@
 # Reglas de dominio
 
-Referencia inicial de las invariantes de la v1.0, basada en las secciones 2 y 3 del [plan original](Plan-de-Trabajo-Zonda-MARKET-Marketplace-C2C-B2C.pdf). El [modelo UML](uml.uxf) muestra las entidades y sus relaciones.
+Reglas de negocio del marketplace. El [modelo UML](uml.uxf) muestra las entidades y sus relaciones.
 
 ## Identidad y catálogo
 
