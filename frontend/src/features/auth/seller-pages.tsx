@@ -6,14 +6,14 @@ import { inventoryPath, sellerListingsPath, sellerOrdersPath, sellerQuestionsPat
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { SellerReviews } from "@/features/reviews/seller-reviews";
-import { ownSeller, publicSeller, type Seller } from "./profile-api";
+import { ownSeller, ownSellerKey, publicSeller, type Seller } from "./profile-api";
 import { profileLink } from "./profile-fields";
 import { getSessionRevision, subscribeToSession } from "./session-api";
 
 export function SellerPanelPage() {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const seller = useQuery({
-    queryKey: ["private", "seller", revision],
+    queryKey: ownSellerKey(revision),
     queryFn: ({ signal }) => ownSeller(signal),
     retry: false,
   });

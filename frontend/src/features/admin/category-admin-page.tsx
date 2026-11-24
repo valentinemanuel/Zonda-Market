@@ -4,12 +4,12 @@ import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { AdminPage, LoadError } from "./admin-page";
 import { archiveCategory, listCategories, saveCategory, type Category, type CategoryInput } from "./category-admin-api";
+import { formatCommission } from "./category-commission";
 import { CategoryForm } from "./category-form";
 
 type Editor = { mode: "edit"; category: Category | null } | { mode: "archive"; category: Category };
 type Change = { category: Category | null; input: CategoryInput } | { archive: Category };
 
-const percent = new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 2 });
 const errors: Record<string, string> = {
   CATEGORY_CYCLE: "Ese movimiento formaría un ciclo.",
   CATEGORY_DEPTH: "El árbol admite hasta cuatro niveles.",
@@ -158,7 +158,7 @@ function CategoryBranch({ categories, parent, disabled, open }: {
             <div className="min-w-0 break-words">
               <p className="font-semibold">{row.name}</p>
               <p className="text-sm text-muted-foreground">{row.hasChildren ? "Categoría superior" :
-                `${percent.format(row.commissionBps / 10_000)} de comisión · ${row.activeListings} publicaciones activas`}</p>
+                `${formatCommission(row.commissionBps)} de comisión · ${row.activeListings} publicaciones activas`}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="outline" disabled={disabled} aria-label={`Editar ${row.name}`}

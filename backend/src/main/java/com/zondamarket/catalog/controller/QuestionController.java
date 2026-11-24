@@ -1,9 +1,10 @@
 package com.zondamarket.catalog.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.catalog.dto.QuestionDtos.*;
 import com.zondamarket.catalog.service.QuestionService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,7 +39,7 @@ class QuestionController {
     @SecurityRequirement(name = "bearerAuth")
     Question ask(@PathVariable UUID id, @AuthenticationPrincipal AccountResponse account,
                  @Valid @RequestBody QuestionRequest body, HttpServletResponse response) {
-        return questions.ask(id, account.id(), body, trace(response));
+        return questions.ask(id, account.id(), body, responseTraceId(response));
     }
 
     @GetMapping("/api/v1/seller/questions")
@@ -53,10 +54,6 @@ class QuestionController {
     @SecurityRequirement(name = "bearerAuth")
     Question answer(@PathVariable UUID id, @AuthenticationPrincipal AccountResponse account,
                     @Valid @RequestBody AnswerRequest body, HttpServletResponse response) {
-        return questions.answer(account.id(), id, body, trace(response));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return questions.answer(account.id(), id, body, responseTraceId(response));
     }
 }

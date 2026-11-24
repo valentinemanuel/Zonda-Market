@@ -1,11 +1,12 @@
 package com.zondamarket.cart.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.cart.dto.CartDtos.CartItemRequest;
 import com.zondamarket.cart.dto.CartDtos.CartResponse;
 import com.zondamarket.cart.service.CartService;
 import com.zondamarket.checkout.service.ReservationExpiry;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,7 +44,7 @@ class CartController {
     @GetMapping
     @Operation(summary = "Cotizar el carrito de la cuenta con precios y disponibilidad vigentes")
     ResponseEntity<CartResponse> get(@AuthenticationPrincipal AccountResponse account, HttpServletResponse http) {
-        expiry.forBuyer(account.id(), trace(http));
+        expiry.forBuyer(account.id(), responseTraceId(http));
         return response(cart.get(account.id()));
     }
 
@@ -51,7 +52,7 @@ class CartController {
     @Operation(summary = "Establecer la cantidad de una variante en el carrito propio")
     ResponseEntity<CartResponse> put(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID skuId,
                                      @Valid @RequestBody CartItemRequest request, HttpServletResponse http) {
-        UUID trace = trace(http);
+        UUID trace = responseTraceId(http);
         expiry.forBuyer(account.id(), trace);
         expiry.forSku(skuId, trace);
         return response(cart.put(account.id(), skuId, request.quantity().intValueExact(),
@@ -62,7 +63,7 @@ class CartController {
     @Operation(summary = "Quitar una variante del carrito propio")
     ResponseEntity<CartResponse> remove(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID skuId,
                                         @RequestParam @Min(0) long expectedVersion, HttpServletResponse http) {
-        expiry.forBuyer(account.id(), trace(http));
+        expiry.forBuyer(account.id(), responseTraceId(http));
         return response(cart.remove(account.id(), skuId, expectedVersion));
     }
 
@@ -70,12 +71,8 @@ class CartController {
     @Operation(summary = "Agregar al carrito los productos de una compra propia")
     ResponseEntity<CartResponse> reorder(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID orderId,
                                          @RequestHeader("Idempotency-Key") UUID key, HttpServletResponse http) {
-        expiry.forBuyer(account.id(), trace(http));
+        expiry.forBuyer(account.id(), responseTraceId(http));
         return response(cart.reorder(account.id(), orderId, key));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
     }
 
     private static ResponseEntity<CartResponse> response(CartResponse value) {

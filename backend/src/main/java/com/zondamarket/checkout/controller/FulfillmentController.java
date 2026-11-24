@@ -1,9 +1,10 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.FulfillmentDtos.*;
 import com.zondamarket.checkout.service.FulfillmentService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,18 +43,14 @@ class FulfillmentController {
     @Operation(summary = "Registrar el despacho de una suborden propia del vendedor")
     ResponseEntity<ShipmentResponse> ship(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
             @Valid @RequestBody ShipRequest request, HttpServletResponse response) {
-        return privateResponse(fulfillment.ship(account, id, request, trace(response)));
+        return privateResponse(fulfillment.ship(account, id, request, responseTraceId(response)));
     }
 
     @PostMapping("/me/sub-orders/{id}/confirm-delivery")
     @Operation(summary = "Confirmar que el comprador recibió una suborden propia")
     ResponseEntity<ShipmentResponse> confirmDelivery(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
             @Valid @RequestBody DeliveryConfirmRequest request, HttpServletResponse response) {
-        return privateResponse(fulfillment.confirmDelivery(account.id(), id, request, trace(response)));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return privateResponse(fulfillment.confirmDelivery(account.id(), id, request, responseTraceId(response)));
     }
 
     private static <T> ResponseEntity<T> privateResponse(T body) {

@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LockKeyhole, MapPin } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { getAddresses, type Address } from "@/features/auth/profile-api";
+import { addressesKey, getAddresses, type Address } from "@/features/auth/profile-api";
 import { profileControl, profileLink } from "@/features/auth/profile-fields";
-import { currentAccount, getSessionRevision } from "@/features/auth/session-api";
-import { signInRequired, useCart, type Cart } from "@/features/cart/cart-api";
+import { currentAccount, getSessionRevision, currentAccountKey } from "@/features/auth/session-api";
+import { cartKey, signInRequired, useCart, type Cart } from "@/features/cart/cart-api";
 import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
@@ -27,10 +27,10 @@ export function CheckoutPage() {
     queryFn: ({ signal }) => fetchDirectPreview(directSkuId!, quantity, signal), enabled: !!directSkuId && validQuantity, retry: false,
   });
   const account = useQuery({
-    queryKey: ["private", "me", revision], queryFn: ({ signal }) => currentAccount(signal), retry: false,
+    queryKey: currentAccountKey(revision), queryFn: ({ signal }) => currentAccount(signal), retry: false,
   });
   const addresses = useQuery({
-    queryKey: ["private", "addresses", revision], queryFn: ({ signal }) => getAddresses(signal), retry: false,
+    queryKey: addressesKey(revision), queryFn: ({ signal }) => getAddresses(signal), retry: false,
   });
   const active = useQuery({
     queryKey: activeOrderKey(revision), queryFn: ({ signal }) => activeOrder(signal), retry: false,
@@ -129,7 +129,7 @@ function CheckoutForm({ revision, cart, addresses, reload, directSkuId, direct, 
     onSuccess: (result) => {
       if (revision !== getSessionRevision()) return;
       client.setQueryData(orderKey(revision, result.id), result);
-      void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
+      void client.invalidateQueries({ queryKey: cartKey(revision) });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
       navigate(reservationPath(result.id));

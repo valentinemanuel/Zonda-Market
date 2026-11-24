@@ -4,9 +4,9 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
-import { activateSeller, type SellerType, updateProfile } from "./profile-api";
+import { activateSeller, ownSellerKey, type SellerType, updateProfile } from "./profile-api";
 import { ProfileInput, profileControl, profileLink } from "./profile-fields";
-import { type Account, getSessionRevision, renewSession } from "./session-api";
+import { type Account, getSessionRevision, renewSession, currentAccountKey } from "./session-api";
 import { AccountSection } from "./account-layout";
 
 type AccountProps = { account: Account; revision: number };
@@ -17,7 +17,7 @@ export function AccountProfile({ account, revision }: AccountProps) {
     mutationFn: updateProfile,
     onSuccess: (updated) => {
       if (revision === getSessionRevision()) {
-        queryClient.setQueryData(["private", "me", revision], updated);
+        queryClient.setQueryData(currentAccountKey(revision), updated);
       }
     },
   });
@@ -52,13 +52,13 @@ export function AccountSeller({ account, revision }: AccountProps) {
       // The persisted role is authoritative even if the browser has to retry renewal later.
       await renewSession().catch(() => undefined);
       if (revision !== getSessionRevision()) return;
-      queryClient.setQueryData(["private", "seller", revision], seller);
-      void queryClient.invalidateQueries({ queryKey: ["private", "me", revision] });
+      queryClient.setQueryData(ownSellerKey(revision), seller);
+      void queryClient.invalidateQueries({ queryKey: currentAccountKey(revision) });
       navigate("/vendedor");
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "SELLER_ALREADY_ACTIVE") {
-        void queryClient.invalidateQueries({ queryKey: ["private", "me", revision] });
+        void queryClient.invalidateQueries({ queryKey: currentAccountKey(revision) });
       }
     },
   });

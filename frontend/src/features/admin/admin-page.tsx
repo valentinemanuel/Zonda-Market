@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { Link, NavLink, Navigate } from "react-router-dom";
-import { currentAccount, getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
+import { currentAccount, getSessionRevision, subscribeToSession, currentAccountKey } from "@/features/auth/session-api";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 
 export function AdminPage({ title, children }: { title: string; children: (revision: number) => ReactNode }) {
   const revision = useSyncExternalStore(subscribeToSession, getSessionRevision);
   const account = useQuery({
-    queryKey: ["private", "me", revision],
+    queryKey: currentAccountKey(revision),
     queryFn: ({ signal }) => currentAccount(signal),
     retry: false,
   });

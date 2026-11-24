@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSessionRevision } from "@/features/auth/session-api";
+import { cartKey } from "@/features/cart/cart-api";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -29,7 +30,7 @@ export function TestPaymentAction({ order, fixture, enabled, revision }: {
       await client.cancelQueries({ queryKey: key });
       if (revision !== getSessionRevision()) return;
       client.setQueryData(key, result);
-      void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
+      void client.invalidateQueries({ queryKey: cartKey(revision) });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
     },

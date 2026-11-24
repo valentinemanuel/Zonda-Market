@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { profileLink } from "@/features/auth/profile-fields";
 import { getSessionRevision, subscribeToSession } from "@/features/auth/session-api";
-import { signInRequired } from "@/features/cart/cart-api";
+import { cartKey, signInRequired } from "@/features/cart/cart-api";
 import { formattedPrice } from "@/features/listings/public-listing-format";
 import { ApiError } from "@/shared/api/http-client";
 import { Button } from "@/shared/ui/button";
@@ -50,7 +50,7 @@ function OrderCheckout({ returned }: { returned: boolean }) {
   }, [hash, loadedId]);
   useEffect(() => {
     if (data?.status === "EXPIRADA" || data?.status === "CANCELADA" || settled(data?.status)) {
-      void client.invalidateQueries({ queryKey: ["private", "cart", revision] });
+      void client.invalidateQueries({ queryKey: cartKey(revision) });
       void client.invalidateQueries({ queryKey: activeOrderKey(revision) });
       void client.invalidateQueries({ queryKey: ordersKey(revision) });
       void client.invalidateQueries({ queryKey: ["catalog"] });

@@ -1,5 +1,7 @@
 package com.zondamarket.identity.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.identity.dto.ProfileDtos.AddressPatch;
 import com.zondamarket.identity.dto.ProfileDtos.AddressRequest;
@@ -8,7 +10,6 @@ import com.zondamarket.identity.dto.ProfileDtos.ProfileUpdate;
 import com.zondamarket.identity.dto.ProfileDtos.SellerActivationRequest;
 import com.zondamarket.identity.dto.ProfileDtos.SellerResponse;
 import com.zondamarket.identity.service.ProfileService;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -82,7 +83,7 @@ class ProfileController {
     @Operation(summary = "Activar mi perfil de vendedor con correo verificado")
     SellerResponse activate(@AuthenticationPrincipal AccountResponse account, @Valid @RequestBody SellerActivationRequest request,
                             HttpServletResponse response) {
-        return profiles.activate(account.id(), request, UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER)));
+        return profiles.activate(account.id(), request, responseTraceId(response));
     }
 
     @GetMapping("/me/seller-profile")

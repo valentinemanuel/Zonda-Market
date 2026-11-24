@@ -4,7 +4,8 @@ import { purchaseFixture } from "./purchase-fixture";
 test("busca, filtra y repite una compra sin duplicar el carrito si se pierde la respuesta", async ({ page, request, baseURL }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { order, alpha, beta, headers, approve } = await purchaseFixture(page, request, new URL(baseURL!).origin, "historial");
-  const id = "Orden #" + order.id.slice(0, 8);
+  const shortId = "#" + order.id.slice(0, 8);
+  const id = "Orden " + shortId;
   await page.goto("/mis-ordenes?filtro=PAGADAS");
   await expect(page).toHaveURL(/\/cuenta\/ordenes\?filtro=PAGADAS$/);
   const accountNav = page.getByRole("navigation", { name: "Secciones de Mi cuenta" });
@@ -22,10 +23,12 @@ test("busca, filtra y repite una compra sin duplicar el carrito si se pierde la 
   const search = page.getByRole("searchbox", { name: "Buscar en tus órdenes" });
   await search.fill(beta.title);
   await search.press("Enter");
+  await expect(page).toHaveURL((url) => url.searchParams.get("q") === beta.title);
   await expect(card).toBeVisible();
   await expect(search).toBeFocused();
-  await search.fill(id.replace("Orden ", ""));
+  await search.fill(shortId);
   await search.press("Enter");
+  await expect(page).toHaveURL((url) => url.searchParams.get("q") === shortId);
   await expect(card).toBeVisible();
   await page.getByRole("button", { name: "Entregadas" }).press("Enter");
   await expect(page.getByRole("heading", { name: "No encontramos órdenes con esos filtros" })).toBeVisible();
@@ -50,7 +53,7 @@ test("busca, filtra y repite una compra sin duplicar el carrito si se pierde la 
   await expect(page.getByText("En preparación", { exact: true })).toHaveCount(2);
   await page.goBack();
   await expect(preparing).toHaveAttribute("aria-pressed", "true");
-  await expect(search).toHaveValue("#" + order.id.slice(0, 8));
+  await expect(search).toHaveValue(shortId);
 
   await page.route("**/api/v1/cart/reorders/" + order.id, async (route) => {
     const committed = await route.fetch();

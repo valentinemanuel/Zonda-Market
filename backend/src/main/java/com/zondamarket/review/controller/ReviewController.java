@@ -1,11 +1,12 @@
 package com.zondamarket.review.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.identity.dto.AccountResponse;
 import com.zondamarket.review.dto.ReviewDtos.ReviewPage;
 import com.zondamarket.review.dto.ReviewDtos.ReviewRequest;
 import com.zondamarket.review.dto.ReviewDtos.ReviewResponse;
 import com.zondamarket.review.service.ReviewService;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,7 +42,7 @@ class ReviewController {
     @Operation(summary = "Calificar una suborden propia entregada")
     ResponseEntity<ReviewResponse> create(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
             @Valid @RequestBody ReviewRequest request, HttpServletResponse response) {
-        UUID trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        UUID trace = responseTraceId(response);
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
                 .body(reviews.create(account.id(), id, request, trace));
     }

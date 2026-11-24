@@ -1,5 +1,7 @@
 package com.zondamarket.checkout.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.checkout.dto.CheckoutDtos.OrderResponse;
 import com.zondamarket.checkout.dto.PaymentDtos.PaymentAttemptResponse;
 import com.zondamarket.checkout.service.CheckoutService;
@@ -8,7 +10,6 @@ import com.zondamarket.checkout.service.LocalPaymentPort;
 import com.zondamarket.checkout.service.LocalPaymentPort.Outcome;
 import com.zondamarket.checkout.service.PaymentConfirmationService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,7 +51,7 @@ class LocalPaymentController {
     ResponseEntity<OrderResponse> outcome(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
                                            @Valid @RequestBody Request request, HttpServletResponse response) {
         var verified = local.verify(account.id(), id, request.reference(), request.outcome());
-        var trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        var trace = responseTraceId(response);
         payment.applyVerifiedOutcome(account.id(), id, verified, trace);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(checkout.get(account.id(), id));
     }
@@ -59,7 +60,7 @@ class LocalPaymentController {
     ResponseEntity<PaymentAttemptResponse> attemptOutcome(@AuthenticationPrincipal AccountResponse account,
             @PathVariable UUID id, @PathVariable UUID attemptId, @Valid @RequestBody AttemptOutcome request,
             HttpServletResponse response) {
-        var trace = UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        var trace = responseTraceId(response);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(attempts.verify(account.id(), id, attemptId, request.outcome(), trace));
     }

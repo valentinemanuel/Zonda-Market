@@ -1,12 +1,13 @@
 package com.zondamarket.catalog.controller;
 
+import static com.zondamarket.shared.web.CorrelationIdFilter.responseTraceId;
+
 import com.zondamarket.catalog.dto.ListingDtos.ListingResponse;
 import com.zondamarket.catalog.dto.ListingMediaDtos.ImagePatch;
 import com.zondamarket.catalog.dto.ListingMediaDtos.ImageResponse;
 import com.zondamarket.catalog.service.ListingImageService;
 import com.zondamarket.catalog.service.ListingService;
 import com.zondamarket.identity.dto.AccountResponse;
-import com.zondamarket.shared.web.CorrelationIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -68,17 +69,13 @@ class ListingMediaController {
     @Operation(summary = "Publicar una ficha completa")
     ListingResponse publish(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
                             HttpServletResponse response) {
-        return listings.publish(account.id(), id, trace(response));
+        return listings.publish(account.id(), id, responseTraceId(response));
     }
 
     @PostMapping("/archive")
     @Operation(summary = "Archivar una ficha publicada")
     ListingResponse archive(@AuthenticationPrincipal AccountResponse account, @PathVariable UUID id,
                             HttpServletResponse response) {
-        return listings.archive(account.id(), id, trace(response));
-    }
-
-    private static UUID trace(HttpServletResponse response) {
-        return UUID.fromString(response.getHeader(CorrelationIdFilter.TRACE_HEADER));
+        return listings.archive(account.id(), id, responseTraceId(response));
     }
 }
